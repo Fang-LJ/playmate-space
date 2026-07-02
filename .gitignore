@@ -1,0 +1,25 @@
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Java / Maven
+target/
+*.class
+
+# Node / Mini Program
+node_modules/
+miniprogram_npm/
+
+# Logs
+*.log
+logs/
+
+# Local env files
+.env
+deploy/.env
+
+# Runtime data
+data/
+tmp/
