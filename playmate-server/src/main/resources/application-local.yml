@@ -3,6 +3,7 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://${PLAYMATE_DB_HOST:127.0.0.1}:${PLAYMATE_DB_PORT:13306}/${PLAYMATE_DB_NAME:playmate_space}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: ${PLAYMATE_DB_USERNAME:playmate}
+    # playmate_dev_password is only a local Docker example password. Do not use it on cloud servers.
     password: ${PLAYMATE_DB_PASSWORD:playmate_dev_password}
 
 logging:
