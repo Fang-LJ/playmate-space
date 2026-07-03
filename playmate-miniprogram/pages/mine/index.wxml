@@ -29,4 +29,19 @@
       <t-button variant="outline" block bind:tap="verifyUnauthorized">模拟无 token 请求 /api/users/me</t-button>
     </view>
   </view>
+
+  <view class="section card">
+    <view class="tool-title">活动封面上传测试</view>
+    <view class="muted">用于验证 P0-014 / P0-015 文件上传闭环，上传类型固定为 ACTIVITY_COVER。</view>
+    <view class="button-row">
+      <t-button theme="primary" block loading="{{uploadLoading}}" bind:tap="chooseAndUploadCover">选择并上传图片</t-button>
+    </view>
+    <view wx:if="{{uploadResult}}" class="upload-result">
+      <view>fileId：{{uploadResult.fileId}}</view>
+      <view>size：{{uploadResult.size}}</view>
+      <view>contentType：{{uploadResult.contentType}}</view>
+      <view class="upload-url">url：{{uploadResult.url}}</view>
+      <image wx:if="{{uploadResult.url}}" class="upload-preview" src="{{uploadResult.url}}" mode="aspectFill" />
+    </view>
+  </view>
 </view>

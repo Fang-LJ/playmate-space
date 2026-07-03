@@ -3,6 +3,10 @@ spring:
     name: playmate-server
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
 
 server:
   port: ${SERVER_PORT:8080}
@@ -18,3 +22,9 @@ playmate:
   jwt:
     secret: ${PLAYMATE_JWT_SECRET:playmate-local-dev-jwt-secret-change-me-at-least-32-bytes}
     expire-seconds: ${PLAYMATE_JWT_EXPIRE_SECONDS:604800}
+  minio:
+    endpoint: ${PLAYMATE_MINIO_ENDPOINT:http://127.0.0.1:19000}
+    access-key: ${PLAYMATE_MINIO_ACCESS_KEY:playmate_minio}
+    secret-key: ${PLAYMATE_MINIO_SECRET_KEY:playmate_minio_dev_password}
+    bucket: ${PLAYMATE_MINIO_BUCKET:playmate-files}
+    public-base-url: ${PLAYMATE_MINIO_PUBLIC_BASE_URL:http://127.0.0.1:19000}

@@ -9,3 +9,12 @@ spring:
 logging:
   level:
     com.playmate.space.mapper: debug
+
+playmate:
+  minio:
+    endpoint: ${PLAYMATE_MINIO_ENDPOINT:http://127.0.0.1:19000}
+    access-key: ${PLAYMATE_MINIO_ACCESS_KEY:playmate_minio}
+    # playmate_minio_dev_password is only a local Docker example password. Do not use it on cloud servers.
+    secret-key: ${PLAYMATE_MINIO_SECRET_KEY:playmate_minio_dev_password}
+    bucket: ${PLAYMATE_MINIO_BUCKET:playmate-files}
+    public-base-url: ${PLAYMATE_MINIO_PUBLIC_BASE_URL:http://127.0.0.1:19000}

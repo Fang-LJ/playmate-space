@@ -1,0 +1,73 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="section card stack">
+    <view class="empty-title">正在加载活动</view>
+    <view class="empty-desc">正在打开这个活动空间。</view>
+  </view>
+
+  <view wx:elif="{{errorMessage}}" class="section card stack">
+    <view class="empty-title">加载失败</view>
+    <view class="empty-desc">{{errorMessage}}</view>
+    <t-button theme="primary" block bind:tap="retryLoad">重新加载</t-button>
+  </view>
+
+  <block wx:else>
+    <view class="hero-card">
+      <image wx:if="{{activity.coverUrl}}" class="hero-cover" src="{{activity.coverUrl}}" mode="aspectFill" />
+      <view wx:else class="hero-cover default-hero"></view>
+      <view class="hero-content">
+        <view class="status-pill">{{activity.statusText}}</view>
+        <view class="activity-name">{{activity.name}}</view>
+        <view class="activity-meta">{{activity.typeText}} · {{activity.dateText}}</view>
+      </view>
+    </view>
+
+    <view class="section card info-card">
+      <view class="info-row">
+        <view class="info-label">地点</view>
+        <view class="info-value">{{activity.locationText}}</view>
+      </view>
+      <view class="info-row">
+        <view class="info-label">地址</view>
+        <view class="info-value">{{activity.addressText}}</view>
+      </view>
+      <view class="info-row">
+        <view class="info-label">成员</view>
+        <view class="info-value">{{activity.memberCount}} 位 · {{activity.currentUserRole}}</view>
+      </view>
+      <view class="info-row">
+        <view class="info-label">分享码</view>
+        <view class="info-value">{{activity.shareCode}}</view>
+      </view>
+      <view class="description">{{activity.descriptionText}}</view>
+    </view>
+
+    <view wx:if="{{activity.isCreator && !activity.isCanceled}}" class="section card action-card">
+      <view class="action-title">创建者操作</view>
+      <view wx:if="{{activity.isPlanning}}" class="action-row">
+        <t-button theme="primary" block bind:tap="goEdit">编辑活动</t-button>
+        <t-button variant="outline" block bind:tap="confirmEnd">结束活动</t-button>
+        <t-button theme="danger" variant="outline" block bind:tap="confirmCancel">取消活动</t-button>
+      </view>
+      <view wx:elif="{{activity.isEnded}}" class="action-row">
+        <t-button theme="primary" block bind:tap="goEdit">编辑活动</t-button>
+      </view>
+    </view>
+
+    <view wx:if="{{activity.isCanceled}}" class="section canceled-note">
+      活动已取消，当前仅可查看历史信息。
+    </view>
+
+    <view class="section module-grid">
+      <view
+        wx:for="{{modules}}"
+        wx:key="name"
+        class="module-card"
+        data-name="{{item.name}}"
+        bindtap="showTodo"
+      >
+        <view class="module-name">{{item.name}}</view>
+        <view class="module-desc">{{item.desc}}</view>
+      </view>
+    </view>
+  </block>
+</view>

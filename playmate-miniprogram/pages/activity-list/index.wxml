@@ -1,21 +1,61 @@
 <view class="page">
-  <view class="page-title">我的活动</view>
-  <view class="page-subtitle">这里后续展示我创建或加入的活动。</view>
+  <view class="hero">
+    <view>
+      <view class="page-title">我的活动</view>
+      <view class="page-subtitle">和朋友一起规划每一次出发。</view>
+    </view>
+    <t-button theme="primary" size="small" bind:tap="goCreate">创建</t-button>
+  </view>
 
-  <view class="section card stack">
+  <view wx:if="{{loading}}" class="section card stack">
+    <view class="empty-title">正在加载活动</view>
+    <view class="empty-desc">稍等一下，正在同步你的活动空间。</view>
+  </view>
+
+  <view wx:elif="{{!isLoggedIn}}" class="section card stack">
+    <view class="empty-title">先登录再创建活动</view>
+    <view class="empty-desc">登录后可以创建活动、查看自己加入的活动。</view>
+    <t-button theme="primary" block bind:tap="goLogin">去登录</t-button>
+  </view>
+
+  <view wx:elif="{{errorMessage}}" class="section card stack">
+    <view class="empty-title">加载失败</view>
+    <view class="empty-desc">{{errorMessage}}</view>
+    <t-button theme="primary" block bind:tap="retryLoad">重新加载</t-button>
+  </view>
+
+  <view wx:elif="{{loaded && activities.length === 0}}" class="section card stack">
     <view class="empty-title">还没有活动</view>
-    <view class="empty-desc">P0 后续会接入活动列表、创建活动和活动详情。</view>
-    <t-button theme="primary" block bind:tap="handleCreateTodo">创建活动</t-button>
+    <view class="empty-desc">创建一个活动空间，和朋友一起规划行程、账本和照片。</view>
+    <t-button theme="primary" block bind:tap="goCreate">创建活动</t-button>
   </view>
 
-  <view class="section card stack">
-    <view class="tool-title">基础联调</view>
-    <view class="muted">用于验证 request 工具是否能访问后端健康检查接口。</view>
-    <t-button variant="outline" block bind:tap="handleHealthCheck">检查后端 /api/health</t-button>
-    <view wx:if="{{healthMessage}}" class="health-result">{{healthMessage}}</view>
-  </view>
-
-  <view class="section">
-    <t-tag theme="success" variant="light">P0-008 / P0-009 / P0-010 基础骨架</t-tag>
+  <view wx:else class="activity-list">
+    <view
+      wx:for="{{activities}}"
+      wx:key="activityId"
+      class="activity-card"
+      data-id="{{item.activityId}}"
+      bindtap="goDetail"
+    >
+      <image wx:if="{{item.coverUrl}}" class="activity-cover" src="{{item.coverUrl}}" mode="aspectFill" />
+      <view wx:else class="activity-cover default-cover">
+        <view class="cover-sun"></view>
+        <view class="cover-line"></view>
+        <view class="cover-line short"></view>
+      </view>
+      <view class="activity-info">
+        <view class="activity-top">
+          <view class="activity-name">{{item.name}}</view>
+          <view class="status-pill">{{item.statusText}}</view>
+        </view>
+        <view class="activity-meta">{{item.typeText}} · {{item.locationText}}</view>
+        <view class="activity-meta">{{item.dateText}}</view>
+        <view class="activity-footer">
+          <text>{{item.memberCount}} 位成员</text>
+          <text>{{item.role}}</text>
+        </view>
+      </view>
+    </view>
   </view>
 </view>

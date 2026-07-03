@@ -4,7 +4,7 @@
 
 ## 当前阶段
 
-当前已完成 P0-001 到 P0-013：后端基础工程、Mock 登录、当前用户接口、小程序基础工程、小程序登录和我的页。下一步进入 P0-014 到 P0-015：MinIO 文件上传接口和小程序图片上传。
+当前已完成 P0-001 到 P0-019：后端基础工程、Mock 登录、当前用户接口、小程序基础工程、小程序登录和我的页、MinIO 文件上传、活动创建、我的活动列表、活动详情、编辑/结束/取消活动，以及小程序活动列表、创建和详情页面。下一步进入 P0-020：分享加入活动。
 
 ## 技术栈
 
@@ -89,11 +89,84 @@ curl http://127.0.0.1:8080/api/health
 - P0-011 实现登录接口和 Mock 登录
 - P0-012 实现当前用户接口
 - P0-013 小程序接入登录和我的页
+- P0-014 实现 MinIO 文件上传接口
+- P0-015 小程序接入图片上传
+- P0-016 实现活动创建接口
+- P0-017 实现我的活动列表和活动详情接口
+- P0-018 实现编辑、结束、取消活动接口
+- P0-019 小程序实现活动列表、创建、详情页面
 
 ## 下一步
 
-- P0-014 实现 MinIO 文件上传接口
-- P0-015 小程序接入图片上传
+- P0-020 实现分享链接、邀请页、加入流程
+
+## 文件上传验证
+
+后端启动并登录获取 token 后，可以用 curl 验证活动封面上传：
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/files/upload \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "fileType=ACTIVITY_COVER" \
+  -F "file=@/path/to/test.png"
+```
+
+返回成功后会写入 `t_file`，并上传对象到本地 MinIO 的 `playmate-files` bucket。本地 Docker 初始化会将该 bucket 设置为可下载，方便小程序预览上传后的图片。
+
+## 活动接口验证
+
+创建活动：
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/activities \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "周末杭州两日游",
+    "type": "TRAVEL",
+    "startDate": "2026-07-18",
+    "endDate": "2026-07-19",
+    "locationName": "杭州",
+    "description": "周末短途旅行"
+  }'
+```
+
+查询我的活动列表：
+
+```bash
+curl http://127.0.0.1:8080/api/activities \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+查询活动详情：
+
+```bash
+curl http://127.0.0.1:8080/api/activities/{activityId} \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+编辑活动：
+
+```bash
+curl -X PUT http://127.0.0.1:8080/api/activities/{activityId} \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"description":"更新后的活动描述"}'
+```
+
+结束活动：
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/activities/{activityId}/end \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+取消活动：
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/activities/{activityId}/cancel \
+  -H "Authorization: Bearer $TOKEN"
+```
 
 ## 小程序本地调试说明
 

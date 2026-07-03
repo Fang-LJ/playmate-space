@@ -53,3 +53,27 @@
   font-size: 30rpx;
   font-weight: 600;
 }
+
+.upload-result {
+  margin-top: 24rpx;
+  padding: 20rpx;
+  border-radius: 18rpx;
+  background: #f6f8f5;
+  color: #1f2a24;
+  font-size: 24rpx;
+  line-height: 1.7;
+  word-break: break-all;
+}
+
+.upload-url {
+  color: #6f7c75;
+}
+
+.upload-preview {
+  display: block;
+  width: 180rpx;
+  height: 180rpx;
+  margin-top: 18rpx;
+  border-radius: 18rpx;
+  background: #e9f5ef;
+}

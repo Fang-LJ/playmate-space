@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "编辑活动",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button"
+  }
+}

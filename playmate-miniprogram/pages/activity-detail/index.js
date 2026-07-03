@@ -1,0 +1,152 @@
+const { cancelActivity, endActivity, getActivityDetail } = require('../../services/activity');
+
+const ACTIVITY_TYPE_LABELS = {
+  TRAVEL: '旅行',
+  MEAL: '聚餐',
+  TEAM_BUILDING: '团建',
+  BIRTHDAY: '生日',
+  CAMPING: '露营',
+  DRIVE: '自驾',
+  BOARD_GAME: '桌游',
+  OTHER: '其他'
+};
+
+const STATUS_LABELS = {
+  PLANNING: '规划中',
+  ONGOING: '进行中',
+  ENDED: '已结束',
+  CANCELED: '已取消'
+};
+
+Page({
+  data: {
+    loading: true,
+    activityId: '',
+    activity: null,
+    errorMessage: '',
+    modules: [
+      { name: '成员', desc: '成员列表后续接入' },
+      { name: '行程', desc: '后续接入' },
+      { name: '投票', desc: '后续接入' },
+      { name: '账本', desc: '后续接入' }
+    ]
+  },
+
+  onLoad(options) {
+    const activityId = options.activityId;
+    this.setData({ activityId });
+    this.loadDetail(activityId);
+  },
+
+  onShow() {
+    if (this.data.activityId) {
+      this.loadDetail(this.data.activityId);
+    }
+  },
+
+  async loadDetail(activityId) {
+    if (!activityId) {
+      this.setData({
+        loading: false,
+        errorMessage: '缺少活动 ID'
+      });
+      return;
+    }
+
+    this.setData({
+      loading: true,
+      errorMessage: ''
+    });
+    try {
+      const activity = await getActivityDetail(activityId);
+      this.setData({
+        activity: this.normalizeActivity(activity)
+      });
+    } catch (error) {
+      this.setData({
+        errorMessage: error.message || '活动详情加载失败'
+      });
+    } finally {
+      this.setData({ loading: false });
+    }
+  },
+
+  normalizeActivity(activity) {
+    const startDate = activity.startDate || '';
+    const endDate = activity.endDate || '';
+    return {
+      ...activity,
+      typeText: ACTIVITY_TYPE_LABELS[activity.type] || activity.type || '其他',
+      statusText: STATUS_LABELS[activity.status] || activity.status || '未知',
+      dateText: startDate && endDate && startDate !== endDate
+        ? `${startDate} ~ ${endDate}`
+        : startDate || endDate || '未设置日期',
+      locationText: activity.locationName || '地点待定',
+      addressText: activity.address || '暂无详细地址',
+      descriptionText: activity.description || '还没有活动描述',
+      isCreator: activity.currentUserRole === 'CREATOR',
+      isPlanning: activity.status === 'PLANNING',
+      isEnded: activity.status === 'ENDED',
+      isCanceled: activity.status === 'CANCELED'
+    };
+  },
+
+  retryLoad() {
+    this.loadDetail(this.data.activityId);
+  },
+
+  showTodo(event) {
+    const { name } = event.currentTarget.dataset;
+    wx.showToast({
+      title: `${name}后续接入`,
+      icon: 'none'
+    });
+  },
+
+  goEdit() {
+    wx.navigateTo({
+      url: `/pages/activity-edit/index?activityId=${this.data.activityId}`
+    });
+  },
+
+  confirmEnd() {
+    wx.showModal({
+      title: '结束活动',
+      content: '结束后仍可编辑封面和描述，但不能再修改名称、时间和地点。',
+      confirmText: '结束活动',
+      success: async (res) => {
+        if (!res.confirm) {
+          return;
+        }
+        try {
+          const activity = await endActivity(this.data.activityId);
+          this.setData({ activity: this.normalizeActivity(activity) });
+          wx.showToast({ title: '已结束', icon: 'success' });
+        } catch (error) {
+          wx.showToast({ title: error.message || '操作失败', icon: 'none' });
+        }
+      }
+    });
+  },
+
+  confirmCancel() {
+    wx.showModal({
+      title: '取消活动',
+      content: '取消后活动将变为只读，不会删除历史数据。',
+      confirmText: '取消活动',
+      confirmColor: '#D94C4C',
+      success: async (res) => {
+        if (!res.confirm) {
+          return;
+        }
+        try {
+          const activity = await cancelActivity(this.data.activityId);
+          this.setData({ activity: this.normalizeActivity(activity) });
+          wx.showToast({ title: '已取消', icon: 'success' });
+        } catch (error) {
+          wx.showToast({ title: error.message || '操作失败', icon: 'none' });
+        }
+      }
+    });
+  }
+});

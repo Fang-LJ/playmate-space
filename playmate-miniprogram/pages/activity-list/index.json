@@ -1,5 +1,7 @@
 {
   "navigationBarTitleText": "活动",
+  "enablePullDownRefresh": true,
+  "backgroundColor": "#F6F8F5",
   "usingComponents": {
     "t-button": "tdesign-miniprogram/button/button",
     "t-tag": "tdesign-miniprogram/tag/tag"

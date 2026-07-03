@@ -61,6 +61,7 @@ services:
         sleep 2;
       done;
       mc mb --ignore-existing local/$${MINIO_BUCKET};
+      mc anonymous set download local/$${MINIO_BUCKET};
       echo 'minio bucket ready: '$${MINIO_BUCKET};
       "
     networks:

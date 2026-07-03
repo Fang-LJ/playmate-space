@@ -1,19 +1,115 @@
-.empty-title,
-.tool-title {
+.hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+
+.empty-title {
   font-size: 32rpx;
   font-weight: 600;
 }
 
-.empty-desc,
-.health-result {
+.empty-desc {
   color: #6f7c75;
   font-size: 28rpx;
   line-height: 1.5;
 }
 
-.health-result {
-  padding: 20rpx;
+.activity-list {
+  margin-top: 28rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.activity-card {
+  display: flex;
+  gap: 24rpx;
+  padding: 24rpx;
+  background: #ffffff;
+  border: 1rpx solid #e1e8e3;
+  border-radius: 30rpx;
+  box-shadow: 0 12rpx 34rpx rgba(47, 111, 94, 0.07);
+}
+
+.activity-cover {
+  width: 168rpx;
+  height: 168rpx;
+  flex: 0 0 168rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
   background: #e9f5ef;
-  border-radius: 18rpx;
+}
+
+.default-cover {
+  position: relative;
+  box-sizing: border-box;
+  padding: 26rpx;
+  background: linear-gradient(145deg, #e9f5ef 0%, #f4e7b4 100%);
+}
+
+.cover-sun {
+  width: 42rpx;
+  height: 42rpx;
+  border-radius: 50%;
+  background: #f2b84b;
+}
+
+.cover-line {
+  margin-top: 38rpx;
+  width: 100rpx;
+  height: 16rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.cover-line.short {
+  margin-top: 14rpx;
+  width: 72rpx;
+  background: rgba(107, 175, 146, 0.28);
+}
+
+.activity-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.activity-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.activity-name {
+  flex: 1;
+  color: #1f2a24;
+  font-size: 32rpx;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.status-pill {
+  flex: 0 0 auto;
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  background: #e9f5ef;
   color: #2f6f5e;
+  font-size: 22rpx;
+}
+
+.activity-meta {
+  margin-top: 10rpx;
+  color: #6f7c75;
+  font-size: 26rpx;
+  line-height: 1.45;
+}
+
+.activity-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 18rpx;
+  color: #6baf92;
+  font-size: 24rpx;
 }
