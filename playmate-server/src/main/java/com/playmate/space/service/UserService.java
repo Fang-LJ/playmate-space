@@ -1,6 +1,7 @@
 package com.playmate.space.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.playmate.space.common.exception.ForbiddenException;
 import com.playmate.space.common.exception.UnauthorizedException;
 import com.playmate.space.common.security.LoginUserContext;
 import com.playmate.space.entity.UserEntity;
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class UserService {
+
+    private static final String USER_STATUS_DISABLED = "DISABLED";
 
     private final UserMapper userMapper;
 
@@ -29,6 +32,9 @@ public class UserService {
                 .last("LIMIT 1"));
         if (user == null) {
             throw new UnauthorizedException("用户不存在或登录已失效");
+        }
+        if (USER_STATUS_DISABLED.equals(user.getStatus())) {
+            throw new ForbiddenException("用户已被禁用");
         }
 
         CurrentUserResponse response = new CurrentUserResponse();

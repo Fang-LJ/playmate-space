@@ -11,9 +11,12 @@ import org.springframework.util.StringUtils;
 @Profile("local")
 public class MockWechatLoginService implements WechatLoginService {
 
+    private static final int OPENID_MAX_LENGTH = 128;
+
     @Override
     public WechatSession resolveSession(LoginRequest request) {
         String openid = resolveOpenid(request);
+        validateOpenidLength(openid);
         return new WechatSession(openid, null);
     }
 
@@ -25,5 +28,11 @@ public class MockWechatLoginService implements WechatLoginService {
             return "mock_" + request.getCode().trim();
         }
         throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "code 或 mockOpenid 不能为空");
+    }
+
+    private void validateOpenidLength(String openid) {
+        if (openid.length() > OPENID_MAX_LENGTH) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "openid 长度不能超过 " + OPENID_MAX_LENGTH);
+        }
     }
 }

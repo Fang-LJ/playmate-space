@@ -1,6 +1,7 @@
 package com.playmate.space.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
@@ -20,6 +21,7 @@ public class UserEntity {
     private LocalDateTime lastLoginTime;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    @TableLogic(value = "0", delval = "1")
     private Integer deleteFlag;
 
     public Long getId() {

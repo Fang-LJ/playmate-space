@@ -11,7 +11,8 @@
 启动 MySQL 和 MinIO：
 
 ```bash
-docker compose --env-file deploy/.env.example -f deploy/docker-compose.local.yml up -d
+cp deploy/.env.example deploy/.env
+docker compose --env-file deploy/.env -f deploy/docker-compose.local.yml up -d
 ```
 
 ## 数据库连接

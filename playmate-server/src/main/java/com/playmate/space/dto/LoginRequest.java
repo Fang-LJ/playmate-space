@@ -1,10 +1,16 @@
 package com.playmate.space.dto;
 
+import jakarta.validation.constraints.Size;
+
 public class LoginRequest {
 
+    @Size(max = 128, message = "长度不能超过 128")
     private String code;
+    @Size(max = 128, message = "长度不能超过 128")
     private String mockOpenid;
+    @Size(max = 64, message = "长度不能超过 64")
     private String nickname;
+    @Size(max = 512, message = "长度不能超过 512")
     private String avatarUrl;
 
     public String getCode() {
