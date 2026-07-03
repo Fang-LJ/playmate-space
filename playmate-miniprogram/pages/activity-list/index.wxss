@@ -1,0 +1,19 @@
+.empty-title,
+.tool-title {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.empty-desc,
+.health-result {
+  color: #6f7c75;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.health-result {
+  padding: 20rpx;
+  background: #e9f5ef;
+  border-radius: 18rpx;
+  color: #2f6f5e;
+}

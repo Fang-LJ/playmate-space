@@ -11,6 +11,7 @@ target/
 # Node / Mini Program
 node_modules/
 miniprogram_npm/
+project.private.config.json
 
 # Logs
 *.log

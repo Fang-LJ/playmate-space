@@ -1,0 +1,32 @@
+{
+  "pages": [
+    "pages/activity-list/index",
+    "pages/mine/index",
+    "pages/login/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "玩伴空间",
+    "navigationBarBackgroundColor": "#F6F8F5",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#F6F8F5"
+  },
+  "tabBar": {
+    "color": "#6F7C75",
+    "selectedColor": "#2F6F5E",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/activity-list/index",
+        "text": "活动"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
+}

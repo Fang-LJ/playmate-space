@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "活动",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-tag": "tdesign-miniprogram/tag/tag"
+  }
+}

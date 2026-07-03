@@ -1,0 +1,9 @@
+{
+  "desc": "玩伴空间小程序 sitemap",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

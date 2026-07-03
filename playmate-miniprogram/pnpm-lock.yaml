@@ -1,0 +1,22 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      tdesign-miniprogram:
+        specifier: ^1.15.2
+        version: 1.15.2
+
+packages:
+
+  tdesign-miniprogram@1.15.2:
+    resolution: {integrity: sha512-Yi2sPHMsWBDM+Au+J1uN/QSyXNeVIAmN8/N7tPrjuUorCSUSD8RKhILEOgRGGgOvMxZsp82EUZaaN1Zv5xPw1Q==}
+
+snapshots:
+
+  tdesign-miniprogram@1.15.2: {}

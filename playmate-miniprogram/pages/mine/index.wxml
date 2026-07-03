@@ -1,0 +1,20 @@
+<view class="page">
+  <view class="page-title">我的</view>
+  <view class="page-subtitle">登录状态和个人信息会在 P0-013 接入。</view>
+
+  <view class="section card profile-card">
+    <view class="avatar-placeholder">玩</view>
+    <view class="profile-info">
+      <view class="profile-name">{{hasToken ? '已保存 token' : '暂未登录'}}</view>
+      <view class="muted">{{hasToken ? '可继续联调当前用户接口' : '点击下方入口进入登录页骨架'}}</view>
+    </view>
+  </view>
+
+  <view class="section card">
+    <t-cell title="登录页骨架" note="P0-013 将接入微信登录和我的页" arrow bind:click="goLogin" />
+    <view class="button-row">
+      <t-button wx:if="{{hasToken}}" variant="outline" block bind:tap="clearLogin">清理本地 token</t-button>
+      <t-button wx:else theme="primary" block bind:tap="goLogin">去登录</t-button>
+    </view>
+  </view>
+</view>

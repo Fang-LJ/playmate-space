@@ -1,0 +1,11 @@
+<view class="page">
+  <view class="page-title">登录玩伴空间</view>
+  <view class="page-subtitle">本页先保留登录入口骨架，P0-013 再接入后端 Mock 登录和当前用户信息。</view>
+
+  <view class="section card stack">
+    <view class="login-illustration">一起出发</view>
+    <view class="muted">后续这里会调用 wx.login，并通过 /api/auth/wx-login 获取 token。</view>
+    <t-button theme="primary" block bind:tap="handleLoginTodo">微信授权登录</t-button>
+    <t-button variant="text" block bind:tap="goBack">暂不登录</t-button>
+  </view>
+</view>

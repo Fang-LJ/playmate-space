@@ -1,0 +1,9 @@
+{
+  "name": "playmate-miniprogram",
+  "version": "0.0.1",
+  "private": true,
+  "description": "玩伴空间微信小程序",
+  "dependencies": {
+    "tdesign-miniprogram": "^1.15.2"
+  }
+}

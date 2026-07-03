@@ -1,0 +1,11 @@
+.login-illustration {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 220rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, #e9f5ef, #f4e7b4);
+  color: #2f6f5e;
+  font-size: 40rpx;
+  font-weight: 700;
+}

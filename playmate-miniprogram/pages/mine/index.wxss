@@ -1,0 +1,32 @@
+.profile-card {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 32rpx;
+  background: #e9f5ef;
+  color: #2f6f5e;
+  font-size: 40rpx;
+  font-weight: 700;
+}
+
+.profile-info {
+  flex: 1;
+}
+
+.profile-name {
+  margin-bottom: 8rpx;
+  font-size: 34rpx;
+  font-weight: 600;
+}
+
+.button-row {
+  margin-top: 24rpx;
+}
