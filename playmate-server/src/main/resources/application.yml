@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: playmate-server
+  profiles:
+    active: local
+
+server:
+  port: ${SERVER_PORT:8080}
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+
+playmate:
+  jwt:
+    secret: ${PLAYMATE_JWT_SECRET:playmate-local-dev-jwt-secret-change-me-at-least-32-bytes}
+    expire-seconds: ${PLAYMATE_JWT_EXPIRE_SECONDS:604800}
