@@ -17,6 +17,13 @@
   font-weight: 700;
 }
 
+.avatar-image {
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: 32rpx;
+  background: #e9f5ef;
+}
+
 .profile-info {
   flex: 1;
 }
@@ -29,4 +36,20 @@
 
 .button-row {
   margin-top: 24rpx;
+}
+
+.button-row t-button + t-button {
+  margin-top: 16rpx;
+}
+
+.last-login {
+  margin-top: 8rpx;
+  color: #6f7c75;
+  font-size: 24rpx;
+}
+
+.tool-title {
+  margin-bottom: 12rpx;
+  font-size: 30rpx;
+  font-weight: 600;
 }

@@ -37,6 +37,8 @@ apiBaseUrl: 'http://127.0.0.1:8080'
 - 活动、我的、登录基础页面骨架
 - `utils/request.js` 统一请求工具
 - `utils/token.js` token 存取工具
+- 本地 mockOpenid 登录
+- 我的页当前用户信息展示
 
 未实现：
 
@@ -46,3 +48,12 @@ apiBaseUrl: 'http://127.0.0.1:8080'
 - 分享加入
 - 成员管理
 - 文件上传
+
+## 登录联调
+
+登录页会调用：
+
+- `POST /api/auth/wx-login`
+- `GET /api/users/me`
+
+本地开发阶段使用 `mockOpenid`，首次登录会生成并缓存一个 mock openid。登录成功后 token 会写入本地 storage，刷新小程序后「我的」页会继续通过 token 请求当前用户信息。
