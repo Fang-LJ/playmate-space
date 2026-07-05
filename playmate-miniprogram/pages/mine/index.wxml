@@ -1,47 +1,24 @@
 <view class="page">
   <view class="page-title">我的</view>
-  <view class="page-subtitle">{{isLoggedIn ? '已连接后端当前用户接口' : '登录后可查看个人信息和活动协作状态'}}</view>
+  <view class="page-subtitle">{{isLoggedIn ? '管理你的活动和个人状态。' : '登录后可创建活动、加入朋友的活动空间。'}}</view>
 
   <view class="section card profile-card">
     <image wx:if="{{isLoggedIn && user.avatarUrl}}" class="avatar-image" src="{{user.avatarUrl}}" mode="aspectFill" />
     <view wx:else class="avatar-placeholder">{{isLoggedIn ? '玩' : '未'}}</view>
     <view class="profile-info">
       <view class="profile-name">{{isLoggedIn ? user.nickname : '暂未登录'}}</view>
-      <view class="muted">{{isLoggedIn ? '用户状态：' + user.status : '点击下方入口完成登录'}}</view>
-      <view wx:if="{{isLoggedIn && user.lastLoginTime}}" class="last-login">最近登录：{{user.lastLoginTime}}</view>
+      <view class="muted">{{isLoggedIn ? '已登录，可以继续管理活动' : '登录后同步你的活动空间'}}</view>
     </view>
   </view>
 
   <view class="section card">
-    <t-cell wx:if="{{isLoggedIn}}" title="当前用户接口" note="GET /api/users/me 已接入" />
-    <t-cell wx:else title="登录玩伴空间" note="本地开发使用 mockOpenid" arrow bind:click="goLogin" />
+    <t-cell wx:if="{{isLoggedIn}}" title="我的活动" note="查看我创建和加入的活动" arrow bind:click="goActivities" />
+    <t-cell wx:else title="登录玩伴空间" note="创建活动，或加入朋友分享的活动" arrow bind:click="goLogin" />
+    <t-cell title="关于玩伴空间" note="朋友聚会和旅行活动协作工具" arrow bind:click="showAbout" />
     <view class="button-row">
       <t-button wx:if="{{isLoggedIn}}" variant="outline" block bind:tap="loadCurrentUser" loading="{{loading}}">刷新用户信息</t-button>
       <t-button wx:if="{{isLoggedIn}}" variant="text" block bind:tap="clearLogin">退出登录</t-button>
       <t-button wx:else theme="primary" block bind:tap="goLogin">去登录</t-button>
-    </view>
-  </view>
-
-  <view class="section card">
-    <view class="tool-title">未登录处理验证</view>
-    <view class="muted">清理 token 后再次请求当前用户接口，后端返回 401 时会保持未登录状态。</view>
-    <view class="button-row">
-      <t-button variant="outline" block bind:tap="verifyUnauthorized">模拟无 token 请求 /api/users/me</t-button>
-    </view>
-  </view>
-
-  <view class="section card">
-    <view class="tool-title">活动封面上传测试</view>
-    <view class="muted">用于验证 P0-014 / P0-015 文件上传闭环，上传类型固定为 ACTIVITY_COVER。</view>
-    <view class="button-row">
-      <t-button theme="primary" block loading="{{uploadLoading}}" bind:tap="chooseAndUploadCover">选择并上传图片</t-button>
-    </view>
-    <view wx:if="{{uploadResult}}" class="upload-result">
-      <view>fileId：{{uploadResult.fileId}}</view>
-      <view>size：{{uploadResult.size}}</view>
-      <view>contentType：{{uploadResult.contentType}}</view>
-      <view class="upload-url">url：{{uploadResult.url}}</view>
-      <image wx:if="{{uploadResult.url}}" class="upload-preview" src="{{uploadResult.url}}" mode="aspectFill" />
     </view>
   </view>
 </view>

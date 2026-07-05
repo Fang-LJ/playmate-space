@@ -1,13 +1,10 @@
 const { getCurrentUser, logout, isLoggedIn } = require('../../services/auth');
-const { chooseImage, uploadActivityCover } = require('../../services/file');
 
 Page({
   data: {
     loading: false,
-    uploadLoading: false,
     user: null,
-    isLoggedIn: false,
-    uploadResult: null
+    isLoggedIn: false
   },
 
   onShow() {
@@ -51,54 +48,23 @@ Page({
     logout();
     this.setLoggedOut();
     wx.showToast({
-      title: 'token 已清理',
+      title: '已退出登录',
       icon: 'none'
-      });
+    });
   },
 
-  async chooseAndUploadCover() {
-    if (!this.data.isLoggedIn) {
-      wx.showToast({
-        title: '请先登录',
-        icon: 'none'
-      });
-      return;
-    }
-    if (this.data.uploadLoading) {
-      return;
-    }
-
-    this.setData({ uploadLoading: true });
-    try {
-      const filePath = await chooseImage();
-      const uploadResult = await uploadActivityCover(filePath);
-      this.setData({ uploadResult });
-      wx.showToast({
-        title: '上传成功',
-        icon: 'success'
-      });
-    } catch (error) {
-      if (error.code === 'UNAUTHORIZED') {
-        this.setLoggedOut();
-      }
-      wx.showToast({
-        title: error.message || '上传失败',
-        icon: 'none'
-      });
-    } finally {
-      this.setData({ uploadLoading: false });
-    }
+  goActivities() {
+    wx.switchTab({
+      url: '/pages/activity-list/index'
+    });
   },
 
-  verifyUnauthorized() {
-    logout();
-    this.setData({ loading: true });
-    getCurrentUser()
-      .catch(() => {
-        this.setLoggedOut();
-      })
-      .finally(() => {
-        this.setData({ loading: false });
-      });
+  showAbout() {
+    wx.showModal({
+      title: '关于玩伴空间',
+      content: '玩伴空间用于朋友聚会、旅行和团建活动协作。第一版已支持创建活动、邀请加入和成员管理。',
+      showCancel: false,
+      confirmText: '知道了'
+    });
   }
 });

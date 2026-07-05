@@ -1,10 +1,13 @@
 <view class="page">
   <view class="page-title">登录玩伴空间</view>
-  <view class="page-subtitle">本地开发阶段使用 mockOpenid 登录，后续可切换为真实微信授权。</view>
+  <view class="page-subtitle">登录后可以创建活动、加入朋友的活动空间，一起规划聚会和出行。</view>
 
   <view class="section card stack">
-    <view class="login-illustration">一起出发</view>
-    <view class="muted">点击后会调用 /api/auth/wx-login 获取 token，并继续请求 /api/users/me 验证当前用户。</view>
+    <view class="login-illustration">
+      <view class="illustration-title">一起出发</view>
+      <view class="illustration-desc">把时间、成员和活动安排放进同一个空间</view>
+    </view>
+    <view class="muted">授权后即可查看你的活动，也可以通过好友分享加入活动。</view>
     <t-button theme="primary" block loading="{{loading}}" bind:tap="handleLogin">微信授权登录</t-button>
     <t-button variant="text" block bind:tap="goBack">暂不登录</t-button>
   </view>

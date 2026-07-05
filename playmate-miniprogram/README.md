@@ -95,16 +95,17 @@ apiBaseUrl: 'http://127.0.0.1:8080'
 
 本地开发阶段使用 `mockOpenid`，首次登录会生成并缓存一个 mock openid。登录成功后 token 会写入本地 storage，刷新小程序后「我的」页会继续通过 token 请求当前用户信息。
 
-## 上传测试
+## 封面上传验证
 
-「我的」页包含一个临时的活动封面上传测试区域：
+活动封面上传已经接入创建活动页和编辑活动页：
 
 1. 先完成登录。
-2. 点击「选择并上传图片」。
-3. 小程序会通过 `wx.uploadFile` 调用 `POST /api/files/upload`。
-4. 请求 header 会携带 `Authorization: Bearer token`。
-5. `formData.fileType` 固定为 `ACTIVITY_COVER`。
-6. 上传成功后页面展示 `fileId`、`url`、`contentType`、`size`，并尝试展示图片预览。
+2. 进入创建活动页或编辑活动页。
+3. 点击封面区域选择图片。
+4. 小程序会通过 `wx.uploadFile` 调用 `POST /api/files/upload`。
+5. 请求 header 会携带 `Authorization: Bearer token`。
+6. `formData.fileType` 固定为 `ACTIVITY_COVER`。
+7. 上传成功后页面保存 `coverFileId`，并展示封面预览。
 
 如果使用真机预览，需要把 `utils/config.js` 的 `apiBaseUrl` 改成 Mac 的局域网 IP，并确认手机和 Mac 在同一网络。
 

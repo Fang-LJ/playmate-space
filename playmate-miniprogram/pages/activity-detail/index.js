@@ -26,9 +26,9 @@ Page({
     errorMessage: '',
     modules: [
       { name: '成员', desc: '查看成员和活动内昵称', route: 'members' },
-      { name: '行程', desc: '后续接入' },
-      { name: '投票', desc: '后续接入' },
-      { name: '账本', desc: '后续接入' }
+      { name: '行程', desc: '暂未开放' },
+      { name: '投票', desc: '暂未开放' },
+      { name: '账本', desc: '暂未开放' }
     ]
   },
 
@@ -103,7 +103,7 @@ Page({
       return;
     }
     wx.showToast({
-      title: `${name}后续接入`,
+      title: `${name}暂未开放`,
       icon: 'none'
     });
   },

@@ -1,11 +1,24 @@
 .login-illustration {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 14rpx;
   height: 220rpx;
   border-radius: 28rpx;
   background: linear-gradient(135deg, #e9f5ef, #f4e7b4);
+  text-align: center;
+}
+
+.illustration-title {
   color: #2f6f5e;
   font-size: 40rpx;
   font-weight: 700;
+}
+
+.illustration-desc {
+  max-width: 440rpx;
+  color: #6f7c75;
+  font-size: 24rpx;
+  line-height: 1.5;
 }
