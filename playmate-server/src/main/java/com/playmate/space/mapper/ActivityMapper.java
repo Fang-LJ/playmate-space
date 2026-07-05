@@ -5,6 +5,7 @@ import com.playmate.space.dto.activity.ActivityListItemResponse;
 import com.playmate.space.entity.ActivityEntity;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -36,4 +37,13 @@ public interface ActivityMapper extends BaseMapper<ActivityEntity> {
 
     @Select("SELECT COUNT(1) FROM t_activity WHERE share_code = #{shareCode}")
     Long countByShareCodeIncludeDeleted(@Param("shareCode") String shareCode);
+
+    @Update("""
+            UPDATE t_activity
+            SET member_count = member_count + 1,
+                update_time = NOW()
+            WHERE id = #{activityId}
+              AND delete_flag = 0
+            """)
+    int incrementMemberCount(@Param("activityId") Long activityId);
 }

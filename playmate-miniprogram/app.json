@@ -4,6 +4,8 @@
     "pages/activity-create/index",
     "pages/activity-detail/index",
     "pages/activity-edit/index",
+    "pages/activity-invite/index",
+    "pages/link-invalid/index",
     "pages/mine/index",
     "pages/login/index"
   ],

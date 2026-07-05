@@ -39,6 +39,10 @@
         <view class="info-value">{{activity.shareCode}}</view>
       </view>
       <view class="description">{{activity.descriptionText}}</view>
+      <view wx:if="{{!activity.isCanceled}}" class="share-row">
+        <t-button theme="primary" block open-type="share">分享活动</t-button>
+        <t-button variant="outline" block bind:tap="copyShareCode">复制分享码</t-button>
+      </view>
     </view>
 
     <view wx:if="{{activity.isCreator && !activity.isCanceled}}" class="section card action-card">

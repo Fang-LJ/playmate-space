@@ -2,7 +2,14 @@ const { wxLogin, getCurrentUser } = require('../../services/auth');
 
 Page({
   data: {
-    loading: false
+    loading: false,
+    redirect: ''
+  },
+
+  onLoad(options) {
+    this.setData({
+      redirect: options.redirect ? decodeURIComponent(options.redirect) : ''
+    });
   },
 
   async handleLogin() {
@@ -18,9 +25,7 @@ Page({
         title: '登录成功',
         icon: 'success'
       });
-      wx.switchTab({
-        url: '/pages/mine/index'
-      });
+      this.goAfterLogin();
     } catch (error) {
       wx.showToast({
         title: error.message || '登录失败',
@@ -39,6 +44,23 @@ Page({
     }
     wx.switchTab({
       url: '/pages/activity-list/index'
+    });
+  },
+
+  goAfterLogin() {
+    const redirect = this.data.redirect;
+    if (!redirect) {
+      wx.switchTab({
+        url: '/pages/mine/index'
+      });
+      return;
+    }
+    if (redirect === '/pages/activity-list/index' || redirect === '/pages/mine/index') {
+      wx.switchTab({ url: redirect });
+      return;
+    }
+    wx.redirectTo({
+      url: redirect
     });
   }
 });

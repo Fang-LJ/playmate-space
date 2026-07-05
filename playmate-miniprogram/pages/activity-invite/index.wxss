@@ -1,6 +1,6 @@
 .hero-card {
   position: relative;
-  height: 420rpx;
+  height: 440rpx;
   margin-top: 8rpx;
   overflow: hidden;
   border-radius: 34rpx;
@@ -23,7 +23,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 220rpx;
+  height: 240rpx;
   background: linear-gradient(180deg, rgba(31, 42, 36, 0) 0%, rgba(31, 42, 36, 0.62) 100%);
 }
 
@@ -46,23 +46,23 @@
   font-weight: 600;
 }
 
-.activity-name {
+.invite-title {
   margin-top: 16rpx;
   font-size: 44rpx;
   font-weight: 800;
   line-height: 1.25;
 }
 
-.activity-meta {
+.invite-meta {
   margin-top: 10rpx;
   font-size: 26rpx;
   opacity: 0.92;
 }
 
-.info-card {
-  display: flex;
-  flex-direction: column;
-  gap: 22rpx;
+.section-title {
+  color: #1f2a24;
+  font-size: 32rpx;
+  font-weight: 700;
 }
 
 .info-row {
@@ -92,64 +92,23 @@
   line-height: 1.6;
 }
 
-.share-row {
-  display: flex;
-  gap: 18rpx;
-  padding-top: 18rpx;
-  border-top: 1rpx solid #e1e8e3;
-}
-
-.action-card {
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
-}
-
-.action-title {
-  color: #1f2a24;
-  font-size: 30rpx;
-  font-weight: 700;
-}
-
-.action-row {
-  display: flex;
-  flex-direction: column;
-  gap: 18rpx;
-}
-
-.canceled-note {
-  padding: 20rpx 24rpx;
+.reason {
+  padding: 18rpx 22rpx;
   border-radius: 20rpx;
   background: #f7eeee;
   color: #b64646;
   font-size: 26rpx;
 }
 
-.module-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20rpx;
+.action-card {
+  margin-top: 32rpx;
 }
 
-.module-card {
-  min-height: 150rpx;
-  box-sizing: border-box;
-  padding: 26rpx;
-  border-radius: 26rpx;
-  background: #ffffff;
-  border: 1rpx solid #e1e8e3;
-}
-
-.module-name {
-  color: #1f2a24;
-  font-size: 30rpx;
-  font-weight: 700;
-}
-
-.module-desc {
-  margin-top: 12rpx;
+.hint {
+  margin-top: 18rpx;
   color: #6f7c75;
   font-size: 24rpx;
+  text-align: center;
 }
 
 .empty-title {

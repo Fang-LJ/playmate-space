@@ -53,6 +53,12 @@ public class GlobalExceptionHandler {
         return ApiResponse.fail(exception.getCode(), exception.getMessage());
     }
 
+    @ExceptionHandler(NotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ApiResponse<Void> handleNotFoundException(NotFoundException exception) {
+        return ApiResponse.fail(exception.getCode(), exception.getMessage());
+    }
+
     @ExceptionHandler(BusinessException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ApiResponse<Void> handleBusinessException(BusinessException exception) {

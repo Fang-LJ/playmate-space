@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.playmate.space.common.ErrorCode;
 import com.playmate.space.common.exception.BusinessException;
 import com.playmate.space.common.exception.ForbiddenException;
+import com.playmate.space.common.exception.NotFoundException;
 import com.playmate.space.common.exception.UnauthorizedException;
 import com.playmate.space.common.security.LoginUserContext;
 import com.playmate.space.dto.activity.ActivityDetailResponse;
@@ -218,7 +219,7 @@ public class ActivityService {
 
         ActivityEntity activity = activityMapper.selectById(activityId);
         if (activity == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND.code(), "活动不存在");
+            throw new NotFoundException("活动不存在");
         }
         return activity;
     }

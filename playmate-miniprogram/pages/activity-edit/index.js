@@ -15,6 +15,7 @@ Page({
     submitting: false,
     uploading: false,
     isEnded: false,
+    isCanceled: false,
     typeOptions: ACTIVITY_TYPES,
     typeIndex: 0,
     currentTypeLabel: ACTIVITY_TYPES[0].label,
@@ -54,6 +55,7 @@ Page({
       const type = ACTIVITY_TYPES[typeIndex] || ACTIVITY_TYPES[0];
       this.setData({
         isEnded: activity.status === 'ENDED',
+        isCanceled: activity.status === 'CANCELED',
         typeIndex,
         currentTypeLabel: type.label,
         form: {
@@ -102,6 +104,10 @@ Page({
   },
 
   async chooseCover() {
+    if (this.data.isCanceled) {
+      wx.showToast({ title: '已取消活动不可编辑', icon: 'none' });
+      return;
+    }
     if (this.data.uploading) {
       return;
     }
@@ -162,6 +168,10 @@ Page({
   },
 
   async submitEdit() {
+    if (this.data.isCanceled) {
+      wx.showToast({ title: '已取消活动不可编辑', icon: 'none' });
+      return;
+    }
     if (this.data.submitting) {
       return;
     }

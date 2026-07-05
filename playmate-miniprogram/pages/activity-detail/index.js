@@ -35,7 +35,6 @@ Page({
   onLoad(options) {
     const activityId = options.activityId;
     this.setData({ activityId });
-    this.loadDetail(activityId);
   },
 
   onShow() {
@@ -100,6 +99,24 @@ Page({
     wx.showToast({
       title: `${name}后续接入`,
       icon: 'none'
+    });
+  },
+
+  onShareAppMessage() {
+    const activity = this.data.activity || {};
+    return {
+      title: `邀请你加入：${activity.name || '玩伴空间活动'}`,
+      path: `/pages/activity-invite/index?code=${activity.shareCode || ''}`
+    };
+  },
+
+  copyShareCode() {
+    const shareCode = this.data.activity && this.data.activity.shareCode;
+    if (!shareCode) {
+      return;
+    }
+    wx.setClipboardData({
+      data: shareCode
     });
   },
 

@@ -1,0 +1,50 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="section card stack">
+    <view class="empty-title">正在打开邀请</view>
+    <view class="empty-desc">正在读取活动邀请信息。</view>
+  </view>
+
+  <view wx:elif="{{errorMessage}}" class="section card stack">
+    <view class="empty-title">邀请加载失败</view>
+    <view class="empty-desc">{{errorMessage}}</view>
+    <t-button theme="primary" block bind:tap="retryLoad">重新加载</t-button>
+    <t-button variant="outline" block bind:tap="goHome">返回首页</t-button>
+  </view>
+
+  <block wx:else>
+    <view class="hero-card">
+      <image wx:if="{{invite.coverUrl}}" class="hero-cover" src="{{invite.coverUrl}}" mode="aspectFill" />
+      <view wx:else class="hero-cover default-hero"></view>
+      <view class="hero-content">
+        <view class="status-pill">{{invite.statusText}}</view>
+        <view class="invite-title">{{invite.name}}</view>
+        <view class="invite-meta">{{invite.typeText}} · {{invite.dateText}}</view>
+      </view>
+    </view>
+
+    <view class="section card stack">
+      <view class="section-title">活动邀请</view>
+      <view class="info-row">
+        <view class="info-label">地点</view>
+        <view class="info-value">{{invite.locationText}}</view>
+      </view>
+      <view class="info-row">
+        <view class="info-label">创建者</view>
+        <view class="info-value">{{invite.creatorNickname || '玩伴用户'}}</view>
+      </view>
+      <view class="info-row">
+        <view class="info-label">成员</view>
+        <view class="info-value">{{invite.memberCount}} 位</view>
+      </view>
+      <view class="description">{{invite.descriptionText}}</view>
+      <view wx:if="{{invite.reason}}" class="reason">{{invite.reason}}</view>
+    </view>
+
+    <view class="section action-card">
+      <t-button wx:if="{{invite.joined}}" theme="primary" block bind:tap="goDetail">进入活动</t-button>
+      <t-button wx:elif="{{invite.canJoin}}" theme="primary" block loading="{{joining}}" bind:tap="handleJoin">加入活动</t-button>
+      <t-button wx:else theme="primary" variant="outline" block bind:tap="goHome">返回首页</t-button>
+      <view wx:if="{{!invite.joined && invite.canJoin}}" class="hint">加入后可以查看活动详情，并参与后续协作。</view>
+    </view>
+  </block>
+</view>

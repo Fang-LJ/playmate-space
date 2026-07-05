@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "链接失效",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button"
+  }
+}

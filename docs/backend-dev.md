@@ -199,3 +199,35 @@ P0 活动接口规则：
 - `CANCELED` 活动不允许编辑
 - `ENDED` 活动只允许修改封面和描述
 - 取消活动只修改状态，不物理删除活动，不删除文件或 MinIO 对象
+
+## 验证活动邀请和加入
+
+查询邀请信息不强制登录，适合分享链接打开邀请页：
+
+```bash
+curl http://127.0.0.1:8080/api/activity-invites/{shareCode}
+```
+
+如果请求带有效 token，接口会额外返回当前用户是否已加入、是否可加入：
+
+```bash
+curl http://127.0.0.1:8080/api/activity-invites/{shareCode} \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+加入活动需要登录：
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/activity-invites/{shareCode}/join \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+P0 邀请加入规则：
+
+- 活动不存在或已逻辑删除：返回 HTTP 404，响应 code 为 `NOT_FOUND`
+- 活动 `CANCELED`：返回邀请信息但 `canJoin=false`，加入接口拒绝
+- 活动 `ENDED`：第一版不可加入
+- 无成员记录：新增 `ACTIVE` + `MEMBER` 成员记录，并更新 `member_count`
+- 已有 `ACTIVE` 成员记录：不重复插入，直接返回已加入
+- 已有 `REMOVED` 成员记录：禁止重新加入
+- 邀请信息接口不返回完整成员列表，不返回 openid

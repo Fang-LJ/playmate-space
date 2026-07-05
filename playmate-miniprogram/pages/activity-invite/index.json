@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "活动邀请",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button"
+  }
+}
