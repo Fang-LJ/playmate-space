@@ -25,7 +25,7 @@ Page({
     activity: null,
     errorMessage: '',
     modules: [
-      { name: '成员', desc: '成员列表后续接入' },
+      { name: '成员', desc: '查看成员和活动内昵称', route: 'members' },
       { name: '行程', desc: '后续接入' },
       { name: '投票', desc: '后续接入' },
       { name: '账本', desc: '后续接入' }
@@ -95,7 +95,13 @@ Page({
   },
 
   showTodo(event) {
-    const { name } = event.currentTarget.dataset;
+    const { name, route } = event.currentTarget.dataset;
+    if (route === 'members') {
+      wx.navigateTo({
+        url: `/pages/member-list/index?activityId=${this.data.activityId}`
+      });
+      return;
+    }
     wx.showToast({
       title: `${name}后续接入`,
       icon: 'none'

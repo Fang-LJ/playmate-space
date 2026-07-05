@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "活动内昵称",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button"
+  }
+}

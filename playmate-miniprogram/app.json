@@ -6,6 +6,8 @@
     "pages/activity-edit/index",
     "pages/activity-invite/index",
     "pages/link-invalid/index",
+    "pages/member-list/index",
+    "pages/member-nickname-edit/index",
     "pages/mine/index",
     "pages/login/index"
   ],

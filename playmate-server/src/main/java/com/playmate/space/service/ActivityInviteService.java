@@ -115,7 +115,7 @@ public class ActivityInviteService {
         member.setDeleteFlag(0);
         activityMemberMapper.insert(member);
 
-        int updated = activityMapper.incrementMemberCount(activity.getId());
+        int updated = activityMapper.incrementMemberCount(activity.getId(), now);
         if (updated != 1) {
             throw new BusinessException("加入活动失败，请重试");
         }

@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ActivityMapper extends BaseMapper<ActivityEntity> {
@@ -41,9 +42,19 @@ public interface ActivityMapper extends BaseMapper<ActivityEntity> {
     @Update("""
             UPDATE t_activity
             SET member_count = member_count + 1,
-                update_time = NOW()
+                update_time = #{updateTime}
             WHERE id = #{activityId}
               AND delete_flag = 0
             """)
-    int incrementMemberCount(@Param("activityId") Long activityId);
+    int incrementMemberCount(@Param("activityId") Long activityId, @Param("updateTime") LocalDateTime updateTime);
+
+    @Update("""
+            UPDATE t_activity
+            SET member_count = GREATEST(member_count - 1, 1),
+                update_time = #{updateTime}
+            WHERE id = #{activityId}
+              AND delete_flag = 0
+              AND member_count > 1
+            """)
+    int decrementMemberCount(@Param("activityId") Long activityId, @Param("updateTime") LocalDateTime updateTime);
 }

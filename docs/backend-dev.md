@@ -81,6 +81,34 @@ curl http://127.0.0.1:8080/api/health
 }
 ```
 
+## P0 smoke test
+
+后端启动后，可以在项目根目录执行 P0 全链路联调脚本：
+
+```bash
+bash scripts/p0-smoke-test.sh
+```
+
+脚本依赖：
+
+- `curl`
+- `jq`
+- 可访问的后端服务：`http://127.0.0.1:8080`
+
+脚本覆盖：
+
+- health 接口
+- Mock 登录
+- 文件上传
+- 活动创建、列表、详情
+- 邀请信息、加入活动、重复加入
+- 成员列表、修改活动内昵称、移除成员
+- 被移除成员权限限制
+- 已结束活动不可加入
+- 已取消活动不可加入
+
+脚本会使用带时间戳的 mockOpenid 和活动名称，不会清空数据库，不会删除 MinIO 文件，不会执行 Docker 停止或 volume 删除操作。运行结束会输出活动 ID、shareCode、测试用户 ID，方便排查。
+
 ## 验证鉴权拦截
 
 `/api/health` 和 `/api/auth/wx-login` 会放行。
@@ -231,3 +259,39 @@ P0 邀请加入规则：
 - 已有 `ACTIVE` 成员记录：不重复插入，直接返回已加入
 - 已有 `REMOVED` 成员记录：禁止重新加入
 - 邀请信息接口不返回完整成员列表，不返回 openid
+
+## 验证成员管理
+
+查询活动成员列表：
+
+```bash
+curl http://127.0.0.1:8080/api/activities/{activityId}/members \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+修改自己的活动内昵称：
+
+```bash
+curl -X PUT http://127.0.0.1:8080/api/activities/{activityId}/members/me/nickname \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"nickname":"活动内昵称"}'
+```
+
+创建者移除普通成员：
+
+```bash
+curl -X DELETE http://127.0.0.1:8080/api/activities/{activityId}/members/{memberId} \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+P0 成员规则：
+
+- 成员列表需要登录，且当前用户必须是活动 `ACTIVE` 成员
+- 成员列表默认只返回 `ACTIVE` 成员，不返回 openid，不返回被移除成员
+- 昵称只更新 `t_activity_member.activity_nickname`，不修改 `t_user.nickname`
+- 移除成员只允许 `ACTIVE` 创建者操作
+- 只能移除普通成员，不能移除创建者，不能移除自己
+- 移除时更新 `member_status=REMOVED`，不物理删除成员记录
+- 真实从 `ACTIVE` 改成 `REMOVED` 时同步更新 `t_activity.member_count - 1`
+- 被移除成员不能查看活动详情、成员列表、编辑/结束/取消活动，也不能通过分享链接重新加入

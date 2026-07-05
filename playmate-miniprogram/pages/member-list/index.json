@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "成员",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button"
+  }
+}

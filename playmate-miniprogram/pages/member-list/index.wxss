@@ -1,0 +1,109 @@
+.my-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+
+.card-title {
+  color: #1f2a24;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.card-desc {
+  margin-top: 8rpx;
+  color: #6f7c75;
+  font-size: 26rpx;
+}
+
+.member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.member-card {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  box-sizing: border-box;
+  padding: 24rpx;
+  border: 1rpx solid #e1e8e3;
+  border-radius: 26rpx;
+  background: #ffffff;
+  box-shadow: 0 10rpx 30rpx rgba(47, 111, 94, 0.05);
+}
+
+.avatar {
+  flex: 0 0 88rpx;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+}
+
+.avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e9f5ef;
+  color: #2f6f5e;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.member-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  min-width: 0;
+}
+
+.member-name {
+  color: #1f2a24;
+  font-size: 30rpx;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-meta {
+  margin-top: 8rpx;
+  color: #6f7c75;
+  font-size: 24rpx;
+}
+
+.tag {
+  flex: 0 0 auto;
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.mine-tag {
+  color: #2f6f5e;
+  background: #e9f5ef;
+}
+
+.creator-tag {
+  color: #8a6500;
+  background: #f4e7b4;
+}
+
+.empty-title {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.empty-desc {
+  color: #6f7c75;
+  font-size: 28rpx;
+  line-height: 1.5;
+}

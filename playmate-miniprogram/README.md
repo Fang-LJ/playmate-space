@@ -17,6 +17,32 @@ pnpm install
    - 活动
    - 我的
 
+## 命令行基础检查
+
+可以用 Node 对小程序 JS 做基础语法检查：
+
+```bash
+pnpm install --frozen-lockfile
+node --check app.js
+node --check utils/request.js
+node --check utils/token.js
+node --check services/activity.js
+node --check services/file.js
+node --check services/invite.js
+node --check services/member.js
+node --check pages/activity-list/index.js
+node --check pages/activity-create/index.js
+node --check pages/activity-detail/index.js
+node --check pages/activity-edit/index.js
+node --check pages/activity-invite/index.js
+node --check pages/link-invalid/index.js
+node --check pages/member-list/index.js
+node --check pages/member-nickname-edit/index.js
+node --check pages/login/index.js
+```
+
+命令行检查只能发现基础 JS / JSON 语法问题，不能完全替代微信开发者工具。涉及 `wx.uploadFile`、页面跳转、分享路径、TDesign 组件渲染和真机网络环境时，仍需要在微信开发者工具里构建 npm 后验证。
+
 ## 本地接口配置
 
 本地 API 地址配置在 `utils/config.js`：
@@ -52,10 +78,12 @@ apiBaseUrl: 'http://127.0.0.1:8080'
 - 活动分享
 - 活动邀请页
 - 加入活动流程
+- 成员列表
+- 活动内昵称修改
+- 移除成员
 
 未实现：
 
-- 成员管理
 - 行程、投票、账本、AA、照片墙
 
 ## 登录联调
@@ -102,3 +130,15 @@ apiBaseUrl: 'http://127.0.0.1:8080'
 6. 用户 B 再次点击「加入活动」，成功后进入活动详情页。
 7. 如果活动已取消或已结束，邀请页会展示不可加入原因。
 8. 如果链接缺少 code 或活动不存在，会进入链接失效页。
+
+## 成员管理验证
+
+1. 用户 A 登录并创建活动。
+2. 用户 B 通过分享邀请页加入活动。
+3. 用户 A 进入活动详情，点击「成员」入口。
+4. 成员列表应展示 A 和 B，A 显示创建者标签，当前用户显示“我”标签。
+5. 用户 B 进入成员列表，点击「修改」设置自己的活动内昵称。
+6. 用户 A 在成员列表中点击 B 的「移除」按钮。
+7. 确认后成员列表刷新，B 不再显示。
+8. 用户 B 再访问活动详情或成员列表应失败。
+9. 用户 B 再打开分享邀请页，不能重新加入。

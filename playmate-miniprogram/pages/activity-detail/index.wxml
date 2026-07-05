@@ -67,6 +67,7 @@
         wx:key="name"
         class="module-card"
         data-name="{{item.name}}"
+        data-route="{{item.route}}"
         bindtap="showTodo"
       >
         <view class="module-name">{{item.name}}</view>
