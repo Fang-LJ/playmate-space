@@ -3,18 +3,27 @@
   align-items: center;
   justify-content: space-between;
   gap: 24rpx;
-}
-
-.card-title {
-  color: #1f2a24;
-  font-size: 30rpx;
-  font-weight: 700;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fbf8 100%);
 }
 
 .card-desc {
   margin-top: 8rpx;
-  color: #6f7c75;
+  color: var(--pm-text-muted);
   font-size: 26rpx;
+}
+
+.edit-nickname {
+  flex: 0 0 auto;
+  min-width: 96rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999rpx;
+  background: var(--pm-primary);
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 700;
 }
 
 .member-list {
@@ -29,9 +38,9 @@
   gap: 20rpx;
   box-sizing: border-box;
   padding: 24rpx;
-  border: 1rpx solid #e1e8e3;
+  border: 1rpx solid var(--pm-border);
   border-radius: 26rpx;
-  background: #ffffff;
+  background: var(--pm-card);
   box-shadow: 0 10rpx 30rpx rgba(47, 111, 94, 0.05);
 }
 
@@ -46,8 +55,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e9f5ef;
-  color: #2f6f5e;
+  background: var(--pm-primary-light);
+  color: var(--pm-primary-dark);
   font-size: 34rpx;
   font-weight: 700;
 }
@@ -65,7 +74,7 @@
 }
 
 .member-name {
-  color: #1f2a24;
+  color: var(--pm-text);
   font-size: 30rpx;
   font-weight: 700;
   overflow: hidden;
@@ -75,7 +84,7 @@
 
 .member-meta {
   margin-top: 8rpx;
-  color: #6f7c75;
+  color: var(--pm-text-muted);
   font-size: 24rpx;
 }
 
@@ -88,13 +97,30 @@
 }
 
 .mine-tag {
-  color: #2f6f5e;
-  background: #e9f5ef;
+  color: var(--pm-primary-dark);
+  background: var(--pm-primary-light);
 }
 
 .creator-tag {
   color: #8a6500;
-  background: #f4e7b4;
+  background: var(--pm-accent-soft);
+}
+
+.remove-button {
+  flex: 0 0 auto;
+  min-width: 86rpx;
+  height: 52rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 18rpx;
+  border: 1rpx solid rgba(217, 76, 76, 0.32);
+  border-radius: 999rpx;
+  background: var(--pm-danger-soft);
+  color: var(--pm-danger);
+  font-size: 23rpx;
+  font-weight: 700;
 }
 
 .empty-title {
@@ -103,7 +129,7 @@
 }
 
 .empty-desc {
-  color: #6f7c75;
+  color: var(--pm-text-muted);
   font-size: 28rpx;
   line-height: 1.5;
 }

@@ -1,24 +1,52 @@
+.login-hero {
+  padding-top: 28rpx;
+}
+
+.brand-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 92rpx;
+  height: 92rpx;
+  margin-bottom: 28rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(135deg, var(--pm-primary), var(--pm-primary-dark));
+  color: #ffffff;
+  font-size: 40rpx;
+  font-weight: 900;
+  box-shadow: 0 16rpx 32rpx rgba(107, 175, 146, 0.22);
+}
+
 .login-illustration {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 14rpx;
-  height: 220rpx;
+  height: 240rpx;
+  overflow: hidden;
   border-radius: 28rpx;
-  background: linear-gradient(135deg, #e9f5ef, #f4e7b4);
+  background: radial-gradient(circle at 72% 30%, #f2b84b 0 34rpx, transparent 36rpx),
+    linear-gradient(135deg, #e9f5ef, #f4e7b4);
   text-align: center;
 }
 
 .illustration-title {
-  color: #2f6f5e;
-  font-size: 40rpx;
-  font-weight: 700;
+  color: var(--pm-primary-dark);
+  font-size: 42rpx;
+  font-weight: 900;
 }
 
 .illustration-desc {
   max-width: 440rpx;
-  color: #6f7c75;
+  color: var(--pm-text-muted);
   font-size: 24rpx;
   line-height: 1.5;
+}
+
+.login-copy {
+  color: var(--pm-text-muted);
+  font-size: 27rpx;
+  line-height: 1.55;
 }

@@ -1,65 +1,99 @@
 <view class="page">
   <view class="page-title">创建活动</view>
-  <view class="page-subtitle">先创建一个活动空间，朋友加入后就能一起协作。</view>
+  <view class="page-subtitle">填写活动信息，发给朋友一起加入。</view>
 
-  <view class="section card cover-card" bindtap="chooseCover">
-    <image wx:if="{{form.coverUrl}}" class="cover-preview" src="{{form.coverUrl}}" mode="aspectFill" />
-    <view wx:else class="cover-placeholder">
-      <view class="cover-title">上传活动封面</view>
-      <view class="cover-desc">可选，适合放一张旅行或聚会照片</view>
+  <view class="section card pm-form-card">
+    <view>
+      <view class="section-title">基础信息</view>
+      <view class="section-desc">先给这次活动起个好记的名字。</view>
     </view>
-    <view class="cover-action">{{uploading ? '上传中...' : '选择封面'}}</view>
+
+    <view class="pm-field">
+      <view class="pm-label">活动名称</view>
+      <input class="pm-input" placeholder="例如：周末杭州两日游" value="{{form.name}}" data-field="name" bindinput="handleInput" />
+    </view>
   </view>
 
-  <view class="section card form-card">
-    <view class="field">
-      <view class="label">活动名称</view>
-      <input class="input" placeholder="例如：周末杭州两日游" value="{{form.name}}" data-field="name" bindinput="handleInput" />
+  <view class="section card pm-form-card">
+    <view>
+      <view class="section-title">活动类型</view>
+      <view class="section-desc">选择一个最接近的活动场景。</view>
     </view>
-
-    <view class="field">
-      <view class="label">活动类型</view>
-      <picker range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="handleTypeChange">
-        <view class="picker-value">{{currentTypeLabel}}</view>
-      </picker>
+    <view class="type-grid">
+      <view
+        wx:for="{{typeOptions}}"
+        wx:key="value"
+        class="type-chip {{form.type === item.value ? 'active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="handleTypeTap"
+      >
+        {{item.label}}
+      </view>
     </view>
+  </view>
 
-    <view class="field">
-      <view class="label">地点名称</view>
-      <input class="input" placeholder="例如：杭州 / 朋友家 / 公司" value="{{form.locationName}}" data-field="locationName" bindinput="handleInput" />
+  <view class="section card pm-form-card">
+    <view>
+      <view class="section-title">封面与时间</view>
+      <view class="section-desc">封面可选，日期用于成员快速确认安排。</view>
     </view>
-
-    <view class="field">
-      <view class="label">详细地址</view>
-      <input class="input" placeholder="可选，不做地图定位" value="{{form.address}}" data-field="address" bindinput="handleInput" />
+    <view class="cover-card" bindtap="chooseCover">
+      <image wx:if="{{form.coverUrl}}" class="cover-preview" src="{{form.coverUrl}}" mode="aspectFill" />
+      <view wx:else class="cover-placeholder">
+        <view class="cover-title">上传封面</view>
+        <view class="cover-desc">放一张旅行或聚会照片</view>
+      </view>
+      <view class="cover-action">{{uploading ? '上传中...' : '选择封面'}}</view>
     </view>
-
     <view class="date-row">
-      <view class="field half">
-        <view class="label">开始日期</view>
+      <view class="pm-field half">
+        <view class="pm-label">开始日期</view>
         <picker mode="date" value="{{form.startDate}}" data-field="startDate" bindchange="handleDateChange">
-          <view class="picker-value">{{form.startDate}}</view>
+          <view class="date-box">
+            <view class="date-label">开始</view>
+            <view class="date-value">{{form.startDate}}</view>
+          </view>
         </picker>
       </view>
-      <view class="field half">
-        <view class="label">结束日期</view>
+      <view class="pm-field half">
+        <view class="pm-label">结束日期</view>
         <picker mode="date" value="{{form.endDate}}" data-field="endDate" bindchange="handleDateChange">
-          <view class="picker-value">{{form.endDate}}</view>
+          <view class="date-box">
+            <view class="date-label">结束</view>
+            <view class="date-value">{{form.endDate}}</view>
+          </view>
         </picker>
       </view>
-    </view>
-
-    <view class="field">
-      <view class="label">活动描述</view>
-      <textarea class="textarea" placeholder="简单写一下这次活动安排" value="{{form.description}}" data-field="description" bindinput="handleInput" maxlength="1000" />
     </view>
   </view>
 
-  <view class="bottom-bar">
-    <view class="secondary-action">
+  <view class="section card pm-form-card">
+    <view>
+      <view class="section-title">地点与描述</view>
+      <view class="section-desc">给朋友一个清楚的集合地点和活动说明。</view>
+    </view>
+
+    <view class="pm-field">
+      <view class="pm-label">地点名称</view>
+      <input class="pm-input" placeholder="例如：杭州 / 朋友家 / 公司" value="{{form.locationName}}" data-field="locationName" bindinput="handleInput" />
+    </view>
+
+    <view class="pm-field">
+      <view class="pm-label">详细地址</view>
+      <input class="pm-input" placeholder="可选，不做地图定位" value="{{form.address}}" data-field="address" bindinput="handleInput" />
+    </view>
+
+    <view class="pm-field">
+      <view class="pm-label">活动描述</view>
+      <textarea class="pm-textarea" placeholder="简单写一下这次活动安排" value="{{form.description}}" data-field="description" bindinput="handleInput" maxlength="1000" />
+    </view>
+  </view>
+
+  <view class="pm-bottom-bar">
+    <view class="pm-secondary-action">
       <t-button variant="outline" block bind:tap="cancelBack" disabled="{{submitting || uploading}}">取消</t-button>
     </view>
-    <view class="primary-action">
+    <view class="pm-primary-action">
       <t-button theme="primary" block bind:tap="submitActivity" loading="{{submitting}}" disabled="{{uploading}}">创建活动</t-button>
     </view>
   </view>

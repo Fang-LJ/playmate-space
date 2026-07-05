@@ -2,18 +2,22 @@
   <view class="page-title">活动内昵称</view>
   <view class="page-subtitle">这个昵称只在当前活动空间内展示，不会修改你的全局用户昵称。</view>
 
-  <view class="section card form-card">
-    <view class="field">
-      <view class="label">昵称</view>
-      <input class="input" maxlength="64" placeholder="请输入活动内昵称" value="{{nickname}}" bindinput="handleInput" />
+  <view class="section card pm-form-card">
+    <view>
+      <view class="section-title">活动内展示名</view>
+      <view class="section-desc">只会影响当前活动成员列表里的昵称。</view>
+    </view>
+    <view class="pm-field">
+      <view class="pm-label">昵称</view>
+      <input class="pm-input" maxlength="64" placeholder="请输入活动内昵称" value="{{nickname}}" bindinput="handleInput" />
     </view>
   </view>
 
-  <view class="bottom-bar">
-    <view class="secondary-action">
+  <view class="pm-bottom-bar fixed-bottom">
+    <view class="pm-secondary-action">
       <t-button variant="outline" block bind:tap="cancelBack" disabled="{{submitting}}">取消</t-button>
     </view>
-    <view class="primary-action">
+    <view class="pm-primary-action">
       <t-button theme="primary" block loading="{{submitting}}" bind:tap="submitNickname">保存</t-button>
     </view>
   </view>

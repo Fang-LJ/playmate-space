@@ -5,6 +5,31 @@
   gap: 24rpx;
 }
 
+.hero-question {
+  margin-top: 22rpx;
+  color: var(--pm-text);
+  font-size: 42rpx;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.create-button {
+  flex: 0 0 auto;
+  min-width: 132rpx;
+  height: 68rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin-top: 6rpx;
+  border-radius: 18rpx;
+  background: var(--pm-primary);
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 700;
+  box-shadow: 0 12rpx 26rpx rgba(107, 175, 146, 0.22);
+}
+
 .empty-title {
   font-size: 32rpx;
   font-weight: 600;
@@ -23,23 +48,30 @@
   gap: 24rpx;
 }
 
+.filter-row {
+  display: flex;
+  gap: 16rpx;
+  overflow-x: auto;
+  padding-bottom: 2rpx;
+}
+
 .activity-card {
   display: flex;
   gap: 24rpx;
-  padding: 24rpx;
-  background: #ffffff;
-  border: 1rpx solid #e1e8e3;
-  border-radius: 30rpx;
-  box-shadow: 0 12rpx 34rpx rgba(47, 111, 94, 0.07);
+  padding: 26rpx;
+  background: var(--pm-card);
+  border: 1rpx solid var(--pm-border);
+  border-radius: var(--pm-radius-card);
+  box-shadow: var(--pm-shadow-card);
 }
 
 .activity-cover {
-  width: 168rpx;
-  height: 168rpx;
-  flex: 0 0 168rpx;
+  width: 176rpx;
+  height: 176rpx;
+  flex: 0 0 176rpx;
   border-radius: 24rpx;
   overflow: hidden;
-  background: #e9f5ef;
+  background: var(--pm-primary-light);
 }
 
 .default-cover {
@@ -53,7 +85,7 @@
   width: 42rpx;
   height: 42rpx;
   border-radius: 50%;
-  background: #f2b84b;
+  background: var(--pm-accent);
 }
 
 .cover-line {
@@ -84,25 +116,23 @@
 
 .activity-name {
   flex: 1;
-  color: #1f2a24;
+  color: var(--pm-text);
   font-size: 32rpx;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.35;
-}
-
-.status-pill {
-  flex: 0 0 auto;
-  padding: 8rpx 16rpx;
-  border-radius: 999rpx;
-  background: #e9f5ef;
-  color: #2f6f5e;
-  font-size: 22rpx;
 }
 
 .activity-meta {
   margin-top: 10rpx;
-  color: #6f7c75;
+  color: var(--pm-text-muted);
   font-size: 26rpx;
+  line-height: 1.45;
+}
+
+.activity-date {
+  margin-top: 8rpx;
+  color: var(--pm-text-muted);
+  font-size: 25rpx;
   line-height: 1.45;
 }
 
@@ -110,6 +140,7 @@
   display: flex;
   justify-content: space-between;
   margin-top: 18rpx;
-  color: #6baf92;
+  color: var(--pm-primary);
   font-size: 24rpx;
+  font-weight: 700;
 }

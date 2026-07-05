@@ -24,11 +24,15 @@ Page({
     activityId: '',
     activity: null,
     errorMessage: '',
-    modules: [
-      { name: '成员', desc: '查看成员和活动内昵称', route: 'members' },
-      { name: '行程', desc: '暂未开放' },
-      { name: '投票', desc: '暂未开放' },
-      { name: '账本', desc: '暂未开放' }
+    beforeModules: [
+      { name: '成员', shortName: '成', desc: '查看成员', route: 'members', tone: 'warm' },
+      { name: '行程', shortName: '行', desc: '暂未开放', tone: 'green' },
+      { name: '投票', shortName: '投', desc: '暂未开放', tone: 'yellow' }
+    ],
+    afterModules: [
+      { name: '账本', shortName: '账', desc: '暂未开放', tone: 'warm' },
+      { name: 'AA 结算', shortName: 'A', desc: '暂未开放', tone: 'green' },
+      { name: '照片墙', shortName: '照', desc: '暂未开放', tone: 'gray' }
     ]
   },
 
@@ -77,6 +81,7 @@ Page({
       ...activity,
       typeText: ACTIVITY_TYPE_LABELS[activity.type] || activity.type || '其他',
       statusText: STATUS_LABELS[activity.status] || activity.status || '未知',
+      statusClass: this.resolveStatusClass(activity.status),
       dateText: startDate && endDate && startDate !== endDate
         ? `${startDate} ~ ${endDate}`
         : startDate || endDate || '未设置日期',
@@ -88,6 +93,19 @@ Page({
       isEnded: activity.status === 'ENDED',
       isCanceled: activity.status === 'CANCELED'
     };
+  },
+
+  resolveStatusClass(status) {
+    if (status === 'ENDED') {
+      return 'ended';
+    }
+    if (status === 'CANCELED') {
+      return 'canceled';
+    }
+    if (status === 'ONGOING') {
+      return 'ongoing';
+    }
+    return 'planning';
   },
 
   retryLoad() {

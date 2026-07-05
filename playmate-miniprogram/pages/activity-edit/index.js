@@ -96,6 +96,17 @@ Page({
     });
   },
 
+  handleTypeTap(event) {
+    const { value } = event.currentTarget.dataset;
+    const index = Math.max(0, ACTIVITY_TYPES.findIndex((item) => item.value === value));
+    const type = ACTIVITY_TYPES[index] || ACTIVITY_TYPES[0];
+    this.setData({
+      typeIndex: index,
+      currentTypeLabel: type.label,
+      'form.type': type.value
+    });
+  },
+
   handleDateChange(event) {
     const { field } = event.currentTarget.dataset;
     this.setData({

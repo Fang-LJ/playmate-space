@@ -77,12 +77,26 @@ Page({
       ...invite,
       typeText: ACTIVITY_TYPE_LABELS[invite.type] || invite.type || '其他',
       statusText: STATUS_LABELS[invite.status] || invite.status || '未知',
+      statusClass: this.resolveStatusClass(invite.status),
       dateText: startDate && endDate && startDate !== endDate
         ? `${startDate} ~ ${endDate}`
         : startDate || endDate || '未设置日期',
       locationText: invite.locationName || '地点待定',
       descriptionText: invite.description || '邀请你加入这个活动空间，一起规划和协作。'
     };
+  },
+
+  resolveStatusClass(status) {
+    if (status === 'ENDED') {
+      return 'ended';
+    }
+    if (status === 'CANCELED') {
+      return 'canceled';
+    }
+    if (status === 'ONGOING') {
+      return 'ongoing';
+    }
+    return 'planning';
   },
 
   async handleJoin() {

@@ -25,6 +25,14 @@ Page({
     loaded: false,
     isLoggedIn: false,
     activities: [],
+    displayActivities: [],
+    activeFilter: 'ALL',
+    filters: [
+      { label: '全部', value: 'ALL' },
+      { label: '规划中', value: 'PLANNING' },
+      { label: '进行中', value: 'ONGOING' },
+      { label: '已结束', value: 'ENDED' }
+    ],
     errorMessage: ''
   },
 
@@ -39,6 +47,7 @@ Page({
         loaded: true,
         isLoggedIn: false,
         activities: [],
+        displayActivities: [],
         errorMessage: ''
       });
       return;
@@ -52,13 +61,16 @@ Page({
 
     try {
       const activities = await getMyActivities();
+      const normalized = (activities || []).map(this.normalizeActivity);
       this.setData({
-        activities: (activities || []).map(this.normalizeActivity),
+        activities: normalized,
+        displayActivities: this.filterActivities(normalized, this.data.activeFilter),
         loaded: true
       });
     } catch (error) {
       this.setData({
         activities: [],
+        displayActivities: [],
         loaded: true,
         errorMessage: error.message || '活动加载失败'
       });
@@ -77,9 +89,38 @@ Page({
       ...activity,
       typeText: ACTIVITY_TYPE_LABELS[activity.type] || activity.type || '其他',
       statusText: STATUS_LABELS[activity.status] || activity.status || '未知',
+      statusClass: this.resolveStatusClass(activity.status),
       dateText,
       locationText: activity.locationName || '地点待定'
     };
+  },
+
+  resolveStatusClass(status) {
+    if (status === 'ENDED') {
+      return 'ended';
+    }
+    if (status === 'CANCELED') {
+      return 'canceled';
+    }
+    if (status === 'ONGOING') {
+      return 'ongoing';
+    }
+    return 'planning';
+  },
+
+  filterActivities(activities, filter) {
+    if (filter === 'ALL') {
+      return activities;
+    }
+    return activities.filter((activity) => activity.status === filter);
+  },
+
+  changeFilter(event) {
+    const { value } = event.currentTarget.dataset;
+    this.setData({
+      activeFilter: value,
+      displayActivities: this.filterActivities(this.data.activities, value)
+    });
   },
 
   goLogin() {

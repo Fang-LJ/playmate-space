@@ -2,9 +2,10 @@
   <view class="hero">
     <view>
       <view class="page-title">我的活动</view>
-      <view class="page-subtitle">和朋友一起规划每一次出发。</view>
+      <view class="hero-question">周末要去哪玩？</view>
+      <view class="page-subtitle">把行程、成员和照片放进同一个活动空间。</view>
     </view>
-    <t-button theme="primary" size="small" bind:tap="goCreate">创建</t-button>
+    <view class="create-button" bindtap="goCreate">创建</view>
   </view>
 
   <view wx:if="{{loading}}" class="section card stack">
@@ -31,8 +32,25 @@
   </view>
 
   <view wx:else class="activity-list">
+    <view class="filter-row">
+      <view
+        wx:for="{{filters}}"
+        wx:key="value"
+        class="pm-chip {{activeFilter === item.value ? 'active' : ''}}"
+        data-value="{{item.value}}"
+        bindtap="changeFilter"
+      >
+        {{item.label}}
+      </view>
+    </view>
+
+    <view wx:if="{{displayActivities.length === 0}}" class="card stack">
+      <view class="empty-title">这个状态下暂无活动</view>
+      <view class="empty-desc">切换筛选条件，或创建一个新的活动空间。</view>
+    </view>
+
     <view
-      wx:for="{{activities}}"
+      wx:for="{{displayActivities}}"
       wx:key="activityId"
       class="activity-card"
       data-id="{{item.activityId}}"
@@ -47,10 +65,10 @@
       <view class="activity-info">
         <view class="activity-top">
           <view class="activity-name">{{item.name}}</view>
-          <view class="status-pill">{{item.statusText}}</view>
+          <view class="pm-status {{item.statusClass}}">{{item.statusText}}</view>
         </view>
         <view class="activity-meta">{{item.typeText}} · {{item.locationText}}</view>
-        <view class="activity-meta">{{item.dateText}}</view>
+        <view class="activity-date">{{item.dateText}}</view>
         <view class="activity-footer">
           <text>{{item.memberCount}} 位成员</text>
           <text>{{item.role}}</text>

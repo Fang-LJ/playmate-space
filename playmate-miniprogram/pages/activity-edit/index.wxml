@@ -20,66 +20,91 @@
       <t-button theme="primary" block bind:tap="cancelBack">返回详情</t-button>
     </view>
 
-    <view wx:else class="section card cover-card" bindtap="chooseCover">
-      <image wx:if="{{form.coverUrl}}" class="cover-preview" src="{{form.coverUrl}}" mode="aspectFill" />
-      <view wx:else class="cover-placeholder">
-        <view class="cover-title">上传活动封面</view>
-        <view class="cover-desc">可选，适合放一张旅行或聚会照片</view>
+    <view wx:else class="section card pm-form-card">
+      <view>
+        <view class="section-title">封面</view>
+        <view class="section-desc">已结束活动也可以继续调整封面和描述。</view>
       </view>
-      <view class="cover-action">{{uploading ? '上传中...' : '更换封面'}}</view>
+      <view class="cover-card" bindtap="chooseCover">
+        <image wx:if="{{form.coverUrl}}" class="cover-preview" src="{{form.coverUrl}}" mode="aspectFill" />
+        <view wx:else class="cover-placeholder">
+          <view class="cover-title">上传活动封面</view>
+          <view class="cover-desc">可选，适合放一张旅行或聚会照片</view>
+        </view>
+        <view class="cover-action">{{uploading ? '上传中...' : '更换封面'}}</view>
+      </view>
     </view>
 
-    <view wx:if="{{!isCanceled}}" class="section card form-card">
+    <view wx:if="{{!isCanceled}}" class="section card pm-form-card">
       <block wx:if="{{!isEnded}}">
-        <view class="field">
-          <view class="label">活动名称</view>
-          <input class="input" placeholder="例如：周末杭州两日游" value="{{form.name}}" data-field="name" bindinput="handleInput" />
+        <view>
+          <view class="section-title">基础信息</view>
+          <view class="section-desc">更新后成员会在活动详情里看到最新信息。</view>
         </view>
 
-        <view class="field">
-          <view class="label">活动类型</view>
-          <picker range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="handleTypeChange">
-            <view class="picker-value">{{currentTypeLabel}}</view>
-          </picker>
+        <view class="pm-field">
+          <view class="pm-label">活动名称</view>
+          <input class="pm-input" placeholder="例如：周末杭州两日游" value="{{form.name}}" data-field="name" bindinput="handleInput" />
         </view>
 
-        <view class="field">
-          <view class="label">地点名称</view>
-          <input class="input" placeholder="例如：杭州 / 朋友家 / 公司" value="{{form.locationName}}" data-field="locationName" bindinput="handleInput" />
+        <view class="pm-field">
+          <view class="pm-label">活动类型</view>
+          <view class="type-grid">
+            <view
+              wx:for="{{typeOptions}}"
+              wx:key="value"
+              class="type-chip {{form.type === item.value ? 'active' : ''}}"
+              data-value="{{item.value}}"
+              bindtap="handleTypeTap"
+            >
+              {{item.label}}
+            </view>
+          </view>
         </view>
 
-        <view class="field">
-          <view class="label">详细地址</view>
-          <input class="input" placeholder="可选，不做地图定位" value="{{form.address}}" data-field="address" bindinput="handleInput" />
+        <view class="pm-field">
+          <view class="pm-label">地点名称</view>
+          <input class="pm-input" placeholder="例如：杭州 / 朋友家 / 公司" value="{{form.locationName}}" data-field="locationName" bindinput="handleInput" />
+        </view>
+
+        <view class="pm-field">
+          <view class="pm-label">详细地址</view>
+          <input class="pm-input" placeholder="可选，不做地图定位" value="{{form.address}}" data-field="address" bindinput="handleInput" />
         </view>
 
         <view class="date-row">
-          <view class="field half">
-            <view class="label">开始日期</view>
+          <view class="pm-field half">
+            <view class="pm-label">开始日期</view>
             <picker mode="date" value="{{form.startDate}}" data-field="startDate" bindchange="handleDateChange">
-              <view class="picker-value">{{form.startDate}}</view>
+              <view class="date-box">
+                <view class="date-label">开始</view>
+                <view class="date-value">{{form.startDate}}</view>
+              </view>
             </picker>
           </view>
-          <view class="field half">
-            <view class="label">结束日期</view>
+          <view class="pm-field half">
+            <view class="pm-label">结束日期</view>
             <picker mode="date" value="{{form.endDate}}" data-field="endDate" bindchange="handleDateChange">
-              <view class="picker-value">{{form.endDate}}</view>
+              <view class="date-box">
+                <view class="date-label">结束</view>
+                <view class="date-value">{{form.endDate}}</view>
+              </view>
             </picker>
           </view>
         </view>
       </block>
 
-      <view class="field">
-        <view class="label">活动描述</view>
-        <textarea class="textarea" placeholder="简单写一下这次活动安排" value="{{form.description}}" data-field="description" bindinput="handleInput" maxlength="1000" />
+      <view class="pm-field">
+        <view class="pm-label">活动描述</view>
+        <textarea class="pm-textarea" placeholder="简单写一下这次活动安排" value="{{form.description}}" data-field="description" bindinput="handleInput" maxlength="1000" />
       </view>
     </view>
 
-    <view wx:if="{{!isCanceled}}" class="bottom-bar">
-      <view class="secondary-action">
+    <view wx:if="{{!isCanceled}}" class="pm-bottom-bar">
+      <view class="pm-secondary-action">
         <t-button variant="outline" block bind:tap="cancelBack" disabled="{{submitting || uploading}}">取消</t-button>
       </view>
-      <view class="primary-action">
+      <view class="pm-primary-action">
         <t-button theme="primary" block bind:tap="submitEdit" loading="{{submitting}}" disabled="{{uploading}}">保存</t-button>
       </view>
     </view>

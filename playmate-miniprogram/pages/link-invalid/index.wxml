@@ -1,8 +1,8 @@
 <view class="page invalid-page">
   <view class="invalid-card">
-    <view class="invalid-icon">!</view>
+    <view class="invalid-icon">?</view>
     <view class="invalid-title">链接失效或活动不存在</view>
-    <view class="invalid-desc">这个邀请链接可能已经失效，或者活动已被删除。</view>
+    <view class="invalid-desc">这个邀请链接可能已经失效，或者活动已取消。你可以返回首页查看自己的活动。</view>
     <t-button theme="primary" block bind:tap="goHome">返回首页</t-button>
   </view>
 </view>

@@ -17,10 +17,10 @@
   <block wx:else>
     <view class="section card my-card">
       <view>
-        <view class="card-title">我的活动昵称</view>
+        <view class="section-title">我的活动昵称</view>
         <view class="card-desc">{{myMember.nickname || '玩伴用户'}}</view>
       </view>
-      <t-button size="small" theme="primary" bind:tap="goEditNickname">修改</t-button>
+      <view class="edit-nickname" bindtap="goEditNickname">修改</view>
     </view>
 
     <view wx:if="{{members.length === 0}}" class="section card stack">
@@ -42,18 +42,15 @@
           <view class="member-meta">{{item.roleText}} · {{item.joinedText}}</view>
         </view>
 
-        <t-button
+        <view
           wx:if="{{item.canRemove}}"
-          size="small"
-          theme="danger"
-          variant="outline"
+          class="remove-button"
           data-member-id="{{item.memberId}}"
           data-nickname="{{item.nickname}}"
-          loading="{{removingMemberId === item.memberId}}"
           bind:tap="confirmRemove"
         >
-          移除
-        </t-button>
+          {{removingMemberId === item.memberId ? '移除中' : '移除'}}
+        </view>
       </view>
     </view>
   </block>

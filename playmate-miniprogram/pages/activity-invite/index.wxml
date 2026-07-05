@@ -12,18 +12,19 @@
   </view>
 
   <block wx:else>
-    <view class="hero-card">
-      <image wx:if="{{invite.coverUrl}}" class="hero-cover" src="{{invite.coverUrl}}" mode="aspectFill" />
-      <view wx:else class="hero-cover default-hero"></view>
-      <view class="hero-content">
-        <view class="status-pill">{{invite.statusText}}</view>
+    <view class="invite-card">
+      <image wx:if="{{invite.coverUrl}}" class="invite-cover" src="{{invite.coverUrl}}" mode="aspectFill" />
+      <view wx:else class="invite-cover default-hero"></view>
+      <view class="invite-content">
+        <view class="invite-eyebrow">朋友邀请你加入活动</view>
+        <view class="pm-status {{invite.statusClass}}">{{invite.statusText}}</view>
         <view class="invite-title">{{invite.name}}</view>
         <view class="invite-meta">{{invite.typeText}} · {{invite.dateText}}</view>
       </view>
     </view>
 
-    <view class="section card stack">
-      <view class="section-title">活动邀请</view>
+    <view class="section card invite-info">
+      <view class="section-title">活动信息</view>
       <view class="info-row">
         <view class="info-label">地点</view>
         <view class="info-value">{{invite.locationText}}</view>
@@ -40,7 +41,7 @@
       <view wx:if="{{invite.reason}}" class="reason">{{invite.reason}}</view>
     </view>
 
-    <view class="section action-card">
+    <view class="section action-card card">
       <t-button wx:if="{{invite.joined}}" theme="primary" block bind:tap="goDetail">进入活动</t-button>
       <t-button wx:elif="{{invite.canJoin}}" theme="primary" block loading="{{joining}}" bind:tap="handleJoin">加入活动</t-button>
       <t-button wx:else theme="primary" variant="outline" block bind:tap="goHome">返回首页</t-button>

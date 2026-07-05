@@ -11,68 +11,103 @@
   </view>
 
   <block wx:else>
-    <view class="hero-card">
-      <image wx:if="{{activity.coverUrl}}" class="hero-cover" src="{{activity.coverUrl}}" mode="aspectFill" />
-      <view wx:else class="hero-cover default-hero"></view>
-      <view class="hero-content">
-        <view class="status-pill">{{activity.statusText}}</view>
+    <view class="page-title">活动详情</view>
+
+    <view class="section activity-space-card">
+      <view class="cover-layer">
+        <image wx:if="{{activity.coverUrl}}" class="space-cover" src="{{activity.coverUrl}}" mode="aspectFill" />
+        <view wx:else class="space-cover default-hero"></view>
+      </view>
+      <view class="space-content">
+        <view class="pm-status {{activity.statusClass}}">{{activity.statusText}}</view>
         <view class="activity-name">{{activity.name}}</view>
-        <view class="activity-meta">{{activity.typeText}} · {{activity.dateText}}</view>
+        <view class="activity-meta">{{activity.typeText}} · {{activity.locationText}}</view>
+        <view class="activity-meta">{{activity.dateText}}</view>
+        <view class="activity-desc">{{activity.descriptionText}}</view>
+        <view wx:if="{{!activity.isCanceled}}" class="share-row">
+          <view class="share-button primary" bindtap="copyShareCode">复制分享码</view>
+          <button class="share-button secondary" open-type="share">分享邀请</button>
+        </view>
       </view>
     </view>
 
-    <view class="section card info-card">
-      <view class="info-row">
-        <view class="info-label">地点</view>
-        <view class="info-value">{{activity.locationText}}</view>
+    <view class="section card member-card" bindtap="showTodo" data-name="成员" data-route="members">
+      <view class="section-heading">
+        <view class="section-title">成员</view>
+        <view class="link-text">查看全部</view>
       </view>
-      <view class="info-row">
-        <view class="info-label">地址</view>
-        <view class="info-value">{{activity.addressText}}</view>
+      <view class="member-strip">
+        <view class="member-dot dot-1"></view>
+        <view class="member-dot dot-2"></view>
+        <view class="member-dot dot-3"></view>
+        <view class="member-dot dot-4"></view>
+        <view class="member-count">{{activity.memberCount}} 人参与</view>
       </view>
-      <view class="info-row">
-        <view class="info-label">成员</view>
-        <view class="info-value">{{activity.memberCount}} 位 · {{activity.currentUserRole}}</view>
+    </view>
+
+    <view class="section card summary-card">
+      <view class="summary-row">
+        <view>
+          <view class="summary-label">详细地址</view>
+          <view class="summary-value">{{activity.addressText}}</view>
+        </view>
+        <view>
+          <view class="summary-label">我的角色</view>
+          <view class="summary-value">{{activity.currentUserRole}}</view>
+        </view>
       </view>
-      <view class="info-row">
-        <view class="info-label">分享码</view>
-        <view class="info-value">{{activity.shareCode}}</view>
+    </view>
+
+    <view class="section module-section">
+      <view class="module-title">出发前：成员 / 行程 / 投票</view>
+      <view class="module-row">
+        <view
+          wx:for="{{beforeModules}}"
+          wx:key="name"
+          class="module-card"
+          data-name="{{item.name}}"
+          data-route="{{item.route}}"
+          bindtap="showTodo"
+        >
+          <view class="module-icon {{item.tone}}">{{item.shortName}}</view>
+          <view class="module-name">{{item.name}}</view>
+          <view class="module-desc">{{item.desc}}</view>
+        </view>
       </view>
-      <view class="description">{{activity.descriptionText}}</view>
-      <view wx:if="{{!activity.isCanceled}}" class="share-row">
-        <t-button theme="primary" block open-type="share">分享活动</t-button>
-        <t-button variant="outline" block bind:tap="copyShareCode">复制分享码</t-button>
+    </view>
+
+    <view class="section module-section">
+      <view class="module-title">活动中 / 活动后</view>
+      <view class="module-row">
+        <view
+          wx:for="{{afterModules}}"
+          wx:key="name"
+          class="module-card"
+          data-name="{{item.name}}"
+          data-route="{{item.route}}"
+          bindtap="showTodo"
+        >
+          <view class="module-icon {{item.tone}}">{{item.shortName}}</view>
+          <view class="module-name">{{item.name}}</view>
+          <view class="module-desc">{{item.desc}}</view>
+        </view>
       </view>
     </view>
 
     <view wx:if="{{activity.isCreator && !activity.isCanceled}}" class="section card action-card">
-      <view class="action-title">创建者操作</view>
+      <view class="section-title">创建者操作</view>
       <view wx:if="{{activity.isPlanning}}" class="action-row">
-        <t-button theme="primary" block bind:tap="goEdit">编辑活动</t-button>
-        <t-button variant="outline" block bind:tap="confirmEnd">结束活动</t-button>
-        <t-button theme="danger" variant="outline" block bind:tap="confirmCancel">取消活动</t-button>
+        <view class="action-button primary" bindtap="goEdit">编辑活动</view>
+        <view class="action-button ghost" bindtap="confirmEnd">结束活动</view>
+        <view class="action-button danger" bindtap="confirmCancel">取消活动</view>
       </view>
       <view wx:elif="{{activity.isEnded}}" class="action-row">
-        <t-button theme="primary" block bind:tap="goEdit">编辑活动</t-button>
+        <view class="action-button primary" bindtap="goEdit">编辑活动</view>
       </view>
     </view>
 
     <view wx:if="{{activity.isCanceled}}" class="section canceled-note">
       活动已取消，当前仅可查看历史信息。
-    </view>
-
-    <view class="section module-grid">
-      <view
-        wx:for="{{modules}}"
-        wx:key="name"
-        class="module-card"
-        data-name="{{item.name}}"
-        data-route="{{item.route}}"
-        bindtap="showTodo"
-      >
-        <view class="module-name">{{item.name}}</view>
-        <view class="module-desc">{{item.desc}}</view>
-      </view>
     </view>
   </block>
 </view>
