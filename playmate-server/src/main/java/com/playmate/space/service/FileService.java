@@ -25,6 +25,7 @@ import java.util.UUID;
 public class FileService {
 
     private static final String FILE_TYPE_ACTIVITY_COVER = "ACTIVITY_COVER";
+    private static final String FILE_TYPE_USER_AVATAR = "USER_AVATAR";
     private static final String FILE_STATUS_NORMAL = "NORMAL";
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
@@ -54,7 +55,7 @@ public class FileService {
 
         String contentType = resolveContentType(file);
         String extension = resolveExtension(file.getOriginalFilename(), contentType);
-        String objectKey = generateObjectKey(userId, extension);
+        String objectKey = generateObjectKey(fileType, userId, extension);
 
         FileStorageService.StoredFile storedFile;
         try {
@@ -75,8 +76,8 @@ public class FileService {
     }
 
     private void validateFileType(String fileType) {
-        if (!FILE_TYPE_ACTIVITY_COVER.equals(fileType)) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "fileType 只支持 ACTIVITY_COVER");
+        if (!FILE_TYPE_ACTIVITY_COVER.equals(fileType) && !FILE_TYPE_USER_AVATAR.equals(fileType)) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "fileType 只支持 ACTIVITY_COVER 或 USER_AVATAR");
         }
     }
 
@@ -118,8 +119,9 @@ public class FileService {
         };
     }
 
-    private String generateObjectKey(Long userId, String extension) {
-        return "files/" + LocalDate.now().format(DATE_FORMATTER)
+    private String generateObjectKey(String fileType, Long userId, String extension) {
+        String prefix = FILE_TYPE_USER_AVATAR.equals(fileType) ? "avatars" : "files";
+        return prefix + "/" + LocalDate.now().format(DATE_FORMATTER)
                 + "/" + userId
                 + "/" + UUID.randomUUID()
                 + "." + extension;

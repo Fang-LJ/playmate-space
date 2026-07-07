@@ -30,6 +30,7 @@ node --check services/activity.js
 node --check services/file.js
 node --check services/invite.js
 node --check services/member.js
+node --check services/user.js
 node --check pages/activity-list/index.js
 node --check pages/activity-create/index.js
 node --check pages/activity-detail/index.js
@@ -38,6 +39,7 @@ node --check pages/activity-invite/index.js
 node --check pages/link-invalid/index.js
 node --check pages/member-list/index.js
 node --check pages/member-nickname-edit/index.js
+node --check pages/profile-edit/index.js
 node --check pages/login/index.js
 ```
 
@@ -81,6 +83,8 @@ apiBaseUrl: 'http://127.0.0.1:8080'
 - 成员列表
 - 活动内昵称修改
 - 移除成员
+- 个人资料编辑页
+- 用户头像上传
 - P0 页面 UI 对齐第一轮：活动列表、创建/编辑活动、活动详情、活动邀请、登录、我的、成员和链接失效页
 
 未实现：
@@ -108,6 +112,19 @@ apiBaseUrl: 'http://127.0.0.1:8080'
 - `GET /api/users/me`
 
 本地开发阶段使用 `mockOpenid`，首次登录会生成并缓存一个 mock openid。登录成功后 token 会写入本地 storage，刷新小程序后「我的」页会继续通过 token 请求当前用户信息。
+
+## 个人资料编辑验证
+
+1. 先完成登录。
+2. 进入「我的」Tab。
+3. 点击「编辑资料」。
+4. 点击头像区域的「更换」，选择图片。
+5. 小程序会通过 `wx.uploadFile` 调用 `POST /api/files/upload`，`formData.fileType` 为 `USER_AVATAR`。
+6. 修改昵称和联系电话。
+7. 点击「保存」，小程序会调用 `PUT /api/users/me`。
+8. 保存成功后返回「我的」页，应展示新的头像、昵称和联系电话。
+
+说明：联系电话在 P0.5 只作为个人资料字段，不作为登录凭证，不做短信验证码。
 
 ## 封面上传验证
 

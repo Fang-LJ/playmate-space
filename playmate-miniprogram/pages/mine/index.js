@@ -1,4 +1,5 @@
-const { getCurrentUser, logout, isLoggedIn } = require('../../services/auth');
+const { logout, isLoggedIn } = require('../../services/auth');
+const { getCurrentUser } = require('../../services/user');
 
 Page({
   data: {
@@ -21,7 +22,7 @@ Page({
     try {
       const user = await getCurrentUser();
       this.setData({
-        user,
+        user: this.normalizeUser(user),
         isLoggedIn: true
       });
     } catch (error) {
@@ -59,12 +60,32 @@ Page({
     });
   },
 
-  showAbout() {
-    wx.showModal({
-      title: '关于玩伴空间',
-      content: '玩伴空间用于朋友聚会、旅行和团建活动协作。第一版已支持创建活动、邀请加入和成员管理。',
-      showCancel: false,
-      confirmText: '知道了'
+  goCreateActivity() {
+    wx.navigateTo({
+      url: '/pages/activity-create/index'
     });
+  },
+
+  goProfileEdit() {
+    wx.navigateTo({
+      url: '/pages/profile-edit/index'
+    });
+  },
+
+  handleProfileCardTap() {
+    if (this.data.isLoggedIn) {
+      this.goProfileEdit();
+      return;
+    }
+    this.goLogin();
+  },
+
+  normalizeUser(user) {
+    return {
+      ...user,
+      nickname: user.nickname || '玩伴用户',
+      phoneText: user.phone || '未填写',
+      statusText: user.status === 'DISABLED' ? '已禁用' : '正常'
+    };
   }
 });

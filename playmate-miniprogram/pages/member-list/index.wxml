@@ -10,8 +10,8 @@
   <view wx:elif="{{errorMessage}}" class="section card stack">
     <view class="empty-title">无法查看成员</view>
     <view class="empty-desc">{{errorMessage}}</view>
-    <t-button theme="primary" block bind:tap="retryLoad">重新加载</t-button>
-    <t-button variant="outline" block bind:tap="goActivityList">返回活动列表</t-button>
+    <button class="pm-native-button primary" bindtap="retryLoad">重新加载</button>
+    <button class="pm-native-button secondary" bindtap="goActivityList">返回活动列表</button>
   </view>
 
   <block wx:else>

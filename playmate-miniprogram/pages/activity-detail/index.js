@@ -18,6 +18,11 @@ const STATUS_LABELS = {
   CANCELED: '已取消'
 };
 
+const ROLE_LABELS = {
+  CREATOR: '创建者',
+  MEMBER: '成员'
+};
+
 Page({
   data: {
     loading: true,
@@ -25,14 +30,14 @@ Page({
     activity: null,
     errorMessage: '',
     beforeModules: [
-      { name: '成员', shortName: '成', desc: '查看成员', route: 'members', tone: 'warm' },
-      { name: '行程', shortName: '行', desc: '暂未开放', tone: 'green' },
-      { name: '投票', shortName: '投', desc: '暂未开放', tone: 'yellow' }
+      { name: '成员', shortName: '成', desc: '查看成员', route: 'members', tone: 'green', enabled: true },
+      { name: '行程', shortName: '行', desc: '暂未开放', tone: 'gray', enabled: false },
+      { name: '投票', shortName: '投', desc: '暂未开放', tone: 'yellow', enabled: false }
     ],
     afterModules: [
-      { name: '账本', shortName: '账', desc: '暂未开放', tone: 'warm' },
-      { name: 'AA 结算', shortName: 'A', desc: '暂未开放', tone: 'green' },
-      { name: '照片墙', shortName: '照', desc: '暂未开放', tone: 'gray' }
+      { name: '账本', shortName: '账', desc: '暂未开放', tone: 'warm', enabled: false },
+      { name: 'AA 结算', shortName: 'A', desc: '暂未开放', tone: 'gray', enabled: false },
+      { name: '照片墙', shortName: '照', desc: '暂未开放', tone: 'gray', enabled: false }
     ]
   },
 
@@ -88,6 +93,7 @@ Page({
       locationText: activity.locationName || '地点待定',
       addressText: activity.address || '暂无详细地址',
       descriptionText: activity.description || '还没有活动描述',
+      currentUserRoleText: ROLE_LABELS[activity.currentUserRole] || activity.currentUserRole || '成员',
       isCreator: activity.currentUserRole === 'CREATOR',
       isPlanning: activity.status === 'PLANNING',
       isEnded: activity.status === 'ENDED',

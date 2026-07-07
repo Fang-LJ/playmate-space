@@ -7,7 +7,7 @@
   <view wx:elif="{{errorMessage}}" class="section card stack">
     <view class="empty-title">加载失败</view>
     <view class="empty-desc">{{errorMessage}}</view>
-    <t-button theme="primary" block bind:tap="retryLoad">重新加载</t-button>
+    <button class="pm-native-button primary" bindtap="retryLoad">重新加载</button>
   </view>
 
   <block wx:else>
@@ -17,7 +17,7 @@
     <view wx:if="{{isCanceled}}" class="section card stack">
       <view class="empty-title">已取消活动不可编辑</view>
       <view class="empty-desc">当前活动已经取消，只能查看历史信息，不能再修改活动内容。</view>
-      <t-button theme="primary" block bind:tap="cancelBack">返回详情</t-button>
+      <button class="pm-native-button primary" bindtap="cancelBack">返回详情</button>
     </view>
 
     <view wx:else class="section card pm-form-card">
@@ -102,10 +102,10 @@
 
     <view wx:if="{{!isCanceled}}" class="pm-bottom-bar">
       <view class="pm-secondary-action">
-        <t-button variant="outline" block bind:tap="cancelBack" disabled="{{submitting || uploading}}">取消</t-button>
+        <button class="pm-native-button secondary" bindtap="cancelBack" disabled="{{submitting || uploading}}">取消</button>
       </view>
       <view class="pm-primary-action">
-        <t-button theme="primary" block bind:tap="submitEdit" loading="{{submitting}}" disabled="{{uploading}}">保存</t-button>
+        <button class="pm-native-button primary" bindtap="submitEdit" loading="{{submitting}}" disabled="{{uploading}}">{{submitting ? '保存中...' : '保存'}}</button>
       </view>
     </view>
   </block>

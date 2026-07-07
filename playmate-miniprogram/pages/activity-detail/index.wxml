@@ -7,7 +7,7 @@
   <view wx:elif="{{errorMessage}}" class="section card stack">
     <view class="empty-title">加载失败</view>
     <view class="empty-desc">{{errorMessage}}</view>
-    <t-button theme="primary" block bind:tap="retryLoad">重新加载</t-button>
+    <button class="pm-native-button primary" bindtap="retryLoad">重新加载</button>
   </view>
 
   <block wx:else>
@@ -25,8 +25,8 @@
         <view class="activity-meta">{{activity.dateText}}</view>
         <view class="activity-desc">{{activity.descriptionText}}</view>
         <view wx:if="{{!activity.isCanceled}}" class="share-row">
-          <view class="share-button primary" bindtap="copyShareCode">复制分享码</view>
-          <button class="share-button secondary" open-type="share">分享邀请</button>
+          <view class="pm-button-like primary share-button" bindtap="copyShareCode">复制分享码</view>
+          <button class="pm-button-like secondary share-button secondary" open-type="share">分享邀请</button>
         </view>
       </view>
     </view>
@@ -53,7 +53,7 @@
         </view>
         <view>
           <view class="summary-label">我的角色</view>
-          <view class="summary-value">{{activity.currentUserRole}}</view>
+          <view class="summary-value">{{activity.currentUserRoleText}}</view>
         </view>
       </view>
     </view>
@@ -64,7 +64,7 @@
         <view
           wx:for="{{beforeModules}}"
           wx:key="name"
-          class="module-card"
+          class="module-card {{item.enabled ? 'open' : 'disabled'}}"
           data-name="{{item.name}}"
           data-route="{{item.route}}"
           bindtap="showTodo"
@@ -82,7 +82,7 @@
         <view
           wx:for="{{afterModules}}"
           wx:key="name"
-          class="module-card"
+          class="module-card {{item.enabled ? 'open' : 'disabled'}}"
           data-name="{{item.name}}"
           data-route="{{item.route}}"
           bindtap="showTodo"
@@ -97,12 +97,12 @@
     <view wx:if="{{activity.isCreator && !activity.isCanceled}}" class="section card action-card">
       <view class="section-title">创建者操作</view>
       <view wx:if="{{activity.isPlanning}}" class="action-row">
-        <view class="action-button primary" bindtap="goEdit">编辑活动</view>
-        <view class="action-button ghost" bindtap="confirmEnd">结束活动</view>
-        <view class="action-button danger" bindtap="confirmCancel">取消活动</view>
+        <view class="pm-button-like primary action-button" bindtap="goEdit">编辑活动</view>
+        <view class="pm-button-like secondary action-button" bindtap="confirmEnd">结束活动</view>
+        <view class="pm-button-like danger action-button" bindtap="confirmCancel">取消活动</view>
       </view>
       <view wx:elif="{{activity.isEnded}}" class="action-row">
-        <view class="action-button primary" bindtap="goEdit">编辑活动</view>
+        <view class="pm-button-like primary action-button" bindtap="goEdit">编辑活动</view>
       </view>
     </view>
 

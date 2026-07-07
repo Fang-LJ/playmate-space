@@ -1,44 +1,54 @@
-<view class="page">
+<view class="page mine-page">
   <view class="page-title">我的</view>
-  <view class="page-subtitle">{{isLoggedIn ? '管理你的活动和个人状态。' : '登录后可创建活动、加入朋友的活动空间。'}}</view>
+  <view class="page-subtitle">{{isLoggedIn ? '管理你的活动和个人状态。' : '登录后管理你的活动空间。'}}</view>
 
-  <view class="section card profile-card">
-    <image wx:if="{{isLoggedIn && user.avatarUrl}}" class="avatar-image" src="{{user.avatarUrl}}" mode="aspectFill" />
-    <view wx:else class="avatar-placeholder">{{isLoggedIn ? '玩' : '未'}}</view>
-    <view class="profile-info">
-      <view class="profile-name">{{isLoggedIn ? user.nickname : '暂未登录'}}</view>
-      <view class="profile-subtitle">{{isLoggedIn ? '已登录，可以继续管理活动' : '登录后同步你的活动空间'}}</view>
-      <view wx:if="{{isLoggedIn}}" class="status-tag">状态：{{user.status || 'ACTIVE'}}</view>
+  <view class="section card user-card" bindtap="handleProfileCardTap">
+    <image wx:if="{{isLoggedIn && user.avatarUrl}}" class="user-avatar" src="{{user.avatarUrl}}" mode="aspectFill" />
+    <view wx:else class="user-avatar user-avatar-placeholder">{{isLoggedIn ? '玩' : '未'}}</view>
+    <view class="user-main">
+      <view class="user-name">{{isLoggedIn ? user.nickname : '暂未登录'}}</view>
+      <view class="user-desc">{{isLoggedIn ? '状态：已登录' : '登录后管理你的活动空间'}}</view>
+      <view wx:if="{{isLoggedIn && user.phone}}" class="user-phone">联系电话：{{user.phone}}</view>
     </view>
+    <view class="user-action">{{isLoggedIn ? '编辑' : '登录'}}</view>
   </view>
 
-  <view class="section card menu-card">
-    <view wx:if="{{isLoggedIn}}" class="menu-item" bindtap="goActivities">
+  <block wx:if="{{isLoggedIn}}">
+    <view class="section card mine-action-card" bindtap="goActivities">
       <view>
-        <view class="menu-title">我的活动</view>
-        <view class="menu-desc">查看我创建和加入的活动</view>
+        <view class="action-title">我的活动</view>
+        <view class="action-desc">查看我创建和加入的活动</view>
       </view>
-      <view class="menu-arrow">›</view>
+      <view class="action-arrow">›</view>
     </view>
-    <view wx:else class="menu-item" bindtap="goLogin">
-      <view>
-        <view class="menu-title">登录玩伴空间</view>
-        <view class="menu-desc">创建活动，或加入朋友分享的活动</view>
-      </view>
-      <view class="menu-arrow">›</view>
-    </view>
-    <view class="menu-item" bindtap="showAbout">
-      <view>
-        <view class="menu-title">关于玩伴空间</view>
-        <view class="menu-desc">朋友聚会和旅行活动协作工具</view>
-      </view>
-      <view class="menu-arrow">›</view>
-    </view>
-  </view>
 
-  <view class="section action-area">
-    <t-button wx:if="{{isLoggedIn}}" variant="outline" block bind:tap="loadCurrentUser" loading="{{loading}}">刷新用户信息</t-button>
-    <t-button wx:if="{{isLoggedIn}}" variant="text" block bind:tap="clearLogin">退出登录</t-button>
-    <t-button wx:else theme="primary" block bind:tap="goLogin">去登录</t-button>
-  </view>
+    <view class="section card mine-action-card" bindtap="goCreateActivity">
+      <view>
+        <view class="action-title">创建活动</view>
+        <view class="action-desc">快速发起一次聚会或旅行</view>
+      </view>
+      <view class="action-arrow">›</view>
+    </view>
+
+    <view class="section card version-card">
+      <view class="action-title">版本信息</view>
+      <view class="action-desc">玩伴空间 v1.0</view>
+    </view>
+
+    <view class="section logout-area">
+      <button class="pm-native-button secondary logout-button" bindtap="clearLogin">退出登录</button>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="section card guest-card">
+      <view class="action-title">活动协作空间</view>
+      <view class="action-desc">登录后可以创建活动、分享邀请、管理成员</view>
+    </view>
+
+    <view class="section login-actions">
+      <button class="pm-native-button primary" bindtap="goLogin">微信授权登录</button>
+      <button class="pm-native-button text" bindtap="goActivities">暂不登录</button>
+    </view>
+  </block>
 </view>

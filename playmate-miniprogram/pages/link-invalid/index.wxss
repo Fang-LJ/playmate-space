@@ -9,10 +9,6 @@
   width: 100%;
   box-sizing: border-box;
   padding: 50rpx 36rpx;
-  border: 1rpx solid var(--pm-border);
-  border-radius: 34rpx;
-  background: var(--pm-card);
-  box-shadow: var(--pm-shadow-card);
   text-align: center;
 }
 
@@ -23,8 +19,8 @@
   width: 96rpx;
   height: 96rpx;
   border-radius: 50%;
-  background: var(--pm-primary-light);
-  color: var(--pm-primary-dark);
+  background: var(--pm-warning-soft);
+  color: #8a6500;
   font-size: 52rpx;
   font-weight: 800;
 }

@@ -1,0 +1,44 @@
+<view class="page profile-page">
+  <view class="page-title">编辑资料</view>
+  <view class="page-subtitle">完善你的头像、昵称和联系电话，方便朋友在活动里识别你。</view>
+
+  <view wx:if="{{loading}}" class="section card stack">
+    <view class="empty-title">正在加载资料</view>
+    <view class="empty-desc">稍等一下，正在同步你的个人信息。</view>
+  </view>
+
+  <block wx:else>
+    <view class="section pm-hero-card avatar-card">
+      <view class="avatar-frame">
+        <image wx:if="{{form.avatarUrl}}" class="avatar-preview" src="{{form.avatarUrl}}" mode="aspectFill" />
+        <view wx:else class="avatar-placeholder">玩</view>
+      </view>
+      <view class="avatar-info">
+        <view class="section-title">个人头像</view>
+        <view class="section-desc">建议使用清晰头像，活动成员更容易认出你。</view>
+        <view class="avatar-action" bindtap="chooseAvatar">{{uploading ? '上传中...' : '更换头像'}}</view>
+      </view>
+    </view>
+
+    <view class="section card pm-form-card">
+      <view class="pm-field">
+        <view class="pm-label">昵称</view>
+        <input class="pm-input" maxlength="64" placeholder="请输入昵称" value="{{form.nickname}}" data-field="nickname" bindinput="handleInput" />
+      </view>
+      <view class="pm-field">
+        <view class="pm-label">联系电话</view>
+        <input class="pm-input" maxlength="32" placeholder="可选，例如手机号或微信号" value="{{form.phone}}" data-field="phone" bindinput="handleInput" />
+        <view class="field-hint">仅用于活动成员之间联系，不作为登录凭证。</view>
+      </view>
+    </view>
+  </block>
+
+  <view class="pm-bottom-bar fixed-bottom">
+    <view class="pm-secondary-action">
+      <button class="pm-native-button secondary" bindtap="cancelBack" disabled="{{submitting || uploading}}">取消</button>
+    </view>
+    <view class="pm-primary-action">
+      <button class="pm-native-button primary" loading="{{submitting}}" disabled="{{loading || uploading}}" bindtap="submitProfile">{{submitting ? '保存中...' : '保存'}}</button>
+    </view>
+  </view>
+</view>

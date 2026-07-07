@@ -15,10 +15,10 @@
 
   <view class="pm-bottom-bar fixed-bottom">
     <view class="pm-secondary-action">
-      <t-button variant="outline" block bind:tap="cancelBack" disabled="{{submitting}}">取消</t-button>
+      <button class="pm-native-button secondary" bindtap="cancelBack" disabled="{{submitting}}">取消</button>
     </view>
     <view class="pm-primary-action">
-      <t-button theme="primary" block loading="{{submitting}}" bind:tap="submitNickname">保存</t-button>
+      <button class="pm-native-button primary" loading="{{submitting}}" bindtap="submitNickname">{{submitting ? '保存中...' : '保存'}}</button>
     </view>
   </view>
 </view>

@@ -141,15 +141,55 @@ curl -X POST http://127.0.0.1:8080/api/files/upload \
   -F "file=@/path/to/test.png"
 ```
 
+上传用户头像：
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/files/upload \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "fileType=USER_AVATAR" \
+  -F "file=@/path/to/avatar.png"
+```
+
 P0 上传规则：
 
 - 接口路径：`POST /api/files/upload`
 - 需要登录，不在拦截器放行列表中
-- `fileType` 只支持 `ACTIVITY_COVER`
+- `fileType` 支持 `ACTIVITY_COVER` 和 `USER_AVATAR`
 - 支持 `jpg`、`jpeg`、`png`、`webp`
 - 单文件最大 `5MB`
 - 上传成功后写入 `t_file`，并上传对象到 MinIO `playmate-files` bucket
 - 本地 Docker 初始化会将 `playmate-files` 设置为可下载，方便小程序预览上传后的图片
+
+## 验证当前用户资料
+
+查询当前用户：
+
+```bash
+curl http://127.0.0.1:8080/api/users/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+更新当前用户资料：
+
+```bash
+curl -X PUT http://127.0.0.1:8080/api/users/me \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nickname": "本地用户",
+    "phone": "13800000000",
+    "avatarUrl": "http://127.0.0.1:19000/playmate-files/avatars/demo.png"
+  }'
+```
+
+P0.5 用户资料规则：
+
+- 需要登录。
+- 只能修改当前登录用户自己的资料。
+- 可修改字段：`nickname`、`avatarUrl`、`phone`。
+- `phone` 只作为联系电话 / 个人资料字段，不作为登录凭证。
+- 不能修改 `openid`、`status`、`id`、`createTime`。
+- 响应不返回 `openid`。
 
 ## 验证活动接口
 

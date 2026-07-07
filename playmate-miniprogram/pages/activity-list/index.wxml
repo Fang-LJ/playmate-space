@@ -16,19 +16,19 @@
   <view wx:elif="{{!isLoggedIn}}" class="section card stack">
     <view class="empty-title">先登录再创建活动</view>
     <view class="empty-desc">登录后可以创建活动、查看自己加入的活动。</view>
-    <t-button theme="primary" block bind:tap="goLogin">去登录</t-button>
+    <button class="pm-native-button primary" bindtap="goLogin">去登录</button>
   </view>
 
   <view wx:elif="{{errorMessage}}" class="section card stack">
     <view class="empty-title">加载失败</view>
     <view class="empty-desc">{{errorMessage}}</view>
-    <t-button theme="primary" block bind:tap="retryLoad">重新加载</t-button>
+    <button class="pm-native-button primary" bindtap="retryLoad">重新加载</button>
   </view>
 
   <view wx:elif="{{loaded && activities.length === 0}}" class="section card stack">
     <view class="empty-title">还没有活动</view>
     <view class="empty-desc">创建一个活动空间，和朋友一起规划行程、账本和照片。</view>
-    <t-button theme="primary" block bind:tap="goCreate">创建活动</t-button>
+    <button class="pm-native-button primary" bindtap="goCreate">创建活动</button>
   </view>
 
   <view wx:else class="activity-list">
@@ -70,8 +70,8 @@
         <view class="activity-meta">{{item.typeText}} · {{item.locationText}}</view>
         <view class="activity-date">{{item.dateText}}</view>
         <view class="activity-footer">
-          <text>{{item.memberCount}} 位成员</text>
-          <text>{{item.role}}</text>
+          <view class="member-pill">{{item.memberCount}} 位成员</view>
+          <view class="role-pill">{{item.roleText}}</view>
         </view>
       </view>
     </view>

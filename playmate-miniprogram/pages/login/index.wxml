@@ -1,17 +1,19 @@
-<view class="page">
-  <view class="login-hero">
-    <view class="brand-mark">玩</view>
-    <view class="page-title">登录玩伴空间</view>
-    <view class="page-subtitle">创建活动、加入朋友的活动空间，一起规划聚会和出行。</view>
+<view class="page login-page">
+  <view class="login-header">
+    <view class="logo-placeholder">玩</view>
+    <view class="product-name">玩伴空间</view>
+    <view class="product-desc">创建活动、邀请好友、一起规划、记录 AA、上传照片</view>
   </view>
 
-  <view class="section card stack">
-    <view class="login-illustration">
-      <view class="illustration-title">一起出发</view>
-      <view class="illustration-desc">把时间、成员和活动安排放进同一个空间</view>
-    </view>
-    <view class="login-copy">授权后即可查看你的活动，也可以通过好友分享加入活动。</view>
-    <t-button theme="primary" block loading="{{loading}}" bind:tap="handleLogin">微信授权登录</t-button>
-    <t-button variant="text" block bind:tap="goBack">暂不登录</t-button>
+  <view class="section card login-card">
+    <view class="card-title">活动协作空间</view>
+    <view class="card-desc">围绕一次活动集中处理成员、行程、投票、账本和照片</view>
   </view>
+
+  <view class="section login-actions">
+    <button class="pm-native-button primary" loading="{{loading}}" bindtap="handleLogin">{{loading ? '登录中...' : '微信一键登录'}}</button>
+    <button class="pm-native-button text" bindtap="goBack">暂不登录</button>
+  </view>
+
+  <view class="dev-note">本地开发环境使用模拟微信登录</view>
 </view>

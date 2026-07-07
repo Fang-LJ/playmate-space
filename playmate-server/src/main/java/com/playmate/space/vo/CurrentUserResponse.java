@@ -7,7 +7,9 @@ public class CurrentUserResponse {
     private Long userId;
     private String nickname;
     private String avatarUrl;
+    private String phone;
     private String status;
+    private LocalDateTime createTime;
     private LocalDateTime lastLoginTime;
 
     public Long getUserId() {
@@ -34,12 +36,28 @@ public class CurrentUserResponse {
         this.avatarUrl = avatarUrl;
     }
 
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
+    }
+
     public String getStatus() {
         return status;
     }
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public LocalDateTime getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(LocalDateTime createTime) {
+        this.createTime = createTime;
     }
 
     public LocalDateTime getLastLoginTime() {

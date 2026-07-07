@@ -22,7 +22,7 @@
   justify-content: center;
   box-sizing: border-box;
   margin-top: 6rpx;
-  border-radius: 18rpx;
+  border-radius: var(--pm-radius-button);
   background: var(--pm-primary);
   color: #ffffff;
   font-size: 26rpx;
@@ -63,6 +63,7 @@
   border: 1rpx solid var(--pm-border);
   border-radius: var(--pm-radius-card);
   box-shadow: var(--pm-shadow-card);
+  transition: transform 0.15s ease;
 }
 
 .activity-cover {
@@ -138,9 +139,30 @@
 
 .activity-footer {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 14rpx;
   margin-top: 18rpx;
-  color: var(--pm-primary);
+}
+
+.member-pill,
+.role-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42rpx;
+  box-sizing: border-box;
+  padding: 0 14rpx;
+  border-radius: 999rpx;
   font-size: 24rpx;
   font-weight: 700;
+}
+
+.member-pill {
+  background: var(--pm-primary-light);
+  color: var(--pm-primary-dark);
+}
+
+.role-pill {
+  background: var(--pm-warning-soft);
+  color: #8a6500;
 }

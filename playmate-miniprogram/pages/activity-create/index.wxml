@@ -91,10 +91,10 @@
 
   <view class="pm-bottom-bar">
     <view class="pm-secondary-action">
-      <t-button variant="outline" block bind:tap="cancelBack" disabled="{{submitting || uploading}}">取消</t-button>
+      <button class="pm-native-button secondary" bindtap="cancelBack" disabled="{{submitting || uploading}}">取消</button>
     </view>
     <view class="pm-primary-action">
-      <t-button theme="primary" block bind:tap="submitActivity" loading="{{submitting}}" disabled="{{uploading}}">创建活动</t-button>
+      <button class="pm-native-button primary" bindtap="submitActivity" loading="{{submitting}}" disabled="{{uploading}}">{{submitting ? '创建中...' : '创建活动'}}</button>
     </view>
   </view>
 </view>

@@ -19,6 +19,11 @@ const STATUS_LABELS = {
   CANCELED: '已取消'
 };
 
+const ROLE_LABELS = {
+  CREATOR: '我创建的',
+  MEMBER: '我加入的'
+};
+
 Page({
   data: {
     loading: false,
@@ -91,7 +96,8 @@ Page({
       statusText: STATUS_LABELS[activity.status] || activity.status || '未知',
       statusClass: this.resolveStatusClass(activity.status),
       dateText,
-      locationText: activity.locationName || '地点待定'
+      locationText: activity.locationName || '地点待定',
+      roleText: ROLE_LABELS[activity.role] || activity.role || '成员'
     };
   },
 

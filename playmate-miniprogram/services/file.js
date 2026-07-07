@@ -30,7 +30,7 @@ function chooseImage() {
   });
 }
 
-function uploadActivityCover(filePath) {
+function uploadImage(filePath, fileType) {
   const token = getToken();
   if (!token) {
     return Promise.reject(createUploadError('请先登录', 'UNAUTHORIZED'));
@@ -45,7 +45,7 @@ function uploadActivityCover(filePath) {
         Authorization: `Bearer ${token}`
       },
       formData: {
-        fileType: 'ACTIVITY_COVER'
+        fileType
       },
       success(res) {
         let body;
@@ -81,7 +81,16 @@ function uploadActivityCover(filePath) {
   });
 }
 
+function uploadActivityCover(filePath) {
+  return uploadImage(filePath, 'ACTIVITY_COVER');
+}
+
+function uploadUserAvatar(filePath) {
+  return uploadImage(filePath, 'USER_AVATAR');
+}
+
 module.exports = {
   chooseImage,
-  uploadActivityCover
+  uploadActivityCover,
+  uploadUserAvatar
 };
