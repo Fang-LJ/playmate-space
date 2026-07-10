@@ -12,11 +12,30 @@ Page({
   data: {
     loading: false,
     user: null,
-    isLoggedIn: false
+    isLoggedIn: false,
+    showWechatProfileSuggestion: false,
+    safeTop: 160
+  },
+
+  onLoad() {
+    this.setData({ safeTop: this.getSafeTop() });
   },
 
   onShow() {
     this.loadCurrentUser();
+  },
+
+  getSafeTop() {
+    try {
+      const windowInfo = wx.getWindowInfo();
+      const menuButton = wx.getMenuButtonBoundingClientRect();
+      const menuBottom = menuButton && menuButton.bottom ? menuButton.bottom : 0;
+      const statusBarHeight = windowInfo.statusBarHeight || 0;
+      const topInPx = Math.max(80, menuBottom + 20, statusBarHeight + 56);
+      return Math.round(topInPx * 750 / windowInfo.windowWidth);
+    } catch (error) {
+      return 160;
+    }
   },
 
   async loadCurrentUser() {
@@ -51,9 +70,10 @@ Page({
     });
   },
 
-  goLogin() {
+  goLogin(redirect = '') {
+    const target = typeof redirect === 'string' ? redirect : '';
     wx.navigateTo({
-      url: '/pages/login/index'
+      url: `/pages/login/index?redirect=${encodeURIComponent(target)}`
     });
   },
 
@@ -81,12 +101,20 @@ Page({
   },
 
   goActivities() {
+    if (!this.data.isLoggedIn) {
+      this.goLogin('/pages/activity-list/index');
+      return;
+    }
     wx.switchTab({
       url: '/pages/activity-list/index'
     });
   },
 
   goCreateActivity() {
+    if (!this.data.isLoggedIn) {
+      this.goLogin('/pages/activity-create/index');
+      return;
+    }
     wx.navigateTo({
       url: '/pages/activity-create/index'
     });

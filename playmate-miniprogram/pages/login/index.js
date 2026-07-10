@@ -5,14 +5,39 @@ Page({
   data: {
     loading: false,
     redirect: '',
-    mockUserLabel: ''
+    mockUserLabel: '',
+    showDevNote: false,
+    safeTop: 160
   },
 
   onLoad(options) {
     this.setData({
       redirect: options.redirect ? decodeURIComponent(options.redirect) : '',
-      mockUserLabel: getCurrentMockUser().nickname
+      mockUserLabel: getCurrentMockUser().nickname,
+      showDevNote: this.isDevelopmentEnvironment(),
+      safeTop: this.getSafeTop()
     });
+  },
+
+  getSafeTop() {
+    try {
+      const windowInfo = wx.getWindowInfo();
+      const menuButton = wx.getMenuButtonBoundingClientRect();
+      const menuBottom = menuButton && menuButton.bottom ? menuButton.bottom : 0;
+      const statusBarHeight = windowInfo.statusBarHeight || 0;
+      const topInPx = Math.max(80, menuBottom + 20, statusBarHeight + 56);
+      return Math.round(topInPx * 750 / windowInfo.windowWidth);
+    } catch (error) {
+      return 160;
+    }
+  },
+
+  isDevelopmentEnvironment() {
+    try {
+      return wx.getAccountInfoSync().miniProgram.envVersion === 'develop';
+    } catch (error) {
+      return false;
+    }
   },
 
   async handleWxLogin() {

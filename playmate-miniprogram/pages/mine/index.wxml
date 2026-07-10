@@ -1,74 +1,81 @@
-<view class="page mine-page">
-  <view class="page-title">我的</view>
-  <view class="page-subtitle">{{isLoggedIn ? '管理你的活动和个人状态。' : '登录后管理你的活动空间。'}}</view>
-
-  <view class="section card user-card" bindtap="handleProfileCardTap">
-    <image wx:if="{{isLoggedIn && user.avatarUrl}}" class="user-avatar" src="{{user.avatarUrl}}" mode="aspectFill" />
-    <view wx:else class="user-avatar user-avatar-placeholder">{{isLoggedIn ? '玩' : '未'}}</view>
+<view class="page mine-page" style="--mine-safe-top: {{safeTop}}rpx;">
+  <view class="mine-content">
+    <view class="user-card" bindtap="handleProfileCardTap">
+      <image wx:if="{{isLoggedIn && user.avatarUrl}}" class="user-avatar" src="{{user.avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="user-avatar user-avatar-placeholder">{{isLoggedIn ? '玩' : '未'}}</view>
       <view class="user-main">
-        <view class="user-name">{{isLoggedIn ? user.nickname : '暂未登录'}}</view>
-        <view class="user-desc">{{isLoggedIn ? '状态：已登录' : '登录后管理你的活动空间'}}</view>
-      <view wx:if="{{isLoggedIn}}" class="user-phone">联系方式：{{user.contactText}}</view>
-      <view wx:if="{{isLoggedIn}}" class="user-badges">
-        <view class="mini-badge {{user.accountProtected ? 'ok' : 'warn'}}">{{user.passwordText}}</view>
-        <view class="mini-badge {{user.profileComplete ? 'ok' : 'warn'}}">{{user.profileText}}</view>
+        <view class="user-name">{{isLoggedIn ? user.nickname : '点击登录'}}</view>
+        <view class="user-desc">{{isLoggedIn ? '已登录' : '登录后同步你的活动空间'}}</view>
       </view>
     </view>
-    <view class="user-action">{{isLoggedIn ? '编辑' : '登录'}}</view>
+
+    <block wx:if="{{isLoggedIn}}">
+      <view class="function-card" bindtap="goActivities">
+        <view>
+          <view class="action-title">我的活动</view>
+          <view class="action-desc">查看我创建和加入的活动</view>
+        </view>
+        <view class="action-arrow">›</view>
+      </view>
+
+      <view wx:if="{{!user.accountProtected}}" class="function-card reminder-card" bindtap="goAccountComplete">
+        <view>
+          <view class="action-title">账号保护未完成</view>
+          <view class="action-desc">设置手机号或邮箱及密码，可使用其他方式登录</view>
+        </view>
+        <view class="action-arrow">›</view>
+      </view>
+
+      <view wx:if="{{showWechatProfileSuggestion}}" class="function-card reminder-card" bindtap="goWechatProfile">
+        <view>
+          <view class="action-title">完善微信资料</view>
+          <view class="action-desc">设置头像、昵称或微信手机号</view>
+        </view>
+        <view class="action-arrow">›</view>
+      </view>
+
+      <view class="function-card" bindtap="goCreateActivity">
+        <view>
+          <view class="action-title">创建活动</view>
+          <view class="action-desc">快速发起一次聚会或旅行</view>
+        </view>
+        <view class="action-arrow">›</view>
+      </view>
+
+      <view class="function-card version-card">
+        <view class="action-title">版本信息</view>
+        <view class="action-desc">玩伴空间 v1.0</view>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="function-card" bindtap="goActivities">
+        <view>
+          <view class="action-title">我的活动</view>
+          <view class="action-desc">登录后查看创建和加入的活动</view>
+        </view>
+        <view class="action-arrow">›</view>
+      </view>
+
+      <view class="function-card" bindtap="goCreateActivity">
+        <view>
+          <view class="action-title">创建活动</view>
+          <view class="action-desc">登录后发起一次聚会或旅行</view>
+        </view>
+        <view class="action-arrow">›</view>
+      </view>
+
+      <view class="function-card version-card">
+        <view class="action-title">版本信息</view>
+        <view class="action-desc">玩伴空间 v1.0</view>
+      </view>
+    </block>
   </view>
 
-  <block wx:if="{{isLoggedIn}}">
-    <view class="section card mine-action-card" bindtap="goActivities">
-      <view>
-        <view class="action-title">我的活动</view>
-        <view class="action-desc">查看我创建和加入的活动</view>
-      </view>
-      <view class="action-arrow">›</view>
-    </view>
-
-    <view wx:if="{{!user.accountProtected}}" class="section card account-protection-card" bindtap="goAccountComplete">
-      <view>
-        <view class="action-title">账号保护未完成</view>
-        <view class="action-desc">设置手机号或邮箱及密码，可使用其他方式登录</view>
-      </view>
-      <view class="protection-action">去完善</view>
-    </view>
-
-    <view wx:if="{{showWechatProfileSuggestion}}" class="section card profile-suggestion-card" bindtap="goWechatProfile">
-      <view>
-        <view class="action-title">完善微信资料</view>
-        <view class="action-desc">设置头像、昵称或微信手机号</view>
-      </view>
-      <view class="action-arrow">›</view>
-    </view>
-
-    <view class="section card mine-action-card" bindtap="goCreateActivity">
-      <view>
-        <view class="action-title">创建活动</view>
-        <view class="action-desc">快速发起一次聚会或旅行</view>
-      </view>
-      <view class="action-arrow">›</view>
-    </view>
-
-    <view class="section card version-card">
-      <view class="action-title">版本信息</view>
-      <view class="action-desc">玩伴空间 v1.0</view>
-    </view>
-
-    <view class="section logout-area">
-      <button class="pm-native-button secondary logout-button" bindtap="clearLogin">退出登录</button>
-    </view>
-  </block>
-
-  <block wx:else>
-    <view class="section card guest-card">
-      <view class="action-title">活动协作空间</view>
-      <view class="action-desc">登录后可以创建活动、分享邀请、管理成员</view>
-    </view>
-
-    <view class="section login-actions">
-      <button class="pm-native-button primary" bindtap="goLogin">微信授权登录</button>
-      <button class="pm-native-button text" bindtap="goActivities">暂不登录</button>
-    </view>
-  </block>
+  <view wx:if="{{isLoggedIn}}" class="mine-bottom-action">
+    <button class="pm-native-button secondary bottom-action-button" bindtap="clearLogin">退出登录</button>
+  </view>
+  <view wx:else class="mine-bottom-action">
+    <button class="pm-native-button primary bottom-action-button" bindtap="goLogin">微信授权登录</button>
+  </view>
 </view>
