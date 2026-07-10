@@ -17,6 +17,13 @@ public class UserEntity {
     private String nickname;
     private String avatarUrl;
     private String phone;
+    private String email;
+    private String passwordHash;
+    private Integer passwordSet;
+    private String gender;
+    private String address;
+    private String bio;
+    private Integer profileCompleted;
     private String status;
     private LocalDateTime lastLoginTime;
     private LocalDateTime createTime;
@@ -70,6 +77,62 @@ public class UserEntity {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public Integer getPasswordSet() {
+        return passwordSet;
+    }
+
+    public void setPasswordSet(Integer passwordSet) {
+        this.passwordSet = passwordSet;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
+    }
+
+    public Integer getProfileCompleted() {
+        return profileCompleted;
+    }
+
+    public void setProfileCompleted(Integer profileCompleted) {
+        this.profileCompleted = profileCompleted;
     }
 
     public String getStatus() {

@@ -31,6 +31,9 @@ node --check services/file.js
 node --check services/invite.js
 node --check services/member.js
 node --check services/user.js
+node --check pages/account-login/index.js
+node --check pages/account-register/index.js
+node --check pages/account-complete/index.js
 node --check pages/activity-list/index.js
 node --check pages/activity-create/index.js
 node --check pages/activity-detail/index.js
@@ -85,6 +88,9 @@ apiBaseUrl: 'http://127.0.0.1:8080'
 - 移除成员
 - 个人资料编辑页
 - 用户头像上传
+- 手机号 / 邮箱账号注册
+- 手机号 / 邮箱密码登录
+- 可选账号保护与微信头像昵称补充
 - P0 页面 UI 对齐第一轮：活动列表、创建/编辑活动、活动详情、活动邀请、登录、我的、成员和链接失效页
 
 未实现：
@@ -109,9 +115,18 @@ apiBaseUrl: 'http://127.0.0.1:8080'
 登录页会调用：
 
 - `POST /api/auth/wx-login`
+- `POST /api/auth/account-register`
+- `POST /api/auth/account-login`
 - `GET /api/users/me`
+- `PUT /api/users/me/account`
 
-本地开发阶段使用 `mockOpenid`，首次登录会生成并缓存一个 mock openid。登录成功后 token 会写入本地 storage，刷新小程序后「我的」页会继续通过 token 请求当前用户信息。
+本地开发阶段微信登录使用固定模拟身份：`mock_user_a`、`mock_user_b`、`mock_user_c`，默认用户 A。登录页底部可弱化切换身份；选择相同身份会回到同一个平台账号。登录成功后 token 会写入本地 storage，刷新小程序后「我的」页会继续通过 token 请求当前用户信息。
+
+微信登录、手机号/邮箱注册、手机号/邮箱登录成功后都会优先回到原目标页面；不会因为头像昵称、手机号或密码缺失而强制进入账号保护页。`account-complete` 现为可选的“账号保护”页面，只有用户主动点击才会进入。
+
+活动列表支持“输入分享码加入活动”。输入会自动清理空格并转为大写，再进入现有邀请预览页；未登录用户可以先预览，点击加入后会登录并回到原邀请页。
+
+账号登录 / 注册页支持手机号或邮箱 + 密码。P0.5 不做短信验证码、邮箱验证码、找回密码和真实微信 code2Session。
 
 ## 个人资料编辑验证
 
@@ -120,11 +135,11 @@ apiBaseUrl: 'http://127.0.0.1:8080'
 3. 点击「编辑资料」。
 4. 点击头像区域的「更换」，选择图片。
 5. 小程序会通过 `wx.uploadFile` 调用 `POST /api/files/upload`，`formData.fileType` 为 `USER_AVATAR`。
-6. 修改昵称和联系电话。
+6. 修改昵称、联系电话、邮箱、性别、地址和个人简介。
 7. 点击「保存」，小程序会调用 `PUT /api/users/me`。
-8. 保存成功后返回「我的」页，应展示新的头像、昵称和联系电话。
+8. 保存成功后返回「我的」页，应展示新的头像、昵称、联系方式和资料状态。
 
-说明：联系电话在 P0.5 只作为个人资料字段，不作为登录凭证，不做短信验证码。
+说明：手机号 / 邮箱在 P0.5 可用于账号密码登录，但不做短信或邮箱验证码。
 
 ## 封面上传验证
 

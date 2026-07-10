@@ -111,7 +111,7 @@ bash scripts/p0-smoke-test.sh
 
 ## 验证鉴权拦截
 
-`/api/health` 和 `/api/auth/wx-login` 会放行。
+`/api/health`、`/api/auth/wx-login`、`/api/auth/account-register` 和 `/api/auth/account-login` 会放行。
 
 其他 `/api/**` 接口默认需要：
 
@@ -120,6 +120,17 @@ Authorization: Bearer <token>
 ```
 
 JWT 只保存 `userId` 等必要身份信息，不保存活动权限。活动成员权限后续在 Service 层查询业务表判断。
+
+## P0.5 账号状态
+
+登录接口响应包含 `isNewUser`、`accountProtected`、`profileComplete`、`showAccountProtectionNotice`：
+
+- `accountProtected`：已设置密码，且手机号或邮箱至少有一个。
+- `profileComplete`：昵称和头像都不为空。
+- 两个状态只用于前端展示提示，客户端不得据此强制跳转账号保护页。
+- 旧 `needCompleteProfile`、`needSetPassword` 仅为兼容字段，后续准备废弃。
+
+本地 mock 微信身份固定为 `mock_user_a`、`mock_user_b`、`mock_user_c`；相同身份会通过 `t_user_identity` 命中同一个平台用户。
 
 ## 验证文件上传
 
@@ -162,6 +173,42 @@ P0 上传规则：
 
 ## 验证当前用户资料
 
+账号注册：
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/auth/account-register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account": "13800000001",
+    "password": "123456",
+    "nickname": "账号用户"
+  }'
+```
+
+账号登录：
+
+```bash
+curl -X POST http://127.0.0.1:8080/api/auth/account-login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "account": "13800000001",
+    "password": "123456"
+  }'
+```
+
+微信登录后完善账号：
+
+```bash
+curl -X PUT http://127.0.0.1:8080/api/users/me/account \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone": "13800000002",
+    "email": "local@example.com",
+    "password": "123456"
+  }'
+```
+
 查询当前用户：
 
 ```bash
@@ -178,18 +225,25 @@ curl -X PUT http://127.0.0.1:8080/api/users/me \
   -d '{
     "nickname": "本地用户",
     "phone": "13800000000",
+    "email": "user@example.com",
+    "gender": "UNKNOWN",
+    "address": "上海",
+    "bio": "周末活动组织者",
     "avatarUrl": "http://127.0.0.1:19000/playmate-files/avatars/demo.png"
   }'
 ```
 
-P0.5 用户资料规则：
+P0.5 账号和资料规则：
 
 - 需要登录。
 - 只能修改当前登录用户自己的资料。
-- 可修改字段：`nickname`、`avatarUrl`、`phone`。
-- `phone` 只作为联系电话 / 个人资料字段，不作为登录凭证。
-- 不能修改 `openid`、`status`、`id`、`createTime`。
-- 响应不返回 `openid`。
+- `t_user` 是平台用户账号，`t_user_identity` 保存微信身份。
+- 微信登录不再依赖 `t_user.openid` 查询用户。
+- 手机号 / 邮箱 + 密码可以注册登录。
+- 密码使用 BCrypt，不存明文。
+- 可修改资料字段：`nickname`、`avatarUrl`、`phone`、`email`、`gender`、`address`、`bio`。
+- 不能修改 `openid`、`unionid`、`status`、`passwordHash`、`id`、`createTime`。
+- 响应不返回 `openid`、`unionid`、`passwordHash`。
 
 ## 验证活动接口
 

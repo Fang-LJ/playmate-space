@@ -1,0 +1,25 @@
+<view class="page wechat-profile-page">
+  <view class="page-title">头像和昵称</view>
+  <view class="page-subtitle">补充后，朋友在活动里更容易认出你。也可以以后再设置。</view>
+
+  <view wx:if="{{loading}}" class="section card stack">
+    <view class="empty-title">正在加载资料</view>
+  </view>
+
+  <view wx:else class="section card profile-card">
+    <view class="avatar-area" bindtap="chooseAvatar">
+      <image wx:if="{{form.avatarUrl}}" class="avatar" src="{{form.avatarUrl}}" mode="aspectFill" />
+      <view wx:else class="avatar placeholder">玩</view>
+      <view class="avatar-edit">{{uploading ? '上传中' : '选择头像'}}</view>
+    </view>
+    <view class="pm-field">
+      <view class="pm-label">昵称</view>
+      <input class="pm-input" maxlength="64" placeholder="给朋友一个好认的昵称" value="{{form.nickname}}" bindinput="handleNicknameInput" />
+    </view>
+  </view>
+
+  <view class="section profile-actions">
+    <button class="pm-native-button primary" loading="{{saving}}" disabled="{{uploading}}" bindtap="saveProfile">保存</button>
+    <button class="pm-native-button text" bindtap="skip">以后再说</button>
+  </view>
+</view>

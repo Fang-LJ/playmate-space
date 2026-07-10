@@ -14,7 +14,16 @@ function updateCurrentUserProfile(data) {
   });
 }
 
+function updateMyAccount(data) {
+  return request({
+    url: '/api/users/me/account',
+    method: 'PUT',
+    data
+  });
+}
+
 module.exports = {
   getCurrentUser,
-  updateCurrentUserProfile
+  updateCurrentUserProfile,
+  updateMyAccount
 };

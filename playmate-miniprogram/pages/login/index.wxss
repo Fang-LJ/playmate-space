@@ -61,6 +61,26 @@
   gap: 16rpx;
 }
 
+.minor-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18rpx;
+  margin-top: 6rpx;
+}
+
+.minor-link {
+  color: var(--pm-text-muted);
+  font-size: 25rpx;
+  font-weight: 700;
+}
+
+.minor-divider {
+  width: 1rpx;
+  height: 24rpx;
+  background: var(--pm-border);
+}
+
 .dev-note {
   margin-top: 28rpx;
   color: #a5afa9;

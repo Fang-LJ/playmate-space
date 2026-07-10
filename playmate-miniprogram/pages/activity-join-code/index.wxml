@@ -1,0 +1,12 @@
+<view class="page join-code-page">
+  <view class="page-title">加入活动</view>
+  <view class="page-subtitle">输入好友发给你的活动分享码，先查看邀请信息。</view>
+
+  <view class="section card join-code-card">
+    <view class="pm-label">活动分享码</view>
+    <input class="pm-input share-code-input" maxlength="64" placeholder="例如 ABCD1234" value="{{shareCode}}" bindinput="handleInput" />
+    <button class="pm-native-button primary" bindtap="viewActivity">查看活动</button>
+  </view>
+
+  <button class="pm-native-button text back-button" bindtap="goActivities">返回我的活动</button>
+</view>

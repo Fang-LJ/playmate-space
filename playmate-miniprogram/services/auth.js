@@ -1,28 +1,37 @@
 const { request } = require('../utils/request');
 const { getToken, setToken, clearToken } = require('../utils/token');
 
-const MOCK_OPENID_KEY = 'PLAYMATE_SPACE_MOCK_OPENID';
+const MOCK_USER_KEY = 'PLAYMATE_SPACE_MOCK_USER';
+const MOCK_USERS = [
+  { key: 'A', mockOpenid: 'mock_user_a', nickname: '微信用户A', avatarUrl: '' },
+  { key: 'B', mockOpenid: 'mock_user_b', nickname: '微信用户B', avatarUrl: '' },
+  { key: 'C', mockOpenid: 'mock_user_c', nickname: '微信用户C', avatarUrl: '' }
+];
 
-function getMockOpenid() {
-  const existing = wx.getStorageSync(MOCK_OPENID_KEY);
-  if (existing) {
-    return existing;
+function getCurrentMockUser() {
+  const selectedKey = wx.getStorageSync(MOCK_USER_KEY) || 'A';
+  return MOCK_USERS.find((user) => user.key === selectedKey) || MOCK_USERS[0];
+}
+
+function selectMockUser(key) {
+  const mockUser = MOCK_USERS.find((user) => user.key === key);
+  if (!mockUser) {
+    return getCurrentMockUser();
   }
-
-  const mockOpenid = `mock_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
-  wx.setStorageSync(MOCK_OPENID_KEY, mockOpenid);
-  return mockOpenid;
+  wx.setStorageSync(MOCK_USER_KEY, mockUser.key);
+  return mockUser;
 }
 
 function wxLogin() {
+  const mockUser = getCurrentMockUser();
   return request({
     url: '/api/auth/wx-login',
     method: 'POST',
     requireAuth: false,
     data: {
-      mockOpenid: getMockOpenid(),
-      nickname: '玩伴用户',
-      avatarUrl: ''
+      mockOpenid: mockUser.mockOpenid,
+      nickname: mockUser.nickname,
+      avatarUrl: mockUser.avatarUrl
     }
   }).then((loginResult) => {
     setToken(loginResult.token);
@@ -30,9 +39,27 @@ function wxLogin() {
   });
 }
 
-function getCurrentUser() {
+function accountLogin(data) {
   return request({
-    url: '/api/users/me'
+    url: '/api/auth/account-login',
+    method: 'POST',
+    requireAuth: false,
+    data
+  }).then((loginResult) => {
+    setToken(loginResult.token);
+    return loginResult;
+  });
+}
+
+function accountRegister(data) {
+  return request({
+    url: '/api/auth/account-register',
+    method: 'POST',
+    requireAuth: false,
+    data
+  }).then((loginResult) => {
+    setToken(loginResult.token);
+    return loginResult;
   });
 }
 
@@ -46,7 +73,11 @@ function isLoggedIn() {
 
 module.exports = {
   wxLogin,
-  getCurrentUser,
+  accountLogin,
+  accountRegister,
   logout,
-  isLoggedIn
+  isLoggedIn,
+  getCurrentMockUser,
+  selectMockUser,
+  MOCK_USERS
 };

@@ -11,9 +11,14 @@
   </view>
 
   <view class="section login-actions">
-    <button class="pm-native-button primary" loading="{{loading}}" bindtap="handleLogin">{{loading ? '登录中...' : '微信一键登录'}}</button>
-    <button class="pm-native-button text" bindtap="goBack">暂不登录</button>
+    <button class="pm-native-button primary" loading="{{loading}}" bindtap="handleWxLogin">{{loading ? '登录中...' : '微信授权登录'}}</button>
+    <button class="pm-native-button secondary" bindtap="goAccountLogin">手机号 / 邮箱登录</button>
+    <view class="minor-actions">
+      <view class="minor-link" bindtap="goRegister">注册账号</view>
+      <view class="minor-divider"></view>
+      <view class="minor-link" bindtap="goBack">暂不登录</view>
+    </view>
   </view>
 
-  <view class="dev-note">本地开发环境使用模拟微信登录</view>
+  <view class="dev-note" bindtap="chooseMockUser">本地开发：{{mockUserLabel}}，轻触可切换模拟身份</view>
 </view>

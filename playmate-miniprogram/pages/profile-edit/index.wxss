@@ -67,6 +67,31 @@
   line-height: 1.45;
 }
 
+.gender-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+}
+
+.gender-chip {
+  min-width: 96rpx;
+  box-sizing: border-box;
+  padding: 16rpx 20rpx;
+  border: 1rpx solid var(--pm-border);
+  border-radius: 999rpx;
+  background: #ffffff;
+  color: var(--pm-text-muted);
+  font-size: 24rpx;
+  font-weight: 700;
+  text-align: center;
+}
+
+.gender-chip.active {
+  border-color: var(--pm-primary);
+  background: var(--pm-primary-light);
+  color: var(--pm-primary-dark);
+}
+
 .fixed-bottom {
   position: fixed;
   left: 0;

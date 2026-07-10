@@ -10,8 +10,18 @@ Page({
     form: {
       nickname: '',
       avatarUrl: '',
-      phone: ''
-    }
+      phone: '',
+      email: '',
+      gender: 'UNKNOWN',
+      address: '',
+      bio: ''
+    },
+    genderOptions: [
+      { label: '保密', value: 'UNKNOWN' },
+      { label: '男', value: 'MALE' },
+      { label: '女', value: 'FEMALE' },
+      { label: '其他', value: 'OTHER' }
+    ]
   },
 
   onLoad() {
@@ -33,7 +43,11 @@ Page({
         form: {
           nickname: user.nickname || '',
           avatarUrl: user.avatarUrl || '',
-          phone: user.phone || ''
+          phone: user.phone || '',
+          email: user.email || '',
+          gender: user.gender || 'UNKNOWN',
+          address: user.address || '',
+          bio: user.bio || ''
         }
       });
     } catch (error) {
@@ -52,6 +66,13 @@ Page({
     const { field } = event.currentTarget.dataset;
     this.setData({
       [`form.${field}`]: event.detail.value
+    });
+  },
+
+  selectGender(event) {
+    const { value } = event.currentTarget.dataset;
+    this.setData({
+      'form.gender': value
     });
   },
 
@@ -75,7 +96,7 @@ Page({
   },
 
   validateForm() {
-    const { nickname, phone } = this.data.form;
+    const { nickname, phone, email, address, bio } = this.data.form;
     if (!nickname.trim()) {
       return '请填写昵称';
     }
@@ -84,6 +105,15 @@ Page({
     }
     if (phone.trim().length > 32) {
       return '联系电话不能超过 32 个字符';
+    }
+    if (email.trim().length > 128) {
+      return '邮箱不能超过 128 个字符';
+    }
+    if (address.trim().length > 255) {
+      return '地址不能超过 255 个字符';
+    }
+    if (bio.trim().length > 512) {
+      return '个人简介不能超过 512 个字符';
     }
     return '';
   },
@@ -98,13 +128,17 @@ Page({
       return;
     }
 
-    const { nickname, avatarUrl, phone } = this.data.form;
+    const { nickname, avatarUrl, phone, email, gender, address, bio } = this.data.form;
     this.setData({ submitting: true });
     try {
       await updateCurrentUserProfile({
         nickname: nickname.trim(),
         avatarUrl: avatarUrl.trim(),
-        phone: phone.trim()
+        phone: phone.trim(),
+        email: email.trim(),
+        gender,
+        address: address.trim(),
+        bio: bio.trim()
       });
       wx.showToast({ title: '保存成功', icon: 'success' });
       setTimeout(() => {

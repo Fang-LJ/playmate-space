@@ -1,0 +1,19 @@
+.join-code-page {
+  padding-left: 48rpx;
+  padding-right: 48rpx;
+}
+
+.join-code-card {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.share-code-input {
+  letter-spacing: 3rpx;
+  text-transform: uppercase;
+}
+
+.back-button {
+  margin-top: 28rpx;
+}

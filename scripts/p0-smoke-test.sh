@@ -65,7 +65,7 @@ assert_api_success() {
   code="$(json_get "$json" '.code')"
   if [[ "$code" != "SUCCESS" ]]; then
     printf '%s\n' "$json" >&2
-    fail "$step：接口 code 不是 SUCCESS，而是 $code"
+    fail "${step}：接口 code 不是 SUCCESS，而是 $code"
   fi
 }
 
@@ -74,7 +74,7 @@ assert_http_status() {
   local expected="$2"
   local step="$3"
   if [[ "$actual" != "$expected" ]]; then
-    fail "$step：HTTP 状态码期望 $expected，实际 $actual"
+    fail "${step}：HTTP 状态码期望 $expected，实际 $actual"
   fi
 }
 
@@ -83,7 +83,7 @@ assert_equals() {
   local expected="$2"
   local step="$3"
   if [[ "$actual" != "$expected" ]]; then
-    fail "$step：期望 $expected，实际 $actual"
+    fail "${step}：期望 $expected，实际 $actual"
   fi
 }
 
@@ -91,7 +91,7 @@ assert_non_empty() {
   local value="$1"
   local step="$2"
   if [[ -z "$value" || "$value" == "null" ]]; then
-    fail "$step：结果为空"
+    fail "${step}：结果为空"
   fi
 }
 

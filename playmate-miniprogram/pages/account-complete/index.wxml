@@ -1,0 +1,33 @@
+<view class="page account-page">
+  <view class="page-title">账号保护</view>
+  <view class="page-subtitle">设置手机号或邮箱及密码，方便以后使用其他方式登录。</view>
+
+  <view class="section card account-tip-card">
+    <view class="tip-title">设置备用登录方式</view>
+    <view class="tip-desc">手机号或邮箱与密码配合使用。你可以稍后再设置，现有微信登录不受影响。</view>
+  </view>
+
+  <view class="section card pm-form-card">
+    <view class="pm-field">
+      <view class="pm-label">手机号</view>
+      <input class="pm-input" maxlength="32" placeholder="可选" value="{{form.phone}}" data-field="phone" bindinput="handleInput" />
+    </view>
+    <view class="pm-field">
+      <view class="pm-label">邮箱</view>
+      <input class="pm-input" maxlength="128" placeholder="可选" value="{{form.email}}" data-field="email" bindinput="handleInput" />
+    </view>
+    <view class="pm-field">
+      <view class="pm-label">密码</view>
+      <input class="pm-input" password maxlength="64" placeholder="6-64 位密码" value="{{form.password}}" data-field="password" bindinput="handleInput" />
+    </view>
+    <view class="pm-field">
+      <view class="pm-label">确认密码</view>
+      <input class="pm-input" password maxlength="64" placeholder="请再次输入密码" value="{{form.confirmPassword}}" data-field="confirmPassword" bindinput="handleInput" />
+    </view>
+  </view>
+
+  <view class="section account-actions">
+    <button class="pm-native-button primary" loading="{{loading}}" bindtap="submitAccount">{{loading ? '保存中...' : '设置账号保护'}}</button>
+    <button class="pm-native-button text" bindtap="skipComplete">暂时跳过</button>
+  </view>
+</view>

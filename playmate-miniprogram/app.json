@@ -8,6 +8,11 @@
     "pages/link-invalid/index",
     "pages/member-list/index",
     "pages/member-nickname-edit/index",
+    "pages/account-login/index",
+    "pages/account-register/index",
+    "pages/account-complete/index",
+    "pages/wechat-profile/index",
+    "pages/activity-join-code/index",
     "pages/profile-edit/index",
     "pages/mine/index",
     "pages/login/index"

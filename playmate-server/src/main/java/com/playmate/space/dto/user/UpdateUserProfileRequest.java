@@ -13,6 +13,18 @@ public class UpdateUserProfileRequest {
     @Size(max = 32)
     private String phone;
 
+    @Size(max = 128)
+    private String email;
+
+    @Size(max = 32)
+    private String gender;
+
+    @Size(max = 255)
+    private String address;
+
+    @Size(max = 512)
+    private String bio;
+
     public String getNickname() {
         return nickname;
     }
@@ -35,5 +47,37 @@ public class UpdateUserProfileRequest {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
     }
 }

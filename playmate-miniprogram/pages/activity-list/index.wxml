@@ -8,6 +8,14 @@
     <view class="create-button" bindtap="goCreate">创建</view>
   </view>
 
+  <view class="join-code-entry" bindtap="goJoinCode">
+    <view>
+      <view class="join-code-title">输入分享码加入活动</view>
+      <view class="join-code-desc">好友发来分享码？先查看活动邀请</view>
+    </view>
+    <view class="join-code-arrow">›</view>
+  </view>
+
   <view wx:if="{{loading}}" class="section card stack">
     <view class="empty-title">正在加载活动</view>
     <view class="empty-desc">稍等一下，正在同步你的活动空间。</view>

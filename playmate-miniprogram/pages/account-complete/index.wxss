@@ -1,0 +1,28 @@
+.account-page {
+  padding-left: 48rpx;
+  padding-right: 48rpx;
+}
+
+.account-tip-card {
+  padding: 28rpx;
+  background: linear-gradient(135deg, #ffffff 0%, #f7fbf8 100%);
+}
+
+.tip-title {
+  color: var(--pm-text);
+  font-size: 29rpx;
+  font-weight: 800;
+}
+
+.tip-desc {
+  margin-top: 10rpx;
+  color: var(--pm-text-muted);
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.account-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}

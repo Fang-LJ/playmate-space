@@ -51,6 +51,27 @@
   opacity: 0.82;
 }
 
+.user-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-top: 14rpx;
+}
+
+.mini-badge {
+  padding: 7rpx 14rpx;
+  border-radius: 999rpx;
+  color: #8a6500;
+  background: #fff7df;
+  font-size: 21rpx;
+  font-weight: 700;
+}
+
+.mini-badge.ok {
+  color: var(--pm-primary-dark);
+  background: var(--pm-primary-light);
+}
+
 .user-action {
   flex: 0 0 auto;
   color: var(--pm-primary-dark);
@@ -62,6 +83,32 @@
 .version-card,
 .guest-card {
   padding: 30rpx;
+}
+
+.account-protection-card,
+.profile-suggestion-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20rpx;
+  padding: 28rpx 30rpx;
+}
+
+.account-protection-card {
+  border-color: #f0e0ae;
+  background: #fffdf5;
+}
+
+.profile-suggestion-card {
+  border-color: rgba(107, 175, 146, 0.24);
+  background: #fbfefc;
+}
+
+.protection-action {
+  flex: 0 0 auto;
+  color: var(--pm-primary-dark);
+  font-size: 24rpx;
+  font-weight: 800;
 }
 
 .mine-action-card {

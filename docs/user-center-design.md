@@ -1,29 +1,104 @@
 # 用户中心与登录注册方案
 
-本文档记录 P0.5 阶段用户中心、登录注册和个人资料边界。当前阶段只做用户中心收尾，不新增行程、投票、账本、AA、照片墙。
+本文档记录 P0.5 阶段账号体系、登录注册和个人资料边界。当前阶段只做用户中心收尾，不新增行程、投票、账本、AA、照片墙。
 
 ## 结论
 
-- 第一版主登录方式是微信一键登录。
-- 本地开发继续保留 mock 登录，方便在没有真实微信配置时联调。
-- 未登录用户可以查看活动邀请页的有限信息。
-- 创建活动、加入活动、查看活动详情、成员操作、资料编辑必须登录。
-- P0.5 不做真实短信验证码手机号登录。
-- P0.5 不做真实游客账号。
-- 手机号在 P0.5 只作为“联系电话 / 个人资料字段”，不作为登录凭证。
-- 未来如果要支持微信、手机号、邮箱等多登录方式，再考虑新增 `t_user_identity` 账号身份表。
+- `t_user` 是平台用户账号。
+- `t_user_identity` 存第三方授权身份，当前只接入微信小程序身份。
+- 微信只是辅助注册和登录方式，不再把 `t_user.openid` 当作用户主身份。
+- 用户也可以用手机号或邮箱 + 密码注册登录。
+- 微信登录后不强制完善账号；账号保护以低干扰提示的方式由用户主动设置。
+- P0.5 不做短信验证码，不做邮箱验证码，不做找回密码。
+- P0.5 不接入真实微信 code2Session，继续保留 mock 微信登录能力，代码结构为真实微信登录预留。
 
-## 微信一键登录
+## 账号模型
+
+### t_user
+
+`t_user` 表示平台用户账号，核心字段包括：
+
+- `id`
+- `nickname`
+- `avatar_url`
+- `phone`
+- `email`
+- `password_hash`
+- `password_set`
+- `gender`
+- `address`
+- `bio`
+- `profile_completed`
+- `status`
+- `last_login_time`
+
+`openid` 和 `unionid` 暂时保留为历史兼容字段，后续业务逻辑不依赖它们查询用户。
+
+### t_user_identity
+
+`t_user_identity` 表示登录身份绑定关系，当前用于保存微信小程序授权身份：
+
+- `user_id`
+- `identity_type`：当前为 `WECHAT_MINIPROGRAM`
+- `identifier`：微信 openid
+- `unionid`
+- `appid`
+- `auth_nickname`
+- `auth_avatar_url`
+- `raw_profile_json`
+- `last_login_time`
+- `bind_time`
+
+唯一索引：`identity_type + identifier`。
+
+## 微信登录流程
 
 生产方向仍然是小程序 `wx.login` 获取 code 后，由后端调用微信 code2Session 换取 openid。
 
-当前 P0.5 不接入真实 code2Session，继续使用已有 mock 登录链路：
+当前 P0.5 不接入真实 code2Session，继续使用 mock 登录链路：
 
-1. 小程序生成或读取本地 mockOpenid。
+1. 小程序读取固定模拟身份 `mock_user_a`、`mock_user_b` 或 `mock_user_c`，默认 A。
 2. 调用 `POST /api/auth/wx-login`。
-3. 后端根据 openid 创建或更新用户。
-4. 后端返回 JWT token。
-5. 小程序后续请求携带 `Authorization: Bearer <token>`。
+3. 后端通过 `WechatLoginService.resolveSession` 获取 openid / unionid。
+4. 后端查询 `t_user_identity.identity_type = WECHAT_MINIPROGRAM` 且 `identifier = openid`。
+5. 身份存在时，通过 `user_id` 查询 `t_user` 并返回 token。
+6. 身份不存在时，先创建 `t_user`，再创建 `t_user_identity`。
+7. 返回 `accountProtected`、`profileComplete`、`showAccountProtectionNotice`；小程序只用于展示提示，不据此强制跳转。
+
+微信登录不会每次覆盖用户自己修改过的昵称和头像，只在平台资料为空时补齐。
+
+## 手机号 / 邮箱密码登录
+
+P0.5 新增：
+
+- `POST /api/auth/account-register`
+- `POST /api/auth/account-login`
+
+规则：
+
+- `account` 包含 `@` 时按邮箱处理，否则按手机号处理。
+- 密码长度 6-64。
+- 密码使用 BCrypt 存储，不存明文。
+- `phone` 和 `email` 在数据库中建立唯一索引，MySQL 允许多个 `NULL`。
+- P0.5 不校验手机号和邮箱真实性。
+
+## 账号保护与资料补充
+
+`pages/account-complete/index` 是用户主动进入的账号保护页，可从我的页提示或退出登录提醒进入。手机号/邮箱注册完成后已经具备账号保护，不会进入此页面。
+
+可填写：
+
+- 手机号
+- 邮箱
+- 密码
+
+用户可以跳过，后续仍可在我的页继续设置。微信新用户的头像昵称补充使用可跳过的 `pages/wechat-profile/index` 页面。
+
+账号保护：已设置密码，且手机号或邮箱至少有一个。
+
+资料完整度：昵称和头像都已填写；不影响登录、分享或活动权限。
+
+旧 `needCompleteProfile`、`needSetPassword` 仅作为兼容返回字段，后续准备废弃。
 
 ## 游客边界
 
@@ -31,7 +106,7 @@ P0.5 暂不做游客账号。未登录用户只允许：
 
 - 查看首页未登录态。
 - 查看活动邀请页有限信息。
-- 进入登录页。
+- 进入登录页、注册页。
 
 未登录用户不允许：
 
@@ -44,31 +119,28 @@ P0.5 暂不做游客账号。未登录用户只允许：
 - 编辑个人资料。
 - 上传头像或活动封面。
 
-## 手机号策略
-
-`t_user.phone` 在 P0.5 只作为个人资料字段使用：
-
-- 用户可以在编辑资料页填写联系电话。
-- 后端只做长度校验。
-- 不做短信验证码。
-- 不做手机号唯一索引。
-- 不把手机号作为登录凭证。
-
 ## 个人资料字段
 
 P0.5 支持编辑：
 
 - 昵称 `nickname`
 - 头像 URL `avatarUrl`
-- 联系电话 `phone`
+- 手机号 `phone`
+- 邮箱 `email`
+- 性别 `gender`
+- 地址 `address`
+- 个人简介 `bio`
 
 P0.5 不允许用户修改：
 
+- `id`
+- `status`
+- `passwordHash`
 - `openid`
 - `unionid`
-- `status`
-- `id`
 - `createTime`
+
+`GET /api/users/me` 不返回 `openid`、`unionid`、`passwordHash`。
 
 ## 头像上传
 
@@ -79,17 +151,11 @@ P0.5 复用现有 `POST /api/files/upload`：
 
 头像文件仍写入 `t_file`，对象 key 使用 `avatars/{yyyyMMdd}/{userId}/{uuid}.{ext}`。个人资料保存时将返回的 `url` 写入 `t_user.avatar_url`。
 
-## 后续身份表规划
+## 后续上线前补齐
 
-如果后续需要多登录方式，可以增加 `t_user_identity`：
-
-- `user_id`
-- `identity_type`：WECHAT / PHONE / EMAIL
-- `identifier`：openid / phone / email
-- `credential`：密码哈希或第三方凭证摘要，按登录方式决定
-- `verified`
-- `create_time`
-- `update_time`
-- `delete_flag`
-
-当前 P0.5 不创建该表，避免过早重构账号体系。
+- 真实微信 code2Session。
+- 手机号短信验证码。
+- 邮箱验证码。
+- 找回密码。
+- 账号合并和解绑。
+- 第三方身份管理页。

@@ -5,10 +5,14 @@
   <view class="section card user-card" bindtap="handleProfileCardTap">
     <image wx:if="{{isLoggedIn && user.avatarUrl}}" class="user-avatar" src="{{user.avatarUrl}}" mode="aspectFill" />
     <view wx:else class="user-avatar user-avatar-placeholder">{{isLoggedIn ? '玩' : '未'}}</view>
-    <view class="user-main">
-      <view class="user-name">{{isLoggedIn ? user.nickname : '暂未登录'}}</view>
-      <view class="user-desc">{{isLoggedIn ? '状态：已登录' : '登录后管理你的活动空间'}}</view>
-      <view wx:if="{{isLoggedIn && user.phone}}" class="user-phone">联系电话：{{user.phone}}</view>
+      <view class="user-main">
+        <view class="user-name">{{isLoggedIn ? user.nickname : '暂未登录'}}</view>
+        <view class="user-desc">{{isLoggedIn ? '状态：已登录' : '登录后管理你的活动空间'}}</view>
+      <view wx:if="{{isLoggedIn}}" class="user-phone">联系方式：{{user.contactText}}</view>
+      <view wx:if="{{isLoggedIn}}" class="user-badges">
+        <view class="mini-badge {{user.accountProtected ? 'ok' : 'warn'}}">{{user.passwordText}}</view>
+        <view class="mini-badge {{user.profileComplete ? 'ok' : 'warn'}}">{{user.profileText}}</view>
+      </view>
     </view>
     <view class="user-action">{{isLoggedIn ? '编辑' : '登录'}}</view>
   </view>
@@ -18,6 +22,22 @@
       <view>
         <view class="action-title">我的活动</view>
         <view class="action-desc">查看我创建和加入的活动</view>
+      </view>
+      <view class="action-arrow">›</view>
+    </view>
+
+    <view wx:if="{{!user.accountProtected}}" class="section card account-protection-card" bindtap="goAccountComplete">
+      <view>
+        <view class="action-title">账号保护未完成</view>
+        <view class="action-desc">设置手机号或邮箱及密码，可使用其他方式登录</view>
+      </view>
+      <view class="protection-action">去完善</view>
+    </view>
+
+    <view wx:if="{{showWechatProfileSuggestion}}" class="section card profile-suggestion-card" bindtap="goWechatProfile">
+      <view>
+        <view class="action-title">补充头像和昵称</view>
+        <view class="action-desc">让朋友在活动里更容易认出你</view>
       </view>
       <view class="action-arrow">›</view>
     </view>

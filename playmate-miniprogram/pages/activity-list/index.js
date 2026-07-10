@@ -149,6 +149,12 @@ Page({
     });
   },
 
+  goJoinCode() {
+    wx.navigateTo({
+      url: '/pages/activity-join-code/index'
+    });
+  },
+
   goDetail(event) {
     const { id } = event.currentTarget.dataset;
     if (!id) {

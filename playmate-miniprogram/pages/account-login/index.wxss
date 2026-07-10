@@ -1,0 +1,18 @@
+.account-page {
+  padding-left: 48rpx;
+  padding-right: 48rpx;
+}
+
+.account-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.minor-link {
+  padding: 18rpx 0;
+  color: var(--pm-primary-dark);
+  font-size: 25rpx;
+  font-weight: 700;
+  text-align: center;
+}
