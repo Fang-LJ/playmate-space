@@ -1,5 +1,5 @@
 const { wxLogin, getCurrentMockUser, selectMockUser, MOCK_USERS } = require('../../services/auth');
-const { handleLoginSuccess } = require('../../utils/login-flow');
+const { handleLoginSuccess, shouldPromptWechatProfile, markWechatProfilePrompted } = require('../../utils/login-flow');
 
 Page({
   data: {
@@ -23,13 +23,6 @@ Page({
     this.setData({ loading: true });
     try {
       const loginResult = await wxLogin();
-      wx.showToast({
-        title: '登录成功',
-        icon: 'success'
-      });
-      if (loginResult.isNewUser) {
-        wx.showToast({ title: '已为你创建玩伴账号', icon: 'none' });
-      }
       this.goAfterLogin(loginResult);
     } catch (error) {
       wx.showToast({
@@ -67,7 +60,29 @@ Page({
   },
 
   goAfterLogin(loginResult) {
-    this.goRedirectTarget(handleLoginSuccess(loginResult, { redirect: this.data.redirect }));
+    const shouldPrompt = shouldPromptWechatProfile(loginResult);
+    const target = handleLoginSuccess(loginResult, { redirect: this.data.redirect });
+    if (!shouldPrompt) {
+      this.goRedirectTarget(target);
+      return;
+    }
+    wx.showModal({
+      title: '完善微信资料',
+      content: '可以使用微信头像、昵称和手机号，方便朋友在活动中识别你。也可以稍后设置。',
+      confirmText: '现在设置',
+      cancelText: '以后再说',
+      success: (result) => {
+        markWechatProfilePrompted(loginResult.userId);
+        if (result.confirm) {
+          wx.redirectTo({
+            url: `/pages/wechat-profile/index?redirect=${encodeURIComponent(target)}`
+          });
+          return;
+        }
+        this.goRedirectTarget(target);
+      },
+      fail: () => this.goRedirectTarget(target)
+    });
   },
 
   goRedirectTarget(target) {

@@ -1,25 +1,35 @@
 <view class="page wechat-profile-page">
-  <view class="page-title">头像和昵称</view>
-  <view class="page-subtitle">补充后，朋友在活动里更容易认出你。也可以以后再设置。</view>
+  <view class="page-title">完善微信资料</view>
+  <view class="page-subtitle">头像、昵称和手机号都可以稍后设置，不影响正常使用。</view>
 
   <view wx:if="{{loading}}" class="section card stack">
     <view class="empty-title">正在加载资料</view>
   </view>
 
   <view wx:else class="section card profile-card">
-    <view class="avatar-area" bindtap="chooseAvatar">
+    <button class="wechat-avatar-button" open-type="chooseAvatar" bindchooseavatar="handleChooseAvatar" disabled="{{uploading}}">
       <image wx:if="{{form.avatarUrl}}" class="avatar" src="{{form.avatarUrl}}" mode="aspectFill" />
       <view wx:else class="avatar placeholder">玩</view>
-      <view class="avatar-edit">{{uploading ? '上传中' : '选择头像'}}</view>
-    </view>
+      <view class="avatar-edit">{{uploading ? '上传中' : '选择微信头像'}}</view>
+    </button>
+    <view class="album-avatar-entry" bindtap="chooseAvatarFromAlbum">从相册选择</view>
     <view class="pm-field">
       <view class="pm-label">昵称</view>
-      <input class="pm-input" maxlength="64" placeholder="给朋友一个好认的昵称" value="{{form.nickname}}" bindinput="handleNicknameInput" />
+      <input class="pm-input" type="nickname" maxlength="64" placeholder="选择或填写昵称" value="{{form.nickname}}" bindinput="handleNicknameInput" />
+    </view>
+
+    <view class="phone-section">
+      <view class="pm-label">微信手机号</view>
+      <view class="phone-desc">授权后将手机号保存到你的玩伴账号中。手机号不会展示给活动外的用户。</view>
+      <view wx:if="{{user.phone}}" class="phone-current">已绑定：{{user.maskedPhone}}</view>
+      <button class="pm-native-button secondary phone-button" open-type="getPhoneNumber" bindgetphonenumber="handleGetPhoneNumber" loading="{{phoneLoading}}" disabled="{{phoneLoading}}">
+        {{user.phone ? '重新授权手机号' : '使用微信手机号'}}
+      </button>
     </view>
   </view>
 
   <view class="section profile-actions">
-    <button class="pm-native-button primary" loading="{{saving}}" disabled="{{uploading}}" bindtap="saveProfile">保存</button>
+    <button class="pm-native-button primary" loading="{{saving}}" disabled="{{uploading}}" bindtap="saveProfile">保存头像和昵称</button>
     <button class="pm-native-button text" bindtap="skip">以后再说</button>
   </view>
 </view>

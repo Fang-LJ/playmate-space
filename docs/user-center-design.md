@@ -67,6 +67,8 @@
 
 微信登录不会每次覆盖用户自己修改过的昵称和头像，只在平台资料为空时补齐。
 
+微信首次注册且头像或昵称缺失时，小程序只展示一次可关闭的“完善微信资料”提示。选择“以后再说”后直接回到活动页或邀请页；选择“现在设置”才进入微信资料页。手机号/邮箱注册和密码登录不展示此提示。
+
 ## 手机号 / 邮箱密码登录
 
 P0.5 新增：
@@ -150,6 +152,10 @@ P0.5 复用现有 `POST /api/files/upload`：
 - 用户头像使用 `fileType=USER_AVATAR`
 
 头像文件仍写入 `t_file`，对象 key 使用 `avatars/{yyyyMMdd}/{userId}/{uuid}.{ext}`。个人资料保存时将返回的 `url` 写入 `t_user.avatar_url`。
+
+微信资料页优先使用 `button open-type="chooseAvatar"` 获取临时头像文件，并上传到后端；开发者工具不支持时可用相册选择作为备用入口。昵称使用 `input type="nickname"`，允许用户自行填写。
+
+微信手机号使用 `button open-type="getPhoneNumber"`，仅在用户点击后发起绑定。local profile 用 mock phone code 映射固定号码，不接真实微信服务端；真实环境的 `WechatPhoneService` 目前会明确提示未接入。
 
 ## 后续上线前补齐
 

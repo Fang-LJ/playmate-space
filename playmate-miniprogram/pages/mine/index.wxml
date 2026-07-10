@@ -36,8 +36,8 @@
 
     <view wx:if="{{showWechatProfileSuggestion}}" class="section card profile-suggestion-card" bindtap="goWechatProfile">
       <view>
-        <view class="action-title">补充头像和昵称</view>
-        <view class="action-desc">让朋友在活动里更容易认出你</view>
+        <view class="action-title">完善微信资料</view>
+        <view class="action-desc">设置头像、昵称或微信手机号</view>
       </view>
       <view class="action-arrow">›</view>
     </view>

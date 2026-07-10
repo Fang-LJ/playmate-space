@@ -8,6 +8,7 @@ import com.playmate.space.common.exception.UnauthorizedException;
 import com.playmate.space.common.security.LoginUserContext;
 import com.playmate.space.dto.user.UpdateMyAccountRequest;
 import com.playmate.space.dto.user.UpdateUserProfileRequest;
+import com.playmate.space.dto.user.WechatPhoneBindRequest;
 import com.playmate.space.entity.UserEntity;
 import com.playmate.space.mapper.UserMapper;
 import com.playmate.space.vo.CurrentUserResponse;
@@ -26,10 +27,16 @@ public class UserService {
 
     private final UserMapper userMapper;
     private final PasswordService passwordService;
+    private final WechatPhoneService wechatPhoneService;
 
-    public UserService(UserMapper userMapper, PasswordService passwordService) {
+    public UserService(
+            UserMapper userMapper,
+            PasswordService passwordService,
+            WechatPhoneService wechatPhoneService
+    ) {
         this.userMapper = userMapper;
         this.passwordService = passwordService;
+        this.wechatPhoneService = wechatPhoneService;
     }
 
     public CurrentUserResponse getCurrentUser() {
@@ -137,6 +144,34 @@ public class UserService {
         userMapper.updateById(updateEntity);
         user.setProfileCompleted(updateEntity.getProfileCompleted());
         user.setUpdateTime(updateEntity.getUpdateTime());
+        return buildResponse(user);
+    }
+
+    @Transactional
+    public CurrentUserResponse bindWechatPhone(WechatPhoneBindRequest request) {
+        UserEntity user = loadCurrentActiveUser();
+        String phone = wechatPhoneService.resolvePhone(request.getCode());
+        UserEntity existing = userMapper.selectOne(new LambdaQueryWrapper<UserEntity>()
+                .eq(UserEntity::getPhone, phone)
+                .eq(UserEntity::getDeleteFlag, 0)
+                .last("LIMIT 1"));
+        if (existing != null && !existing.getId().equals(user.getId())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "手机号已被其他账号使用");
+        }
+        if (phone.equals(user.getPhone())) {
+            return buildResponse(user);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        UserEntity updateEntity = new UserEntity();
+        updateEntity.setId(user.getId());
+        updateEntity.setPhone(phone);
+        user.setPhone(phone);
+        updateEntity.setProfileCompleted(resolveProfileCompleted(user));
+        updateEntity.setUpdateTime(now);
+        userMapper.updateById(updateEntity);
+        user.setProfileCompleted(updateEntity.getProfileCompleted());
+        user.setUpdateTime(now);
         return buildResponse(user);
     }
 

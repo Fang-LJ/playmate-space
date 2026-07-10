@@ -1,5 +1,10 @@
 const assert = require('node:assert/strict');
-const { handleLoginSuccess, resolvePostLoginTarget } = require('../utils/login-flow');
+const {
+  handleLoginSuccess,
+  resolvePostLoginTarget,
+  shouldPromptWechatProfile,
+  markWechatProfilePrompted
+} = require('../utils/login-flow');
 const { normalizeShareCode, buildInvitePath } = require('../utils/share-code');
 
 function createStorage() {
@@ -20,6 +25,18 @@ assert.equal(handleLoginSuccess({
   accountProtected: false,
   profileComplete: false
 }, { storage }), '/pages/activity-list/index');
+
+const newWechatUser = {
+  userId: 10,
+  loginType: 'WECHAT_MINIPROGRAM',
+  isNewUser: true,
+  accountProtected: false,
+  profileComplete: false
+};
+assert.equal(shouldPromptWechatProfile(newWechatUser, storage), true);
+markWechatProfilePrompted(10, storage);
+assert.equal(shouldPromptWechatProfile(newWechatUser, storage), false);
+assert.equal(shouldPromptWechatProfile({ ...newWechatUser, loginType: 'ACCOUNT' }, storage), false);
 
 assert.equal(handleLoginSuccess({
   userId: 1,

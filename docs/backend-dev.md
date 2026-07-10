@@ -132,6 +132,18 @@ JWT 只保存 `userId` 等必要身份信息，不保存活动权限。活动成
 
 本地 mock 微信身份固定为 `mock_user_a`、`mock_user_b`、`mock_user_c`；相同身份会通过 `t_user_identity` 命中同一个平台用户。
 
+## 微信资料与手机号授权
+
+微信身份登录、头像昵称补充和手机号授权是三个独立的用户主动操作。微信登录不会自动获取头像、昵称或手机号，也不会阻塞活动使用。
+
+- 头像与昵称通过 `PUT /api/users/me` 保存。
+- 手机号绑定接口为 `POST /api/users/me/wechat-phone`，请求体为 `{ "code": "..." }`。
+- local profile 使用 `MockWechatPhoneService`：`mock_phone_a/b/c` 分别映射 `13800000001/2/3`。
+- 非 local profile 使用 `UnsupportedWechatPhoneService`，会明确返回“真实微信手机号授权尚未接入”。
+- 绑定手机号本身不会使账号保护完成；仍需同时设置密码。
+
+真实上线前需要由后端使用小程序手机号授权 code 调用微信服务端，并通过安全配置注入 AppID/AppSecret，绝不能放入小程序前端。
+
 ## 验证文件上传
 
 登录获取 token：

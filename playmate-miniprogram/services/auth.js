@@ -3,9 +3,9 @@ const { getToken, setToken, clearToken } = require('../utils/token');
 
 const MOCK_USER_KEY = 'PLAYMATE_SPACE_MOCK_USER';
 const MOCK_USERS = [
-  { key: 'A', mockOpenid: 'mock_user_a', nickname: '微信用户A', avatarUrl: '' },
-  { key: 'B', mockOpenid: 'mock_user_b', nickname: '微信用户B', avatarUrl: '' },
-  { key: 'C', mockOpenid: 'mock_user_c', nickname: '微信用户C', avatarUrl: '' }
+  { key: 'A', mockOpenid: 'mock_user_a', nickname: '微信用户A', avatarUrl: '', phoneCode: 'mock_phone_a' },
+  { key: 'B', mockOpenid: 'mock_user_b', nickname: '微信用户B', avatarUrl: '', phoneCode: 'mock_phone_b' },
+  { key: 'C', mockOpenid: 'mock_user_c', nickname: '微信用户C', avatarUrl: '', phoneCode: 'mock_phone_c' }
 ];
 
 function getCurrentMockUser() {
@@ -20,6 +20,15 @@ function selectMockUser(key) {
   }
   wx.setStorageSync(MOCK_USER_KEY, mockUser.key);
   return mockUser;
+}
+
+function getMockPhoneCodeByKey(key) {
+  const mockUser = MOCK_USERS.find((user) => user.key === key);
+  return mockUser ? mockUser.phoneCode : '';
+}
+
+function getCurrentMockPhoneCode() {
+  return getCurrentMockUser().phoneCode;
 }
 
 function wxLogin() {
@@ -79,5 +88,7 @@ module.exports = {
   isLoggedIn,
   getCurrentMockUser,
   selectMockUser,
+  getMockPhoneCodeByKey,
+  getCurrentMockPhoneCode,
   MOCK_USERS
 };

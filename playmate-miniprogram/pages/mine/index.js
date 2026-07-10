@@ -32,7 +32,9 @@ Page({
       this.setData({
         user: normalizedUser,
         isLoggedIn: true,
-        showWechatProfileSuggestion: hasWechatProfileSuggestion(normalizedUser.userId)
+        showWechatProfileSuggestion: !normalizedUser.profileComplete
+          || !normalizedUser.phone
+          || hasWechatProfileSuggestion(normalizedUser.userId)
       });
     } catch (error) {
       this.setLoggedOut();

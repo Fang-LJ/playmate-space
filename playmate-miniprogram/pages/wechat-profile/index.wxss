@@ -9,10 +9,18 @@
   gap: 34rpx;
 }
 
-.avatar-area {
+.wechat-avatar-button {
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: auto;
+  padding: 0;
+  background: transparent;
+  line-height: normal;
+}
+
+.wechat-avatar-button::after {
+  border: 0;
 }
 
 .avatar {
@@ -36,6 +44,36 @@
   color: var(--pm-primary-dark);
   font-size: 24rpx;
   font-weight: 700;
+}
+
+.album-avatar-entry {
+  margin-top: -18rpx;
+  color: var(--pm-text-muted);
+  font-size: 23rpx;
+  text-align: center;
+}
+
+.phone-section {
+  padding-top: 28rpx;
+  border-top: 1rpx solid var(--pm-border);
+}
+
+.phone-desc {
+  margin-top: 10rpx;
+  color: var(--pm-text-muted);
+  font-size: 23rpx;
+  line-height: 1.5;
+}
+
+.phone-current {
+  margin-top: 16rpx;
+  color: var(--pm-primary-dark);
+  font-size: 25rpx;
+  font-weight: 700;
+}
+
+.phone-button {
+  margin-top: 20rpx;
 }
 
 .profile-actions {

@@ -100,7 +100,7 @@ public class AuthService {
         user.setUpdateTime(now);
         user.setDeleteFlag(0);
         userMapper.insert(user);
-        return buildLoginResponse(user, LOGIN_TYPE_ACCOUNT, false);
+        return buildLoginResponse(user, LOGIN_TYPE_ACCOUNT, true);
     }
 
     @Transactional
@@ -141,8 +141,7 @@ public class AuthService {
             LocalDateTime now
     ) {
         UserEntity user = new UserEntity();
-        user.setOpenid(session.openid());
-        user.setUnionid(session.unionid());
+        // openid/unionid remain nullable legacy columns. New identity binding lives in t_user_identity.
         user.setNickname(resolveNullableText(request == null ? null : request.getNickname()));
         if (!StringUtils.hasText(user.getNickname())) {
             user.setNickname("玩伴用户");
@@ -213,8 +212,14 @@ public class AuthService {
         UserIdentityEntity updateIdentity = new UserIdentityEntity();
         updateIdentity.setId(identity.getId());
         updateIdentity.setLastLoginTime(now);
-        updateIdentity.setAuthNickname(resolveNullableText(request == null ? null : request.getNickname()));
-        updateIdentity.setAuthAvatarUrl(resolveNullableText(request == null ? null : request.getAvatarUrl()));
+        String authNickname = resolveNullableText(request == null ? null : request.getNickname());
+        String authAvatarUrl = resolveNullableText(request == null ? null : request.getAvatarUrl());
+        if (StringUtils.hasText(authNickname)) {
+            updateIdentity.setAuthNickname(authNickname);
+        }
+        if (StringUtils.hasText(authAvatarUrl)) {
+            updateIdentity.setAuthAvatarUrl(authAvatarUrl);
+        }
         updateIdentity.setUpdateTime(now);
         userIdentityMapper.updateById(updateIdentity);
     }

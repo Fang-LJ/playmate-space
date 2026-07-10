@@ -45,8 +45,8 @@ function handleLoginSuccess(loginResponse, options = {}) {
       userId,
       show: !accountProtected
     });
-    if (response.loginType === 'WECHAT_MINIPROGRAM' && response.isNewUser && !profileComplete) {
-      storage.set(WECHAT_PROFILE_SUGGESTION_KEY, { userId, show: true });
+    if (shouldPromptWechatProfile(response, storage)) {
+      storage.set(WECHAT_PROFILE_SUGGESTION_KEY, { userId, show: true, prompted: false });
     }
   }
 
@@ -54,6 +54,23 @@ function handleLoginSuccess(loginResponse, options = {}) {
     redirect: options.redirect,
     defaultPath: options.defaultPath || '/pages/activity-list/index'
   });
+}
+
+function shouldPromptWechatProfile(loginResponse, storage) {
+  const response = loginResponse || {};
+  if (response.loginType !== 'WECHAT_MINIPROGRAM' || !response.isNewUser || response.profileComplete) {
+    return false;
+  }
+  const currentStorage = resolveStorage(storage);
+  const existing = currentStorage ? currentStorage.get(WECHAT_PROFILE_SUGGESTION_KEY) : null;
+  return !(existing && String(existing.userId) === String(response.userId) && existing.prompted);
+}
+
+function markWechatProfilePrompted(userId, storage) {
+  const currentStorage = resolveStorage(storage);
+  if (currentStorage && userId) {
+    currentStorage.set(WECHAT_PROFILE_SUGGESTION_KEY, { userId, show: true, prompted: true });
+  }
 }
 
 function getWechatProfileSuggestion(userId, storage) {
@@ -72,6 +89,8 @@ function clearWechatProfileSuggestion(storage) {
 module.exports = {
   resolvePostLoginTarget,
   handleLoginSuccess,
+  shouldPromptWechatProfile,
+  markWechatProfilePrompted,
   getWechatProfileSuggestion,
   clearWechatProfileSuggestion
 };

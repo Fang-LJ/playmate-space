@@ -22,8 +22,17 @@ function updateMyAccount(data) {
   });
 }
 
+function bindWechatPhone(code) {
+  return request({
+    url: '/api/users/me/wechat-phone',
+    method: 'POST',
+    data: { code }
+  });
+}
+
 module.exports = {
   getCurrentUser,
   updateCurrentUserProfile,
-  updateMyAccount
+  updateMyAccount,
+  bindWechatPhone
 };
