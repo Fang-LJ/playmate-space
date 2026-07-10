@@ -104,8 +104,9 @@
 .mine-bottom-action {
   position: fixed;
   left: 40rpx;
+  right: 40rpx;
   bottom: 16rpx;
-  width: 670rpx;
+  width: auto;
   box-sizing: border-box;
   z-index: 20;
 }
