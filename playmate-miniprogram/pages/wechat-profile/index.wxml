@@ -15,7 +15,7 @@
     <view class="album-avatar-entry" bindtap="chooseAvatarFromAlbum">从相册选择</view>
     <view class="pm-field">
       <view class="pm-label">昵称</view>
-      <input class="pm-input" type="nickname" maxlength="64" placeholder="选择或填写昵称" value="{{form.nickname}}" bindinput="handleNicknameInput" />
+      <input class="pm-input" type="nickname" maxlength="64" placeholder="选择或填写昵称" value="{{form.nickname}}" bindinput="handleNicknameInput" bindblur="handleNicknameInput" bindchange="handleNicknameInput" />
     </view>
 
     <view class="phone-section">

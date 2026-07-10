@@ -39,9 +39,20 @@ assert.equal(shouldPromptWechatProfile({
   loginType: 'ACCOUNT'
 }, storage), false);
 
-assert.deepEqual(resolvePhoneAuthorizationCode({ code: 'real-code' }, 'mock_phone_a'), {
+assert.deepEqual(resolvePhoneAuthorizationCode({
+  errMsg: 'getPhoneNumber:ok',
+  code: 'real_wechat_code_xxx'
+}, 'mock_phone_a', { preferMock: true }), {
   cancelled: false,
-  code: 'real-code',
+  code: 'mock_phone_a',
+  isMock: true
+});
+assert.deepEqual(resolvePhoneAuthorizationCode({
+  errMsg: 'getPhoneNumber:ok',
+  code: 'real_wechat_code_xxx'
+}, 'mock_phone_a', { preferMock: false }), {
+  cancelled: false,
+  code: 'real_wechat_code_xxx',
   isMock: false
 });
 assert.deepEqual(resolvePhoneAuthorizationCode({}, 'mock_phone_a'), {

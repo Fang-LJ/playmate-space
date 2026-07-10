@@ -48,7 +48,9 @@ Page({
   },
 
   handleNicknameInput(event) {
-    this.setData({ 'form.nickname': event.detail.value });
+    const detail = event && event.detail ? event.detail : {};
+    const value = detail.value != null ? detail.value : '';
+    this.setData({ 'form.nickname': value });
   },
 
   async uploadAvatar(filePath) {
@@ -118,7 +120,8 @@ Page({
     }
     const authorization = resolvePhoneAuthorizationCode(
       event && event.detail,
-      getCurrentMockPhoneCode()
+      getCurrentMockPhoneCode(),
+      { preferMock: true }
     );
     if (authorization.cancelled) {
       wx.showToast({ title: '已取消手机号授权', icon: 'none' });
