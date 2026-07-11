@@ -20,6 +20,7 @@ services:
     volumes:
       - playmate_mysql_data:/var/lib/mysql
       - ../docs/sql/p0_init.sql:/docker-entrypoint-initdb.d/001-p0_init.sql:ro
+      - ../docs/sql/p1_001_activity_collaboration.sql:/docker-entrypoint-initdb.d/002-p1_activity_collaboration.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
       interval: 10s

@@ -1,0 +1,94 @@
+# P1 活动协作增强数据库设计
+
+## 设计目标
+
+P1 为活动空间补充行程、投票、费用管理和照片墙的数据基础。行程是最终落地安排；投票是形成或调整行程的协作决策过程。费用管理包含预算、账单、分摊和实际转账记录；照片墙复用已有文件元数据。
+
+## 设计边界
+
+- 本阶段只创建 9 张业务表，不新增通用待办、点赞、评论、相册分类或多凭证附件表。
+- 不保存可由时间或业务数据实时推导的状态，例如行程的未开始、进行中、已完成，活动待办、预算总额和实际总额。
+- 不使用数据库触发器自动应用投票结果或自动计算 AA；这些属于阶段 C 的事务和业务规则。
+- 所有金额使用 `DECIMAL(12,2)`，不使用 `FLOAT` 或 `DOUBLE`。
+- P1 表延续 P0 规范：`BIGINT AUTO_INCREMENT` 主键、`create_time`、`update_time`、`delete_flag`、InnoDB、`utf8mb4_0900_ai_ci`。
+
+## 关系总览
+
+```text
+t_activity 1:N t_activity_itinerary
+t_activity 1:N t_activity_poll 1:N t_activity_poll_option 1:N t_activity_poll_vote
+t_activity_itinerary 1:N t_activity_poll (target_itinerary_id)
+t_activity_poll 0:1 t_activity_itinerary (generated_itinerary_id / origin_poll_id)
+t_activity 1:N t_activity_budget_item
+t_activity 1:N t_activity_expense 1:N t_activity_expense_share
+t_activity 1:N t_activity_settlement
+t_activity 1:N t_activity_photo
+t_file 1:N t_activity_expense / t_activity_photo
+t_user 为创建人、付款人、分摊人、投票人、结算双方和上传人的逻辑来源
+```
+
+## 外键策略
+
+P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样可保持逻辑删除、历史账单和成员移除后的数据可追溯性，避免物理级联删除破坏活动历史。阶段 C 在 Service 事务中校验活动、成员、文件与关联记录的存在性和归属。
+
+## 表设计
+
+| 表 | 用途 | 关键字段与索引 |
+| --- | --- | --- |
+| `t_activity_itinerary` | 活动最终行程 | `activity_id`、日期与时间、`planning_status`、`origin_poll_id`、`version`；按活动日期时间、待决定状态、创建人和来源投票索引。 |
+| `t_activity_poll` | 协作投票及结果应用状态 | `purpose`、`target_itinerary_id`、`generated_itinerary_id`、`winner_option_id`、`target_itinerary_version`、JSON `itinerary_template`；按活动状态截止时间和关联行程索引。 |
+| `t_activity_poll_option` | 投票候选项 | 选项文本、JSON `result_payload`、`sort_no`；按投票和排序索引。 |
+| `t_activity_poll_vote` | 用户对选项的投票记录 | `poll_id`、`option_id`、`user_id`；唯一约束防止同一用户重复投同一选项。 |
+| `t_activity_budget_item` | 预算明细 | 类别、计算方式、单价、数量、最终预算金额、可选关联行程；预算总额动态汇总。 |
+| `t_activity_expense` | 实际账单 | 金额、付款人、消费时间、主凭证文件、状态和版本；已参与结算的账单通过 `VOID` 作废。 |
+| `t_activity_expense_share` | 每位成员最终承担金额 | `expense_id`、`user_id`、`share_amount`；支持均摊、部分成员和后续自定义金额分摊。 |
+| `t_activity_settlement` | 实际线下转账状态 | 转出人、收款人、金额、状态、完成时间；待支付建议仍可根据账单动态计算。 |
+| `t_activity_photo` | 活动照片墙关联 | `activity_id`、`file_id`、上传人、拍摄时间、说明和排序；照片二进制继续保存在对象存储。 |
+
+## 行程与投票关联
+
+- 普通投票：`purpose=GENERAL`，不关联行程。
+- 修改已有行程：投票写入 `target_itinerary_id` 和发起时的 `target_itinerary_version`；关闭后根据 `winner_option_id`、`result_payload` 生成预览。版本不一致时，将 `result_apply_status` 置为 `REVIEW_REQUIRED`，由人工确认。
+- 生成新行程：投票的 `purpose=CREATE_ITINERARY`，固定字段存入 JSON `itinerary_template`；结果应用后写入 `generated_itinerary_id`，新行程记录 `origin_type=POLL_RESULT` 和 `origin_poll_id`。
+- 一个行程可被多次历史投票引用，因为多个投票可以使用同一个 `target_itinerary_id`；“同一行程同时只允许一个进行中修改投票”留给阶段 C 的事务校验，不用复杂生成列或触发器实现。
+- 并列、无人投票、版本冲突均由 `winner_option_id`、`result_apply_status` 和人工确认流程承载，不在数据库自动决策。
+
+## 费用与结算关系
+
+- 预算总额为 `t_activity_budget_item.estimated_amount` 的动态汇总，不写回 `t_activity`。
+- 每笔 `t_activity_expense` 有一个付款人，可有多条 `t_activity_expense_share`，保存最终分摊金额。
+- AA 建议依据有效账单、付款人和分摊记录实时计算；`t_activity_settlement` 只持久化实际转账建议的状态变化，不代表账单快照。
+- MySQL 8 支持 `CHECK`，但 P0 现有 SQL 未使用数据库检查约束；P1 保持一致，由阶段 C 校验金额大于零、转出人不等于收款人及活动成员归属。
+
+## 关键枚举
+
+- 行程：`TRANSPORT/MEAL/LODGING/SIGHTSEEING/ACTIVITY/OTHER`；规划状态 `DRAFT/PENDING_DECISION/CONFIRMED/CANCELED`。
+- 投票：用途 `GENERAL/UPDATE_ITINERARY/CREATE_ITINERARY`；类型 `SINGLE/MULTIPLE`；状态 `DRAFT/ACTIVE/CLOSED/CANCELED`；应用状态 `NOT_REQUIRED/PENDING/APPLIED/REVIEW_REQUIRED/FAILED`。
+- 费用分类：`TRANSPORT/LODGING/TICKET/FOOD/ENTERTAINMENT/SHOPPING/OTHER`。
+- 预算计算方式：`UNIT_X_QUANTITY/DIRECT_AMOUNT`；预算状态 `ACTIVE/VOID`。
+- 账单状态：`ACTIVE/VOID`；结算状态 `PENDING/COMPLETED/CANCELED`；照片状态 `ACTIVE/DELETED`。
+
+## 约束与索引
+
+- `uk_poll_vote_poll_option_user (poll_id, option_id, user_id)`：防止相同选项重复投票。
+- `uk_expense_share_expense_user (expense_id, user_id)`：一笔账单每个成员仅一条最终分摊。
+- `uk_activity_photo_activity_file (activity_id, file_id)`：同一文件不能重复加入同一活动。
+- 活动维度列表均有联合索引：行程按日期时间、投票按状态截止时间、账单按消费时间、结算按状态、照片按上传时间。
+
+## 动态待办不建表
+
+活动详情待办可由待决定行程、临近截止的投票、待处理结算等查询实时聚合。当前不存在用户手工勾选、指派或跨模块独立生命周期，因此不新增通用待办表。
+
+## SQL 与执行方式
+
+- 建表 SQL：[p1_001_activity_collaboration.sql](sql/p1_001_activity_collaboration.sql)
+- 新环境：Docker MySQL 初始化顺序为 `001-p0_init.sql`、`002-p1_activity_collaboration.sql`。
+- 已存在的本地开发库：手工执行本 SQL；所有语句使用 `CREATE TABLE IF NOT EXISTS`，不会删除、清空或重建现有 P0/P0.5 表和数据。
+
+## 阶段 C 待处理
+
+- 行程、投票、费用和照片的 API、DTO、权限与活动状态规则。
+- 行程版本冲突、投票并列/无人投票、单选限制、投票结果人工应用。
+- 账单分摊校验、AA 计算与账单变化后的结算刷新策略。
+- 费用、照片、已结束或已取消活动的可编辑和只读规则。
+- 小程序页面、模块联调和自动化测试。
