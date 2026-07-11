@@ -14,6 +14,12 @@
     "pages/wechat-profile/index",
     "pages/activity-join-code/index",
     "pages/profile-edit/index",
+    "pages/itinerary-list/index",
+    "pages/itinerary-detail/index",
+    "pages/itinerary-edit/index",
+    "pages/poll-list/index",
+    "pages/poll-create/index",
+    "pages/poll-detail/index",
     "pages/mine/index",
     "pages/login/index"
   ],

@@ -1,0 +1,12 @@
+const { request } = require('../utils/request');
+const base = (activityId) => `/api/activities/${activityId}/polls`;
+const getPolls = (activityId) => request({ url: base(activityId) });
+const getPollDetail = (activityId, pollId) => request({ url: `${base(activityId)}/${pollId}` });
+const createPoll = (activityId, data) => request({ url: base(activityId), method: 'POST', data });
+const updatePoll = (activityId, pollId, data) => request({ url: `${base(activityId)}/${pollId}`, method: 'PUT', data });
+const submitVote = (activityId, pollId, optionIds) => request({ url: `${base(activityId)}/${pollId}/votes`, method: 'POST', data: { optionIds } });
+const closePoll = (activityId, pollId) => request({ url: `${base(activityId)}/${pollId}/close`, method: 'POST' });
+const cancelPoll = (activityId, pollId) => request({ url: `${base(activityId)}/${pollId}/cancel`, method: 'POST' });
+const applyPollResult = (activityId, pollId, optionId) => request({ url: `${base(activityId)}/${pollId}/apply-result`, method: 'POST', data: { optionId } });
+const getSummary = (activityId) => request({ url: `/api/activities/${activityId}/collaboration-summary` });
+module.exports = { getPolls, getPollDetail, createPoll, updatePoll, submitVote, closePoll, cancelPoll, applyPollResult, getSummary };
