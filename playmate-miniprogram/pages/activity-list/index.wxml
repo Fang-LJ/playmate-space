@@ -1,19 +1,17 @@
 <view class="page">
   <view class="hero">
-    <view>
-      <view class="page-title">我的活动</view>
-      <view class="hero-question">周末要去哪玩？</view>
-      <view class="page-subtitle">把行程、成员和照片放进同一个活动空间。</view>
+    <view class="hero-main">
+      <view class="hero-question">想要去哪玩？</view>
+      <view class="home-actions">
+        <view class="todo-action" bindtap="showTodoSummary">
+          <view class="todo-bell"><view class="todo-bell-dot"></view></view>
+          <view wx:if="{{todoCount > 0}}" class="todo-badge">{{todoCount > 99 ? '99+' : todoCount}}</view>
+        </view>
+        <view class="home-action join-action" bindtap="openJoinDialog">加入</view>
+        <view class="home-action create-action" bindtap="goCreate">创建</view>
+      </view>
     </view>
-    <view class="create-button" bindtap="goCreate">创建</view>
-  </view>
-
-  <view class="join-code-entry" bindtap="goJoinCode">
-    <view>
-      <view class="join-code-title">输入分享码加入活动</view>
-      <view class="join-code-desc">好友发来分享码？先查看活动邀请</view>
-    </view>
-    <view class="join-code-arrow">›</view>
+    <view class="page-subtitle">把行程、成员和照片放进同一个活动空间。</view>
   </view>
 
   <view wx:if="{{loading}}" class="section card stack">
@@ -81,6 +79,19 @@
           <view class="member-pill">{{item.memberCount}} 位成员</view>
           <view class="role-pill">{{item.roleText}}</view>
         </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{showJoinDialog}}" class="join-dialog-mask" catchtap="closeJoinDialog">
+    <view class="join-dialog" catchtap="stopPropagation">
+      <view class="join-dialog-title">加入活动</view>
+      <input class="pm-input join-dialog-input" maxlength="64" placeholder="请输入活动分享码" value="{{shareCode}}" bindinput="handleShareCodeInput" />
+      <view class="join-dialog-hint">好友发送的活动分享码可在活动邀请中查看</view>
+      <view wx:if="{{joinError}}" class="join-dialog-error">{{joinError}}</view>
+      <view class="join-dialog-actions">
+        <button class="pm-native-button secondary dialog-button" bindtap="closeJoinDialog">取消</button>
+        <button class="pm-native-button primary dialog-button" bindtap="viewInvite">查看活动</button>
       </view>
     </view>
   </view>

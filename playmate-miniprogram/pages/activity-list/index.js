@@ -1,5 +1,7 @@
 const { isLoggedIn } = require('../../services/auth');
 const { getMyActivities } = require('../../services/activity');
+const { getSummary } = require('../../services/poll');
+const { normalizeShareCode, buildInvitePath } = require('../../utils/share-code');
 
 const ACTIVITY_TYPE_LABELS = {
   TRAVEL: '旅行',
@@ -38,11 +40,23 @@ Page({
       { label: '进行中', value: 'ONGOING' },
       { label: '已结束', value: 'ENDED' }
     ],
-    errorMessage: ''
+    errorMessage: '',
+    todoCount: 0,
+    showJoinDialog: false,
+    shareCode: '',
+    joinError: ''
   },
 
   onShow() {
+    this.syncTabBar();
     this.loadActivities();
+  },
+
+  syncTabBar() {
+    const tabBar = this.getTabBar && this.getTabBar();
+    if (tabBar) {
+      tabBar.setData({ selected: 0 });
+    }
   },
 
   async loadActivities() {
@@ -53,7 +67,8 @@ Page({
         isLoggedIn: false,
         activities: [],
         displayActivities: [],
-        errorMessage: ''
+        errorMessage: '',
+        todoCount: 0
       });
       return;
     }
@@ -67,10 +82,12 @@ Page({
     try {
       const activities = await getMyActivities();
       const normalized = (activities || []).map(this.normalizeActivity);
+      const todoCount = await this.getTodoCount(normalized);
       this.setData({
         activities: normalized,
         displayActivities: this.filterActivities(normalized, this.data.activeFilter),
-        loaded: true
+        loaded: true,
+        todoCount
       });
     } catch (error) {
       this.setData({
@@ -81,6 +98,22 @@ Page({
       });
     } finally {
       this.setData({ loading: false });
+    }
+  },
+
+  async getTodoCount(activities) {
+    const activeActivityIds = (activities || [])
+      .filter((activity) => !['ENDED', 'CANCELED'].includes(activity.status))
+      .map((activity) => activity.activityId)
+      .filter(Boolean);
+    if (!activeActivityIds.length) {
+      return 0;
+    }
+    try {
+      const summaries = await Promise.all(activeActivityIds.map((activityId) => getSummary(activityId)));
+      return summaries.reduce((total, summary) => total + Number(summary.todoCount || 0), 0);
+    } catch (error) {
+      return 0;
     }
   },
 
@@ -149,10 +182,39 @@ Page({
     });
   },
 
-  goJoinCode() {
-    wx.navigateTo({
-      url: '/pages/activity-join-code/index'
+  openJoinDialog() {
+    this.setData({ showJoinDialog: true, joinError: '' });
+  },
+
+  closeJoinDialog() {
+    this.setData({ showJoinDialog: false, shareCode: '', joinError: '' });
+  },
+
+  stopPropagation() {},
+
+  handleShareCodeInput(event) {
+    this.setData({
+      shareCode: normalizeShareCode(event.detail.value),
+      joinError: ''
     });
+  },
+
+  viewInvite() {
+    const target = buildInvitePath(this.data.shareCode);
+    if (!target) {
+      this.setData({ joinError: '请输入活动分享码' });
+      return;
+    }
+    this.closeJoinDialog();
+    wx.navigateTo({ url: target });
+  },
+
+  showTodoSummary() {
+    if (!this.data.todoCount) {
+      wx.showToast({ title: '暂无待办提醒', icon: 'none' });
+      return;
+    }
+    wx.showToast({ title: `你有 ${this.data.todoCount} 项待办，请进入活动查看`, icon: 'none' });
   },
 
   goDetail(event) {

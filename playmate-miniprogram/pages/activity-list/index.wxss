@@ -1,63 +1,121 @@
 .hero {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.hero-main {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  gap: 24rpx;
+  gap: 12rpx;
 }
 
 .hero-question {
-  margin-top: 22rpx;
+  flex: 1;
+  min-width: 0;
   color: var(--pm-text);
   font-size: 42rpx;
   font-weight: 800;
   line-height: 1.25;
+  white-space: nowrap;
 }
 
-.create-button {
+.home-actions {
+  display: flex;
+  align-items: center;
   flex: 0 0 auto;
-  min-width: 132rpx;
-  height: 68rpx;
+  gap: 10rpx;
+}
+
+.todo-action,
+.home-action {
+  position: relative;
+  flex: 0 0 auto;
+  height: 58rpx;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 18rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.todo-action {
+  display: flex;
+  align-items: center;
+  width: 58rpx;
+  border: 1rpx solid var(--pm-border);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.todo-bell {
+  position: relative;
+  width: 24rpx;
+  height: 25rpx;
+  border: 4rpx solid var(--pm-primary-dark);
+  border-top-left-radius: 14rpx;
+  border-top-right-radius: 14rpx;
+  border-bottom: 0;
+}
+
+.todo-bell::before {
+  content: '';
+  position: absolute;
+  left: -7rpx;
+  right: -7rpx;
+  bottom: -6rpx;
+  height: 4rpx;
+  border-radius: 999rpx;
+  background: var(--pm-primary-dark);
+}
+
+.todo-bell-dot {
+  position: absolute;
+  left: 7rpx;
+  bottom: -12rpx;
+  width: 7rpx;
+  height: 7rpx;
+  border-radius: 50%;
+  background: var(--pm-primary-dark);
+}
+
+.todo-badge {
+  position: absolute;
+  top: -10rpx;
+  right: -10rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 28rpx;
+  height: 28rpx;
+  padding: 0 5rpx;
   box-sizing: border-box;
-  margin-top: 6rpx;
-  border-radius: var(--pm-radius-button);
-  background: var(--pm-primary);
-  color: #ffffff;
-  font-size: 26rpx;
-  font-weight: 700;
-  box-shadow: 0 12rpx 26rpx rgba(107, 175, 146, 0.22);
+  border: 3rpx solid var(--pm-bg);
+  border-radius: 999rpx;
+  background: #dc4f4f;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 800;
+  line-height: 1;
 }
 
-.join-code-entry {
+.home-action {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 20rpx;
-  margin-top: 26rpx;
-  padding: 22rpx 26rpx;
-  border: 1rpx solid rgba(107, 175, 146, 0.26);
-  border-radius: 22rpx;
-  background: rgba(255, 255, 255, 0.72);
+  min-width: 74rpx;
+  padding: 0 16rpx;
 }
 
-.join-code-title {
+.join-action {
+  border: 1rpx solid rgba(107, 175, 146, 0.46);
+  background: rgba(255, 255, 255, 0.88);
   color: var(--pm-primary-dark);
-  font-size: 26rpx;
-  font-weight: 800;
 }
 
-.join-code-desc {
-  margin-top: 6rpx;
-  color: var(--pm-text-muted);
-  font-size: 22rpx;
-}
-
-.join-code-arrow {
-  color: var(--pm-primary-dark);
-  font-size: 38rpx;
-  line-height: 1;
+.create-action {
+  background: var(--pm-primary);
+  color: #ffffff;
+  box-shadow: 0 10rpx 22rpx rgba(107, 175, 146, 0.2);
 }
 
 .empty-title {
@@ -72,7 +130,7 @@
 }
 
 .activity-list {
-  margin-top: 28rpx;
+  margin-top: 20rpx;
   display: flex;
   flex-direction: column;
   gap: 24rpx;
@@ -195,4 +253,58 @@
 .role-pill {
   background: var(--pm-warning-soft);
   color: #8a6500;
+}
+
+.join-dialog-mask {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+  box-sizing: border-box;
+  background: rgba(31, 42, 36, 0.38);
+}
+
+.join-dialog {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 36rpx 32rpx;
+  border-radius: 30rpx;
+  background: #fff;
+  box-shadow: 0 24rpx 56rpx rgba(18, 39, 28, 0.2);
+}
+
+.join-dialog-title {
+  color: var(--pm-text);
+  font-size: 36rpx;
+  font-weight: 800;
+}
+
+.join-dialog-input {
+  margin-top: 26rpx;
+}
+
+.join-dialog-hint,
+.join-dialog-error {
+  margin-top: 14rpx;
+  font-size: 23rpx;
+  line-height: 1.45;
+}
+
+.join-dialog-hint { color: var(--pm-text-muted); }
+.join-dialog-error { color: var(--pm-danger); }
+
+.join-dialog-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 30rpx;
+}
+
+.dialog-button {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 26rpx;
 }

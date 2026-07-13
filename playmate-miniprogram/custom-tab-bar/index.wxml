@@ -1,0 +1,14 @@
+<view class="tab-bar">
+  <view wx:for="{{list}}" wx:key="pagePath" class="tab-item {{selected === index ? 'active' : ''}}" data-index="{{index}}" data-path="{{item.pagePath}}" bindtap="switchTab">
+    <view wx:if="{{item.key === 'activity'}}" class="tab-icon activity-icon">
+      <view class="calendar-ring"></view>
+      <view class="calendar-line calendar-line-one"></view>
+      <view class="calendar-line calendar-line-two"></view>
+    </view>
+    <view wx:else class="tab-icon mine-icon">
+      <view class="mine-head"></view>
+      <view class="mine-body"></view>
+    </view>
+    <view class="tab-text">{{item.text}}</view>
+  </view>
+</view>

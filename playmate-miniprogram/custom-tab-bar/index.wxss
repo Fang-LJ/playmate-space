@@ -1,0 +1,33 @@
+.tab-bar {
+  display: flex;
+  height: calc(112rpx + env(safe-area-inset-bottom));
+  padding: 12rpx 54rpx calc(12rpx + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  border-top: 1rpx solid #edf1ee;
+  background: #fff;
+}
+
+.tab-item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  min-width: 0;
+  color: #7c8a82;
+}
+
+.tab-icon { position: relative; width: 42rpx; height: 42rpx; box-sizing: border-box; }
+.tab-text { font-size: 27rpx; font-weight: 600; line-height: 1.25; }
+.tab-item.active { color: var(--pm-primary-dark, #2f6f5e); }
+.tab-item.active .tab-text { font-weight: 800; }
+
+.activity-icon { border: 3rpx solid currentColor; border-radius: 11rpx; }
+.calendar-ring { position: absolute; top: -5rpx; left: 8rpx; width: 20rpx; height: 7rpx; border-left: 3rpx solid currentColor; border-right: 3rpx solid currentColor; }
+.calendar-line { position: absolute; left: 8rpx; right: 8rpx; height: 3rpx; border-radius: 999rpx; background: currentColor; }
+.calendar-line-one { top: 17rpx; }
+.calendar-line-two { top: 26rpx; }
+
+.mine-head { position: absolute; top: 3rpx; left: 12rpx; width: 18rpx; height: 18rpx; border: 3rpx solid currentColor; border-radius: 50%; }
+.mine-body { position: absolute; right: 5rpx; bottom: 3rpx; left: 5rpx; height: 16rpx; border: 3rpx solid currentColor; border-bottom: 0; border-top-left-radius: 18rpx; border-top-right-radius: 18rpx; }
