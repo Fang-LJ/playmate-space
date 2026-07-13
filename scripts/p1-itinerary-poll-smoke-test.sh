@@ -36,7 +36,7 @@ TIE_ID=$(printf '%s' "$TIE"|jq -r '.data.pollId'); T1=$(printf '%s' "$TIE"|jq -r
 api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$TIE_ID/votes" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"optionIds\":[$T1]}" >/dev/null; api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$TIE_ID/votes" -H "Authorization: Bearer $TB" -H 'Content-Type: application/json' -d "{\"optionIds\":[$T2]}" >/dev/null
 REVIEW=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$TIE_ID/close" -H "Authorization: Bearer $TA")
 [[ $(printf '%s' "$REVIEW"|jq -r '.data.resultApplyStatus') == REVIEW_REQUIRED ]] || fail "并列人工确认"; api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$TIE_ID/apply-result" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"optionId\":$T1}" >/dev/null; pass "并列进入并完成人工确认"
-SUMMARY=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/collaboration-summary" -H "Authorization: Bearer $TA"); [[ $(printf '%s' "$SUMMARY"|jq -r '.code') == SUCCESS ]] || fail "协作摘要"; pass "活动详情协作摘要"
+SUMMARY=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/collaboration-summary" -H "Authorization: Bearer $TA"); [[ $(printf '%s' "$SUMMARY"|jq -r '.code') == SUCCESS ]] || fail "协作摘要"; [[ $(printf '%s' "$SUMMARY"|jq -r '.data.todoCount') == 0 ]] || fail "已处理投票不应保留待办"; pass "活动详情协作摘要"
 api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/end" -H "Authorization: Bearer $TA" >/dev/null
 READ_ONLY=$(api -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"creationMode":"DIRECT","title":"不可创建","itineraryDate":"2026-07-19"}')
 [[ "$READ_ONLY" == 403 ]] || fail "结束活动只读"; pass "结束活动行程投票只读"
