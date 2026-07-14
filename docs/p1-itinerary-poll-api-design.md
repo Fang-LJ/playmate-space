@@ -23,6 +23,7 @@
 | `POST /api/activities/{activityId}/polls/{pollId}/cancel` | 取消投票。 |
 | `POST /api/activities/{activityId}/polls/{pollId}/apply-result` | 人工确认并应用指定胜出选项。 |
 | `GET /api/activities/{activityId}/collaboration-summary` | 返回活动详情默认 Tab、行程/投票摘要和动态待办。 |
+| `GET /api/users/me/activity-todos` | 聚合当前用户可访问活动中的动态待办，按活动分组供首页角标和待办中心使用。 |
 
 ## 核心请求示例
 
@@ -72,7 +73,9 @@
 
 ## 动态待办
 
-摘要实时聚合未参与的进行中投票、待确认投票结果、24 小时内开始的行程和进行中的行程，最多返回 3 条。不建通用待办表。
+活动详情摘要最多返回 3 条动态待办；`GET /api/users/me/activity-todos` 返回当前用户的完整动态待办清单，聚合未参与的进行中投票、即将截止投票、待确认投票结果、24 小时内开始的行程和正在进行的行程。不建通用待办表。
+
+人工提醒不在本轮实现。后续如需创建者发布提醒并让成员确认，需单独设计 `t_activity_reminder`、`t_activity_reminder_ack`、发布流程和“我已知晓”状态，不使用前端本地缓存伪造跨设备状态。
 
 ## 事务与错误
 

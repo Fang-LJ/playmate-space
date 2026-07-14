@@ -3,7 +3,7 @@
     <view class="hero-main">
       <view class="hero-question">想要去哪玩？</view>
       <view class="home-actions">
-        <view class="todo-action" bindtap="showTodoSummary">
+        <view class="todo-action" bindtap="goTodos" aria-label="我的待办">
           <view class="todo-bell"><view class="todo-bell-dot"></view></view>
           <view wx:if="{{todoCount > 0}}" class="todo-badge">{{todoCount > 99 ? '99+' : todoCount}}</view>
         </view>

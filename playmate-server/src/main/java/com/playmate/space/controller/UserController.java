@@ -1,6 +1,8 @@
 package com.playmate.space.controller;
 
 import com.playmate.space.common.ApiResponse;
+import com.playmate.space.dto.collaboration.UserActivityTodosResponse;
+import com.playmate.space.service.ActivityTodoService;
 import com.playmate.space.dto.user.UpdateUserProfileRequest;
 import com.playmate.space.dto.user.UpdateMyAccountRequest;
 import com.playmate.space.dto.user.WechatPhoneBindRequest;
@@ -19,14 +21,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
+    private final ActivityTodoService activityTodoService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, ActivityTodoService activityTodoService) {
         this.userService = userService;
+        this.activityTodoService = activityTodoService;
     }
 
     @GetMapping("/me")
     public ApiResponse<CurrentUserResponse> me() {
         return ApiResponse.success(userService.getCurrentUser());
+    }
+
+    @GetMapping("/me/activity-todos")
+    public ApiResponse<UserActivityTodosResponse> activityTodos() {
+        return ApiResponse.success(activityTodoService.getCurrentUserTodos());
     }
 
     @PutMapping("/me")

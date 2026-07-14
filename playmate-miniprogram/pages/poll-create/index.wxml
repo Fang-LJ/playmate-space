@@ -1,1 +1,65 @@
-<view class="page"><view class="page-title">创建投票</view><view class="page-subtitle">邀请成员一起做出这次活动的选择。</view><view wx:if="{{target}}" class="section pm-hero-card"><view class="section-desc">关联行程</view><view class="section-title">{{target.title}}</view><view class="section-desc">{{target.itineraryDate}} {{target.startTime||'全天'}}</view></view><view class="section card pm-form-card"><view class="pm-field"><view class="pm-label">投票问题</view><input class="pm-input" value="{{form.title}}" data-k="title" bindinput="input" placeholder="例如：今晚吃什么？"/></view><view class="pm-field"><view class="pm-label">投票用途</view><picker range="{{purposes}}" bindchange="choose" data-k="purpose"><view class="pm-picker">{{form.purpose}}</view></picker></view><view class="pm-field"><view class="pm-label">决定内容</view><picker range="{{decisionTypes}}" bindchange="choose" data-k="decisionType"><view class="pm-picker">{{form.decisionType}}</view></picker></view><view wx:if="{{form.purpose==='CREATE_ITINERARY'}}" class="pm-field"><view class="pm-label">生成行程</view><input class="pm-input" value="{{template.title}}" data-k="title" bindinput="templateInput" placeholder="固定行程标题"/><picker mode="date" value="{{template.itineraryDate}}" data-k="itineraryDate" bindchange="templateInput"><view class="pm-picker">{{template.itineraryDate||'选择日期'}}</view></picker></view><view class="pm-field"><view class="pm-label">截止日期（可选）</view><picker mode="date" value="{{form.deadline}}" bindchange="deadlineChange"><view class="pm-picker">{{form.deadline||'暂不设置'}}</view></picker></view><view class="pm-label">投票选项</view><view wx:for="{{form.options}}" wx:key="index" class="pm-field"><input class="pm-input" value="{{item.optionText}}" data-i="{{index}}" bindinput="option" placeholder="候选方案"/><input wx:if="{{form.purpose!=='GENERAL'}}" class="pm-input" value="{{item.payloadLocation}}" data-i="{{index}}" bindinput="optionLocation" placeholder="胜出后使用的地点（可选）"/></view><view class="pm-link" bindtap="add">+ 新增选项</view></view><view class="pm-bottom-bar"><view class="pm-primary-action"><button class="pm-native-button primary" loading="{{saving}}" bindtap="save">创建投票</button></view></view></view>
+<view class="page p1-edit-page">
+  <view class="page-title">创建投票</view>
+  <view class="page-subtitle">邀请成员一起做出这次活动的选择。</view>
+
+  <view wx:if="{{target}}" class="section p1-context-card">
+    <view class="context-eyebrow">为这个行程发起投票</view>
+    <view class="section-title">{{target.title}}</view>
+    <view class="section-desc">{{target.itineraryDate}} · {{target.startTime || '时间待定'}}</view>
+  </view>
+
+  <view class="section card pm-form-card">
+    <view class="pm-field">
+      <view class="pm-label">投票问题</view>
+      <input class="pm-input" value="{{form.title}}" data-key="title" bindinput="input" placeholder="例如：今晚吃什么？" />
+    </view>
+    <view wx:if="{{!target}}" class="pm-field">
+      <view class="pm-label">投票用途</view>
+      <picker range="{{purposeOptions}}" range-key="label" value="{{purposeIndex}}" bindchange="choosePurpose">
+        <view class="pm-picker">{{purposeOptions[purposeIndex].label}}</view>
+      </picker>
+    </view>
+    <view class="pm-field">
+      <view class="pm-label">决定内容</view>
+      <picker range="{{decisionOptions}}" range-key="label" value="{{decisionIndex}}" bindchange="chooseDecision">
+        <view class="pm-picker">{{decisionOptions[decisionIndex].label}}</view>
+      </picker>
+    </view>
+    <view class="pm-field">
+      <view class="pm-label">投票规则</view>
+      <view class="choice-row">
+        <view class="pm-chip {{form.voteType === 'SINGLE' ? 'active' : ''}}" data-value="SINGLE" bindtap="chooseVoteType">单选</view>
+        <view wx:if="{{form.purpose === 'GENERAL'}}" class="pm-chip {{form.voteType === 'MULTIPLE' ? 'active' : ''}}" data-value="MULTIPLE" bindtap="chooseVoteType">多选</view>
+      </view>
+      <view class="allow-modify-row"><view>截止前允许修改</view><switch checked="{{form.allowModify}}" bindchange="toggleAllowModify" color="#6BAF92" /></view>
+    </view>
+    <view class="time-row">
+      <view class="pm-field"><view class="pm-label">截止日期</view><picker mode="date" value="{{form.deadlineDate}}" data-key="deadlineDate" bindchange="deadlineInput"><view class="pm-picker {{form.deadlineDate ? '' : 'placeholder'}}">{{form.deadlineDate || '选择日期'}}</view></picker></view>
+      <view class="pm-field"><view class="pm-label">截止时间</view><picker mode="time" value="{{form.deadlineTime}}" data-key="deadlineTime" bindchange="deadlineInput"><view class="pm-picker {{form.deadlineTime ? '' : 'placeholder'}}">{{form.deadlineTime || '选择时间'}}</view></picker></view>
+    </view>
+    <view class="pm-field"><view class="pm-label">投票说明</view><textarea class="pm-textarea short-textarea" value="{{form.description}}" data-key="description" bindinput="input" placeholder="补充说明（可选）" /></view>
+  </view>
+
+  <view wx:if="{{form.purpose === 'CREATE_ITINERARY'}}" class="section card pm-form-card">
+    <view class="section-title">投票后生成行程</view>
+    <view class="pm-field"><view class="pm-label">行程标题</view><input class="pm-input" value="{{template.title}}" data-key="title" bindinput="templateInput" placeholder="例如：周日午餐" /></view>
+    <view class="time-row">
+      <view class="pm-field"><view class="pm-label">日期</view><picker mode="date" value="{{template.itineraryDate}}" data-key="itineraryDate" bindchange="templateInput"><view class="pm-picker">{{template.itineraryDate}}</view></picker></view>
+      <view class="pm-field"><view class="pm-label">开始时间</view><picker mode="time" value="{{template.startTime}}" data-key="startTime" bindchange="templateInput"><view class="pm-picker {{template.startTime ? '' : 'placeholder'}}">{{template.startTime || '选择时间'}}</view></picker></view>
+    </view>
+    <view class="pm-field"><view class="pm-label">结束时间</view><picker mode="time" value="{{template.endTime}}" data-key="endTime" bindchange="templateInput"><view class="pm-picker {{template.endTime ? '' : 'placeholder'}}">{{template.endTime || '选择时间'}}</view></picker></view>
+  </view>
+
+  <view class="section card pm-form-card">
+    <view class="section-title">投票选项</view>
+    <view wx:for="{{form.options}}" wx:key="index" class="poll-option-edit">
+      <view class="option-card-title"><view class="pm-label">选项 {{index + 1}}</view><view wx:if="{{index >= 2}}" class="option-remove" data-index="{{index}}" bindtap="removeOption">删除</view></view>
+      <input class="pm-input" value="{{item.optionText}}" data-index="{{index}}" data-key="optionText" bindinput="optionInput" placeholder="填写候选方案" />
+      <input wx:if="{{form.purpose !== 'GENERAL'}}" class="pm-input option-secondary" value="{{item.payloadLocation}}" data-index="{{index}}" data-key="payloadLocation" bindinput="optionInput" placeholder="地点（可选）" />
+      <input class="pm-input option-secondary" value="{{item.optionDescription}}" data-index="{{index}}" data-key="optionDescription" bindinput="optionInput" placeholder="说明（可选）" />
+    </view>
+    <view class="pm-link" bindtap="addOption">+ 添加选项</view>
+  </view>
+
+  <view class="p1-fixed-footer"><button class="pm-native-button primary" loading="{{saving}}" bindtap="save">创建投票</button></view>
+</view>

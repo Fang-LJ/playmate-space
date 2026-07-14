@@ -1,1 +1,13 @@
-.pm-bottom-bar{margin-top:20rpx}
+.p1-edit-page { padding-bottom: 142rpx; }
+.p1-context-card { padding: 30rpx; border: 1rpx solid rgba(107, 175, 146, 0.36); border-radius: var(--pm-radius-card); background: linear-gradient(135deg, #e9f5ef, #fffdf4); box-shadow: var(--pm-shadow-soft); }
+.context-eyebrow { margin-bottom: 10rpx; color: var(--pm-primary-dark); font-size: 23rpx; font-weight: 700; }
+.time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18rpx; }
+.placeholder { color: #9ca9a1; }
+.choice-row { display: flex; gap: 14rpx; }
+.allow-modify-row { display: flex; align-items: center; justify-content: space-between; margin-top: 18rpx; color: var(--pm-text-muted); font-size: 25rpx; }
+.short-textarea { height: 132rpx; }
+.poll-option-edit { display: flex; flex-direction: column; gap: 14rpx; padding: 22rpx; border: 1rpx solid var(--pm-border); border-radius: 22rpx; background: #fbfdfb; }
+.option-card-title { display: flex; align-items: center; justify-content: space-between; }
+.option-secondary { min-height: 76rpx; font-size: 25rpx; }
+.option-remove { color: var(--pm-danger); font-size: 24rpx; }
+.p1-fixed-footer { position: fixed; z-index: 10; left: 0; right: 0; bottom: 0; padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid var(--pm-border); background: rgba(246, 248, 245, 0.96); }

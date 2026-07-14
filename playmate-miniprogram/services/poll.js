@@ -9,4 +9,5 @@ const closePoll = (activityId, pollId) => request({ url: `${base(activityId)}/${
 const cancelPoll = (activityId, pollId) => request({ url: `${base(activityId)}/${pollId}/cancel`, method: 'POST' });
 const applyPollResult = (activityId, pollId, optionId) => request({ url: `${base(activityId)}/${pollId}/apply-result`, method: 'POST', data: { optionId } });
 const getSummary = (activityId) => request({ url: `/api/activities/${activityId}/collaboration-summary` });
-module.exports = { getPolls, getPollDetail, createPoll, updatePoll, submitVote, closePoll, cancelPoll, applyPollResult, getSummary };
+const getMyActivityTodos = () => request({ url: '/api/users/me/activity-todos' });
+module.exports = { getPolls, getPollDetail, createPoll, updatePoll, submitVote, closePoll, cancelPoll, applyPollResult, getSummary, getMyActivityTodos };

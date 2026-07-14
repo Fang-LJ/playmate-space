@@ -44,8 +44,8 @@
   display: flex;
   align-items: center;
   width: 58rpx;
-  border: 1rpx solid var(--pm-border);
-  background: rgba(255, 255, 255, 0.88);
+  border: 0;
+  background: transparent;
 }
 
 .todo-bell {

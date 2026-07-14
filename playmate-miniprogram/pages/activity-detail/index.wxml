@@ -50,19 +50,22 @@
 
     <view wx:if="{{activeTab==='ITINERARIES'}}" class="section">
       <view class="section-head"><view class="section-title">行程安排</view><view class="pm-link" bindtap="goItineraries">查看全部</view></view>
-      <view wx:if="{{!itineraries.length}}" class="card empty-card"><view>还没有行程安排</view><view class="section-desc">从集合、交通或第一站开始添加。</view></view>
-      <view wx:for="{{itineraries}}" wx:key="itineraryId" class="card compact-row" data-id="{{item.itineraryId}}" bindtap="goItinerary"><view>{{item.startTime||'全天'}}</view><view class="row-main"><view class="row-title">{{item.title}}</view><view class="muted">{{item.locationName||'地点待定'}} · {{item.planningStatus}}</view></view></view>
-      <button wx:if="{{!activity.isReadonly}}" class="pm-native-button primary section" bindtap="newItinerary">新增行程</button>
+      <view wx:if="{{!itineraries.length}}" class="card empty-card"><view>还没有行程安排</view><view class="section-desc">从集合、交通或第一站开始添加。</view><button wx:if="{{!activity.isReadonly}}" class="pm-native-button primary empty-add-button" bindtap="newItinerary">新增行程</button></view>
+      <view wx:for="{{itineraries}}" wx:key="itineraryId" class="card compact-row" data-id="{{item.itineraryId}}" bindtap="goItinerary"><view>{{item.timeText}}</view><view class="row-main"><view class="row-title">{{item.title}}</view><view class="muted">{{item.locationName||'地点待定'}} · {{item.planningStatusText}}</view></view></view>
+      <button wx:if="{{itineraries.length && !activity.isReadonly}}" class="pm-native-button primary section" bindtap="newItinerary">新增行程</button>
     </view>
 
     <view wx:if="{{activeTab==='POLLS'}}" class="section">
       <view class="section-head"><view class="section-title">投票决策</view><view class="pm-link" bindtap="goPolls">查看全部</view></view>
       <view wx:if="{{!polls.length}}" class="card empty-card">还没有投票，去创建一个吧。</view>
-      <view wx:for="{{polls}}" wx:key="pollId" class="card compact-row" data-id="{{item.pollId}}" bindtap="goPoll"><view class="row-main"><view class="row-title">{{item.title}}</view><view class="muted">{{item.status}} · {{item.participantCount}} 人参与</view></view><view wx:if="{{item.resultApplyStatus==='REVIEW_REQUIRED'}}" class="review">待确认</view></view>
+      <view wx:for="{{polls}}" wx:key="pollId" class="card compact-row" data-id="{{item.pollId}}" bindtap="goPoll"><view class="row-main"><view class="row-title">{{item.title}}</view><view class="muted">{{item.statusText}} · {{item.participantCount}} 人参与</view></view><view wx:if="{{item.resultApplyStatus==='REVIEW_REQUIRED'}}" class="review">{{item.resultApplyText}}</view></view>
       <button wx:if="{{!activity.isReadonly}}" class="pm-native-button primary section" bindtap="newPoll">创建投票</button>
     </view>
 
     <view wx:if="{{activeTab==='COSTS'||activeTab==='PHOTOS'}}" class="section card empty-card"><view class="section-title">{{activeTab==='COSTS'?'费用管理':'照片墙'}}将在后续阶段开放</view><view class="section-desc">当前不展示伪造数据，活动协作会在后续模块继续完善。</view></view>
-    <view wx:if="{{activity.isCreator&&!activity.isReadonly}}" class="section action-row"><button class="pm-native-button secondary" bindtap="goEdit">编辑活动</button><button class="pm-native-button secondary" bindtap="confirmEnd">结束活动</button><button class="pm-native-button danger-ghost" bindtap="confirmCancel">取消活动</button></view>
+    <view wx:if="{{activity.isCreator&&!activity.isReadonly}}" class="section management-card">
+      <view class="management-trigger" bindtap="toggleManagement"><view>管理活动</view><view class="muted">{{showManagement ? '收起' : '展开'}} ›</view></view>
+      <view wx:if="{{showManagement}}" class="management-actions"><button class="pm-native-button secondary" bindtap="goEdit">编辑活动</button><button class="pm-native-button secondary" bindtap="confirmEnd">结束活动</button><button class="pm-native-button danger-ghost" bindtap="confirmCancel">取消活动</button></view>
+    </view>
   </view>
 </view>

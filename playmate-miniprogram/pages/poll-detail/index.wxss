@@ -1,1 +1,18 @@
-.option-card{display:flex;align-items:center;justify-content:space-between;margin-top:16rpx;padding:26rpx;border:1rpx solid var(--pm-border);border-radius:28rpx;background:#fff;box-shadow:var(--pm-shadow-soft)}.option-card.selected{border-color:var(--pm-primary);background:var(--pm-primary-light)}.option-name{font-size:28rpx;font-weight:800}.option-desc{margin-top:8rpx;color:var(--pm-text-muted);font-size:23rpx}.vote-count{color:var(--pm-primary-dark);font-size:27rpx;font-weight:800}.p1-bottom{display:flex;gap:16rpx;margin-top:30rpx}.p1-bottom button{flex:1}.section .pm-native-button{margin-top:20rpx}
+.poll-state-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18rpx; }
+.poll-purpose { color: var(--pm-text-muted); font-size: 24rpx; }
+.poll-context { margin-top: 18rpx; color: var(--pm-primary-dark); font-size: 24rpx; }
+.option-card { display: flex; align-items: center; gap: 18rpx; margin-top: 16rpx; padding: 26rpx; border: 1rpx solid var(--pm-border); border-radius: 28rpx; background: #fff; box-shadow: var(--pm-shadow-soft); }
+.option-card.selected { border-color: var(--pm-primary); background: var(--pm-primary-light); }
+.choice-control { display: flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 34rpx; height: 34rpx; border: 3rpx solid #b7c6bd; box-sizing: border-box; }
+.choice-control.radio { border-radius: 50%; }
+.choice-control.checkbox { border-radius: 8rpx; }
+.choice-control.checked { border-color: var(--pm-primary-dark); background: var(--pm-primary-dark); }
+.radio-dot { width: 12rpx; height: 12rpx; border-radius: 50%; background: #fff; }
+.check-mark { color: #fff; font-size: 22rpx; font-weight: 800; line-height: 1; }
+.option-content { flex: 1; min-width: 0; }
+.option-name { font-size: 28rpx; font-weight: 800; }
+.option-desc { margin-top: 8rpx; color: var(--pm-text-muted); font-size: 23rpx; line-height: 1.45; }
+.vote-count { color: var(--pm-primary-dark); font-size: 25rpx; font-weight: 800; white-space: nowrap; }
+.p1-bottom { display: flex; gap: 16rpx; margin-top: 30rpx; padding-bottom: calc(20rpx + env(safe-area-inset-bottom)); }
+.p1-bottom button { flex: 1; min-width: 0; }
+.result-card .pm-native-button { margin-top: 20rpx; }

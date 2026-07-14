@@ -1,6 +1,6 @@
 const { isLoggedIn } = require('../../services/auth');
 const { getMyActivities } = require('../../services/activity');
-const { getSummary } = require('../../services/poll');
+const { getMyActivityTodos } = require('../../services/poll');
 const { normalizeShareCode, buildInvitePath } = require('../../utils/share-code');
 
 const ACTIVITY_TYPE_LABELS = {
@@ -82,7 +82,7 @@ Page({
     try {
       const activities = await getMyActivities();
       const normalized = (activities || []).map(this.normalizeActivity);
-      const todoCount = await this.getTodoCount(normalized);
+      const todoCount = await this.getTodoCount();
       this.setData({
         activities: normalized,
         displayActivities: this.filterActivities(normalized, this.data.activeFilter),
@@ -101,17 +101,10 @@ Page({
     }
   },
 
-  async getTodoCount(activities) {
-    const activeActivityIds = (activities || [])
-      .filter((activity) => !['ENDED', 'CANCELED'].includes(activity.status))
-      .map((activity) => activity.activityId)
-      .filter(Boolean);
-    if (!activeActivityIds.length) {
-      return 0;
-    }
+  async getTodoCount() {
     try {
-      const summaries = await Promise.all(activeActivityIds.map((activityId) => getSummary(activityId)));
-      return summaries.reduce((total, summary) => total + Number(summary.todoCount || 0), 0);
+      const summary = await getMyActivityTodos();
+      return Number(summary.todoCount || 0);
     } catch (error) {
       return 0;
     }
@@ -209,12 +202,8 @@ Page({
     wx.navigateTo({ url: target });
   },
 
-  showTodoSummary() {
-    if (!this.data.todoCount) {
-      wx.showToast({ title: '暂无待办提醒', icon: 'none' });
-      return;
-    }
-    wx.showToast({ title: `你有 ${this.data.todoCount} 项待办，请进入活动查看`, icon: 'none' });
+  goTodos() {
+    wx.navigateTo({ url: '/pages/activity-todos/index' });
   },
 
   goDetail(event) {

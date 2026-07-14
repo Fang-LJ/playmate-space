@@ -1,0 +1,18 @@
+<view class="page">
+  <view class="page-title">我的待办</view>
+  <view class="page-subtitle">活动里的投票和行程会在这里动态汇总。</view>
+  <view wx:if="{{loading}}" class="section card">正在加载待办…</view>
+  <view wx:elif="{{errorMessage}}" class="section card stack"><view>{{errorMessage}}</view><button class="pm-native-button primary" bindtap="retry">重新加载</button></view>
+  <view wx:elif="{{!groups.length}}" class="section card todo-empty"><view class="section-title">暂时没有待办</view><view class="section-desc">参与投票、确认结果或临近的行程会自动出现在这里。</view></view>
+  <view wx:else>
+    <view wx:for="{{groups}}" wx:key="activityId" class="section todo-group">
+      <view class="todo-group-title">{{item.activityName}}</view>
+      <view wx:for="{{item.todos}}" wx:key="index" class="card todo-item" data-activity-id="{{item.activityId}}" data-target-id="{{item.targetId}}" data-target-type="{{item.targetType}}" bindtap="openTodo">
+        <view class="todo-item-top"><view class="todo-type">{{item.typeText}}</view><view class="todo-action-text">{{item.actionText}} ›</view></view>
+        <view class="todo-item-title">{{item.title}}</view>
+        <view wx:if="{{item.descriptionText}}" class="todo-item-desc">{{item.descriptionText}}</view>
+        <view wx:if="{{item.dueText}}" class="todo-item-time">{{item.dueText}}</view>
+      </view>
+    </view>
+  </view>
+</view>

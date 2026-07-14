@@ -1,0 +1,8 @@
+.todo-empty { margin-top: 32rpx; text-align: center; }
+.todo-group-title { margin-bottom: 16rpx; color: var(--pm-text); font-size: 30rpx; font-weight: 800; }
+.todo-item { margin-top: 14rpx; padding: 26rpx; }
+.todo-item-top { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; }
+.todo-type { padding: 6rpx 14rpx; border-radius: 999rpx; background: var(--pm-primary-light); color: var(--pm-primary-dark); font-size: 22rpx; font-weight: 700; }
+.todo-action-text { color: var(--pm-primary-dark); font-size: 24rpx; font-weight: 700; }
+.todo-item-title { margin-top: 16rpx; color: var(--pm-text); font-size: 29rpx; font-weight: 800; }
+.todo-item-desc, .todo-item-time { margin-top: 8rpx; color: var(--pm-text-muted); font-size: 24rpx; line-height: 1.45; }

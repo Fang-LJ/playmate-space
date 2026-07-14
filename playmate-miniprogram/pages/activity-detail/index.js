@@ -1,6 +1,7 @@
 const { cancelActivity, endActivity, getActivityDetail } = require('../../services/activity');
 const { getItineraries } = require('../../services/itinerary');
 const { getPolls, getSummary } = require('../../services/poll');
+const { ITINERARY_STATUS, POLL_RESULT_STATUS, POLL_STATUS, formatTimeRange, label } = require('../../utils/p1-display');
 
 const STATUS = { PLANNING: '规划中', ONGOING: '进行中', ENDED: '已结束', CANCELED: '已取消' };
 const TYPE = { TRAVEL: '旅行', MEAL: '聚餐', TEAM_BUILDING: '团建', BIRTHDAY: '生日', CAMPING: '露营', DRIVE: '自驾', BOARD_GAME: '桌游', OTHER: '其他' };
@@ -28,8 +29,16 @@ Page({
       this.setData({
         activity: this.normalizeActivity(activity),
         summary,
-        itineraries,
-        polls,
+        itineraries: (itineraries || []).map((item) => ({
+          ...item,
+          timeText: formatTimeRange(item),
+          planningStatusText: label(ITINERARY_STATUS, item.planningStatus)
+        })),
+        polls: (polls || []).map((item) => ({
+          ...item,
+          statusText: label(POLL_STATUS, item.status),
+          resultApplyText: label(POLL_RESULT_STATUS, item.resultApplyStatus)
+        })),
         activeTab: this.data.activeTab || summary.defaultTab
       });
     } catch (error) {
@@ -73,6 +82,7 @@ Page({
     if (shareCode) wx.setClipboardData({ data: shareCode });
   },
   goEdit() { wx.navigateTo({ url: `/pages/activity-edit/index?activityId=${this.data.activityId}` }); },
+  toggleManagement() { this.setData({ showManagement: !this.data.showManagement }); },
   confirmEnd() {
     wx.showModal({ title: '结束活动', content: '结束后行程和投票将变为只读。', success: async (result) => {
       if (!result.confirm) return;

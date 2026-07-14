@@ -13,6 +13,7 @@
     "pages/account-complete/index",
     "pages/wechat-profile/index",
     "pages/activity-join-code/index",
+    "pages/activity-todos/index",
     "pages/profile-edit/index",
     "pages/itinerary-list/index",
     "pages/itinerary-detail/index",
