@@ -105,7 +105,8 @@
   position: fixed;
   left: 40rpx;
   right: 40rpx;
-  bottom: 16rpx;
+  /* Keep the action above the custom tab bar instead of underneath it. */
+  bottom: calc(128rpx + env(safe-area-inset-bottom));
   width: auto;
   box-sizing: border-box;
   z-index: 20;
