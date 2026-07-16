@@ -11,9 +11,11 @@ import com.playmate.space.dto.activity.ActivityInviteInfoResponse;
 import com.playmate.space.dto.activity.JoinActivityResponse;
 import com.playmate.space.entity.ActivityEntity;
 import com.playmate.space.entity.ActivityMemberEntity;
+import com.playmate.space.entity.ActivityPollEntity;
 import com.playmate.space.entity.UserEntity;
 import com.playmate.space.mapper.ActivityMapper;
 import com.playmate.space.mapper.ActivityMemberMapper;
+import com.playmate.space.mapper.ActivityPollMapper;
 import com.playmate.space.mapper.UserMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
@@ -40,17 +42,23 @@ public class ActivityInviteService {
     private final ActivityMemberMapper activityMemberMapper;
     private final UserMapper userMapper;
     private final JwtUtils jwtUtils;
+    private final ActivityPollMapper pollMapper;
+    private final ActivityTodoLifecycleService todoLifecycleService;
 
     public ActivityInviteService(
             ActivityMapper activityMapper,
             ActivityMemberMapper activityMemberMapper,
             UserMapper userMapper,
-            JwtUtils jwtUtils
+            JwtUtils jwtUtils,
+            ActivityPollMapper pollMapper,
+            ActivityTodoLifecycleService todoLifecycleService
     ) {
         this.activityMapper = activityMapper;
         this.activityMemberMapper = activityMemberMapper;
         this.userMapper = userMapper;
         this.jwtUtils = jwtUtils;
+        this.pollMapper = pollMapper;
+        this.todoLifecycleService = todoLifecycleService;
     }
 
     public ActivityInviteInfoResponse getInviteInfo(String shareCode, HttpServletRequest request) {
@@ -119,6 +127,8 @@ public class ActivityInviteService {
         if (updated != 1) {
             throw new BusinessException("加入活动失败，请重试");
         }
+        todoLifecycleService.onMemberJoined(activity.getId(), userId, pollMapper.selectList(new LambdaQueryWrapper<ActivityPollEntity>()
+                .eq(ActivityPollEntity::getActivityId, activity.getId()).eq(ActivityPollEntity::getStatus, "ACTIVE")));
 
         return buildJoinResponse(activity.getId(), member, "加入成功");
     }

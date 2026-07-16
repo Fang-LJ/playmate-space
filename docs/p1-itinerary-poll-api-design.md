@@ -23,7 +23,10 @@
 | `POST /api/activities/{activityId}/polls/{pollId}/cancel` | 取消投票。 |
 | `POST /api/activities/{activityId}/polls/{pollId}/apply-result` | 人工确认并应用指定胜出选项。 |
 | `GET /api/activities/{activityId}/collaboration-summary` | 返回活动详情默认 Tab、行程/投票摘要和动态待办。 |
-| `GET /api/users/me/activity-todos` | 聚合当前用户可访问活动中的动态待办，按活动分组供首页角标和待办中心使用。 |
+| `GET /api/users/me/activity-todos` | 查询当前用户 `PENDING` 的持久化待办，供首页角标和待办中心使用。 |
+| `POST /api/activities/{activityId}/reminders` | 活动创建者向全体有效成员发布人工提醒。 |
+| `POST /api/activity-todos/{todoId}/ack` | 当前被分配成员确认人工提醒。 |
+| `GET /api/activities/{activityId}/reminders/{todoId}/ack-status` | 活动创建者查看人工提醒确认情况。 |
 
 ## 核心请求示例
 
@@ -71,11 +74,13 @@
 - 无人投票、并列、版本冲突、结果负载为空，或普通成员试图自动覆盖他人行程时，设置 `REVIEW_REQUIRED`。
 - 人工确认只允许投票创建者、目标行程创建者或活动创建者；覆盖他人行程仍须由行程创建者或活动创建者确认。
 
-## 动态待办
+## 持久化待办
 
-活动详情摘要最多返回 3 条动态待办；`GET /api/users/me/activity-todos` 返回当前用户的完整动态待办清单，聚合未参与的进行中投票、即将截止投票、待确认投票结果、24 小时内开始的行程和正在进行的行程。不建通用待办表。
+`GET /api/users/me/activity-todos` 仅读取 `t_activity_todo` 与 `t_activity_todo_user`，仅返回当前用户 `PENDING` 的真实待办：`todoId/activityId/activityName/todoType/title/content/actionType/sourceType/sourceId/dueTime/userStatus`。为保持现有小程序兼容，响应仍包含 `targetType/targetId/description/dueAt/actionText` 别名。
 
-人工提醒不在本轮实现。后续如需创建者发布提醒并让成员确认，需单独设计 `t_activity_reminder`、`t_activity_reminder_ack`、发布流程和“我已知晓”状态，不使用前端本地缓存伪造跨设备状态。
+投票创建、成员加入、投票、关闭、取消、过期和结果应用在业务事务内同步驱动待办状态；查询待办不扫描投票、投票记录或行程，也不会触发投票状态变更。行程当前/下一条只由协作摘要返回，不计入 `todoCount`。
+
+人工提醒使用相同待办生命周期：创建者可发布给全体有效成员；成员通过 ack 接口独立完成，创建者可查询已确认与未确认成员。
 
 ## 事务与错误
 

@@ -56,15 +56,18 @@ public class ActivityService {
     private final ActivityMapper activityMapper;
     private final ActivityMemberMapper activityMemberMapper;
     private final FileMapper fileMapper;
+    private final ActivityTodoLifecycleService todoLifecycleService;
 
     public ActivityService(
             ActivityMapper activityMapper,
             ActivityMemberMapper activityMemberMapper,
-            FileMapper fileMapper
+            FileMapper fileMapper,
+            ActivityTodoLifecycleService todoLifecycleService
     ) {
         this.activityMapper = activityMapper;
         this.activityMemberMapper = activityMemberMapper;
         this.fileMapper = fileMapper;
+        this.todoLifecycleService = todoLifecycleService;
     }
 
     @Transactional
@@ -191,6 +194,7 @@ public class ActivityService {
         activity.setStatus(STATUS_CANCELED);
         activity.setUpdateTime(LocalDateTime.now());
         activityMapper.updateById(activity);
+        todoLifecycleService.cancelActivityPendingTodos(activityId);
         return buildDetailResponse(activity, member);
     }
 

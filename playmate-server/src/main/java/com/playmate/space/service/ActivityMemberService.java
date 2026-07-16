@@ -39,15 +39,18 @@ public class ActivityMemberService {
     private final ActivityMapper activityMapper;
     private final ActivityMemberMapper activityMemberMapper;
     private final UserMapper userMapper;
+    private final ActivityTodoLifecycleService todoLifecycleService;
 
     public ActivityMemberService(
             ActivityMapper activityMapper,
             ActivityMemberMapper activityMemberMapper,
-            UserMapper userMapper
+            UserMapper userMapper,
+            ActivityTodoLifecycleService todoLifecycleService
     ) {
         this.activityMapper = activityMapper;
         this.activityMemberMapper = activityMemberMapper;
         this.userMapper = userMapper;
+        this.todoLifecycleService = todoLifecycleService;
     }
 
     public List<ActivityMemberResponse> listMembers(Long activityId) {
@@ -130,6 +133,7 @@ public class ActivityMemberService {
         if (updated != 1) {
             throw new BusinessException("移除成员失败，请重试");
         }
+        todoLifecycleService.cancelUserPendingTodos(activityId, target.getUserId());
     }
 
     private Long requireLoginUserId() {
