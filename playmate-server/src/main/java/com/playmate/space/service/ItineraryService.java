@@ -30,14 +30,19 @@ public class ItineraryService {
     private final ActivityCollaborationAccess access;
     private final ActivityItineraryMapper itineraryMapper;
     private final PollService pollService;
+    private final com.playmate.space.mapper.ActivityPollMapper pollMapper;
 
-    public ItineraryService(ActivityCollaborationAccess access, ActivityItineraryMapper itineraryMapper, PollService pollService) {
-        this.access = access; this.itineraryMapper = itineraryMapper; this.pollService = pollService;
+    public ItineraryService(ActivityCollaborationAccess access, ActivityItineraryMapper itineraryMapper, PollService pollService, com.playmate.space.mapper.ActivityPollMapper pollMapper) {
+        this.access = access; this.itineraryMapper = itineraryMapper; this.pollService = pollService; this.pollMapper = pollMapper;
     }
 
     public List<ItineraryResponse> list(Long activityId) {
+        return list(activityId, false);
+    }
+
+    public List<ItineraryResponse> list(Long activityId, boolean includeCanceled) {
         Long userId = access.requireUserId(); access.requireActivity(activityId); access.requireActiveMember(activityId, userId);
-        return sorted(activityId).stream().map(this::toResponse).toList();
+        return sorted(activityId, includeCanceled).stream().map(this::toResponse).toList();
     }
 
     public ItineraryDetailResponse detail(Long activityId, Long itineraryId) {
@@ -88,8 +93,41 @@ public class ItineraryService {
         itinerary.setPlanningStatus("CANCELED"); itinerary.setVersion(itinerary.getVersion() + 1); itinerary.setUpdateTime(LocalDateTime.now()); itineraryMapper.updateById(itinerary); return toResponse(itinerary);
     }
 
+    @Transactional
+    public ItineraryResponse restore(Long activityId, Long itineraryId) {
+        Long userId = access.requireUserId(); ActivityEntity activity = access.requireActivity(activityId); ActivityMemberEntity member = access.requireActiveMember(activityId, userId); access.requireWritableActivity(activity);
+        ActivityItineraryEntity itinerary = requireItinerary(activityId, itineraryId); requireItineraryManager(activity, member, userId, itinerary);
+        if (!"CANCELED".equals(itinerary.getPlanningStatus())) throw param("仅已取消的行程可以恢复");
+        itinerary.setPlanningStatus("CONFIRMED"); itinerary.setVersion(itinerary.getVersion() + 1); itinerary.setUpdateTime(LocalDateTime.now()); itineraryMapper.updateById(itinerary); return toResponse(itinerary);
+    }
+
+    @Transactional
+    public void delete(Long activityId, Long itineraryId) {
+        Long userId = access.requireUserId(); ActivityEntity activity = access.requireActivity(activityId); ActivityMemberEntity member = access.requireActiveMember(activityId, userId); access.requireWritableActivity(activity);
+        ActivityItineraryEntity itinerary = requireItinerary(activityId, itineraryId); requireItineraryManager(activity, member, userId, itinerary);
+        List<com.playmate.space.entity.ActivityPollEntity> relatedPolls = pollMapper.selectList(new LambdaQueryWrapper<com.playmate.space.entity.ActivityPollEntity>()
+                .eq(com.playmate.space.entity.ActivityPollEntity::getActivityId, activityId)
+                .and(wrapper -> wrapper.eq(com.playmate.space.entity.ActivityPollEntity::getTargetItineraryId, itineraryId)
+                        .or().eq(com.playmate.space.entity.ActivityPollEntity::getGeneratedItineraryId, itineraryId)));
+        boolean hasBlockingPoll = relatedPolls.stream().anyMatch(p -> "DRAFT".equals(p.getStatus()) || "ACTIVE".equals(p.getStatus())
+                || "PENDING".equals(p.getResultApplyStatus()) || "REVIEW_REQUIRED".equals(p.getResultApplyStatus()));
+        if (hasBlockingPoll) throw param("该行程存在未完成的关联投票，请先完成或取消投票");
+        LocalDateTime now = LocalDateTime.now();
+        for (com.playmate.space.entity.ActivityPollEntity poll : relatedPolls) {
+            if (itineraryId.equals(poll.getTargetItineraryId())) poll.setTargetItineraryId(null);
+            if (itineraryId.equals(poll.getGeneratedItineraryId())) poll.setGeneratedItineraryId(null);
+            poll.setVersion(poll.getVersion() + 1); poll.setUpdateTime(now); pollMapper.updateById(poll);
+        }
+        if (itineraryMapper.hardDelete(activityId, itineraryId) != 1) throw new NotFoundException("行程不存在");
+    }
+
     public List<ActivityItineraryEntity> sorted(Long activityId) {
-        List<ActivityItineraryEntity> rows = itineraryMapper.selectList(new LambdaQueryWrapper<ActivityItineraryEntity>().eq(ActivityItineraryEntity::getActivityId, activityId));
+        return sorted(activityId, false);
+    }
+    public List<ActivityItineraryEntity> sorted(Long activityId, boolean includeCanceled) {
+        LambdaQueryWrapper<ActivityItineraryEntity> query = new LambdaQueryWrapper<ActivityItineraryEntity>().eq(ActivityItineraryEntity::getActivityId, activityId);
+        if (!includeCanceled) query.ne(ActivityItineraryEntity::getPlanningStatus, "CANCELED");
+        List<ActivityItineraryEntity> rows = itineraryMapper.selectList(query);
         rows.sort(Comparator.comparing(ActivityItineraryEntity::getItineraryDate).thenComparing(i -> i.getStartTime() == null ? 1 : 0).thenComparing(ActivityItineraryEntity::getStartTime, Comparator.nullsLast(Comparator.naturalOrder())).thenComparing(ActivityItineraryEntity::getId)); return rows;
     }
     public ActivityItineraryEntity requireItinerary(Long activityId, Long itineraryId) {

@@ -39,10 +39,10 @@
         <view class="link-text">查看全部</view>
       </view>
       <view class="member-strip">
-        <view class="member-dot dot-1"></view>
-        <view class="member-dot dot-2"></view>
-        <view class="member-dot dot-3"></view>
-        <view class="member-dot dot-4"></view>
+        <block wx:for="{{members}}" wx:key="memberId">
+          <image wx:if="{{item.avatarUrl}}" class="member-avatar" src="{{item.avatarUrl}}" mode="aspectFill" />
+          <view wx:else class="member-avatar member-avatar-placeholder">{{item.avatarText}}</view>
+        </block>
         <view class="member-count">{{activity.memberCount}} 人参与</view>
       </view>
     </view>

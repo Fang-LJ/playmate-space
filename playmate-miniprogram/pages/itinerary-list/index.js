@@ -9,7 +9,7 @@ Page({
   async load() {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      const [items, activity] = await Promise.all([getItineraries(this.data.activityId), getActivityDetail(this.data.activityId)]);
+      const [items, activity] = await Promise.all([getItineraries(this.data.activityId, true), getActivityDetail(this.data.activityId)]);
       this.setData({ items: this.group(items || []), readOnly: ['ENDED', 'CANCELED'].includes(activity.status) });
     } catch (error) { this.setData({ errorMessage: error.message || '行程加载失败' }); }
     finally { this.setData({ loading: false }); }

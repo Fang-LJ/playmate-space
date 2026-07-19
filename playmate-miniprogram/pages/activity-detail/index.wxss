@@ -37,11 +37,8 @@
 .section-heading { display: flex; align-items: center; justify-content: space-between; }
 .link-text { color: var(--pm-text-muted); font-size: 24rpx; font-weight: 700; }
 .member-strip { display: flex; align-items: center; margin-top: 18rpx; }
-.member-dot { width: 56rpx; height: 56rpx; margin-right: -8rpx; border: 4rpx solid #fff; border-radius: 50%; }
-.dot-1 { background: #f4e7b4; }
-.dot-2 { background: #dff1eb; }
-.dot-3 { background: #e5eee8; }
-.dot-4 { background: #f7ead8; }
+.member-avatar { width: 56rpx; height: 56rpx; margin-right: -8rpx; border: 4rpx solid #fff; border-radius: 50%; background: var(--pm-primary-light); }
+.member-avatar-placeholder { display: flex; align-items: center; justify-content: center; color: var(--pm-primary-dark); font-size: 22rpx; font-weight: 800; }
 .member-count { margin-left: auto; color: var(--pm-text-muted); font-size: 25rpx; }
 
 .todo-card { padding: 26rpx; border: 1rpx solid #f3e19a; border-radius: 28rpx; background: #fff9e6; box-shadow: var(--pm-shadow-soft); }

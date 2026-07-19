@@ -1,13 +1,14 @@
 const { cancelActivity, endActivity, getActivityDetail } = require('../../services/activity');
 const { getItineraries } = require('../../services/itinerary');
 const { getPolls, getSummary } = require('../../services/poll');
+const { getActivityMembers } = require('../../services/member');
 const { ITINERARY_STATUS, POLL_RESULT_STATUS, POLL_STATUS, formatTimeRange, label } = require('../../utils/p1-display');
 
 const STATUS = { PLANNING: '规划中', ONGOING: '进行中', ENDED: '已结束', CANCELED: '已取消' };
 const TYPE = { TRAVEL: '旅行', MEAL: '聚餐', TEAM_BUILDING: '团建', BIRTHDAY: '生日', CAMPING: '露营', DRIVE: '自驾', BOARD_GAME: '桌游', OTHER: '其他' };
 
 Page({
-  data: { loading: true, activityId: '', activity: null, summary: null, itineraries: [], polls: [], activeTab: 'ITINERARIES', errorMessage: '', actionMenuVisible: false },
+  data: { loading: true, activityId: '', activity: null, summary: null, itineraries: [], polls: [], members: [], activeTab: 'ITINERARIES', errorMessage: '', actionMenuVisible: false },
 
   onLoad(options) {
     this.setData({ activityId: options.activityId || '' });
@@ -20,11 +21,12 @@ Page({
   async load() {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      const [activity, summary, itineraries, polls] = await Promise.all([
+      const [activity, summary, itineraries, polls, members] = await Promise.all([
         getActivityDetail(this.data.activityId),
         getSummary(this.data.activityId),
         getItineraries(this.data.activityId),
-        getPolls(this.data.activityId)
+        getPolls(this.data.activityId),
+        getActivityMembers(this.data.activityId).catch(() => [])
       ]);
       this.setData({
         activity: this.normalizeActivity(activity),
@@ -38,6 +40,10 @@ Page({
           ...item,
           statusText: label(POLL_STATUS, item.status),
           resultApplyText: label(POLL_RESULT_STATUS, item.resultApplyStatus)
+        })),
+        members: (members || []).slice(0, 4).map((member) => ({
+          ...member,
+          avatarText: (member.nickname || '玩').slice(0, 1)
         })),
         activeTab: this.data.activeTab || summary.defaultTab
       });

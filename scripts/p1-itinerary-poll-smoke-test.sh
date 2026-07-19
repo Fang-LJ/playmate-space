@@ -40,6 +40,18 @@ api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$MULTI_ID/votes" -H "Au
 pass "多选投票"
 DIRECT=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"creationMode":"DIRECT","title":"集合","itineraryType":"TRANSPORT","itineraryDate":"2026-07-18","startTime":"09:00","endTime":"10:00","allDay":false}')
 DIRECT_ID=$(printf '%s' "$DIRECT"|jq -r '.data.itineraryId'); [[ "$DIRECT_ID" != null ]] || fail "创建普通行程"; pass "创建普通行程"
+api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$DIRECT_ID/cancel" -H "Authorization: Bearer $TA" >/dev/null
+[[ $(api "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TA" | jq --argjson itineraryId "$DIRECT_ID" '[.data[] | select(.itineraryId == $itineraryId)] | length') == 0 ]] || fail "默认行程列表不应展示已取消行程"
+[[ $(api "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries?includeCanceled=true" -H "Authorization: Bearer $TA" | jq --argjson itineraryId "$DIRECT_ID" '[.data[] | select(.itineraryId == $itineraryId and .planningStatus == "CANCELED")] | length') == 1 ]] || fail "查看全部行程应展示已取消行程"
+api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$DIRECT_ID/restore" -H "Authorization: Bearer $TA" >/dev/null
+[[ $(api "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$DIRECT_ID" -H "Authorization: Bearer $TA" | jq -r '.data.itinerary.planningStatus') == CONFIRMED ]] || fail "已取消行程恢复失败"
+DISPOSABLE=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"creationMode":"DIRECT","title":"待删除行程","itineraryType":"OTHER","itineraryDate":"2026-07-19","allDay":true}')
+DISPOSABLE_ID=$(printf '%s' "$DISPOSABLE"|jq -r '.data.itineraryId'); [[ "$DISPOSABLE_ID" != null ]] || fail "创建待删除行程"
+STATUS=$(api -o /dev/null -w '%{http_code}' -X DELETE "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$DISPOSABLE_ID" -H "Authorization: Bearer $TA")
+[[ "$STATUS" == 200 ]] || fail "物理删除行程"
+STATUS=$(api -o /dev/null -w '%{http_code}' "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$DISPOSABLE_ID" -H "Authorization: Bearer $TA")
+[[ "$STATUS" == 404 ]] || fail "已删除行程不应继续可查"
+pass "行程取消默认隐藏、查看全部、恢复与物理删除"
 WITH=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TB" -H 'Content-Type: application/json' -d '{"creationMode":"WITH_POLL","title":"晚餐","itineraryType":"MEAL","itineraryDate":"2026-07-18","startTime":"18:00","endTime":"20:00","allDay":false,"poll":{"title":"晚餐吃什么？","purpose":"UPDATE_ITINERARY","decisionType":"RESTAURANT","voteType":"SINGLE","allowModify":true,"options":[{"optionText":"火锅","resultPayload":{"title":"火锅晚餐","locationName":"湖滨火锅"}},{"optionText":"烧烤","resultPayload":{"title":"烧烤晚餐"}}]}}')
 WITH_ID=$(printf '%s' "$WITH"|jq -r '.data.itineraryId'); POLL_ID=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA"|jq -r '.data[] | select(.title == "晚餐吃什么？") | .pollId'); [[ "$WITH_ID" != null && "$POLL_ID" != null && -n "$POLL_ID" ]] || fail "待决定行程与投票"; pass "待决定行程与投票事务创建"
 DETAIL=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$POLL_ID" -H "Authorization: Bearer $TA"); O1=$(printf '%s' "$DETAIL"|jq -r '.data.options[0].optionId')

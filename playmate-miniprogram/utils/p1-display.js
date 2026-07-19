@@ -64,8 +64,9 @@ function formatDateTime(value) {
 function formatTimeRange(itinerary) {
   if (!itinerary) return '时间待定';
   if (itinerary.allDay) return '请补充时间';
-  const start = itinerary.startTime || '';
-  const end = itinerary.endTime || '';
+  const formatTime = (value) => String(value || '').replace(/^(\d{2}:\d{2})(?::\d{2})?$/, '$1');
+  const start = formatTime(itinerary.startTime);
+  const end = formatTime(itinerary.endTime);
   if (start && end) return `${start}-${end}`;
   return start || end || '时间待定';
 }

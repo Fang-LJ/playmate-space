@@ -8,11 +8,13 @@
 
 | API | 用途 |
 | --- | --- |
-| `GET /api/activities/{activityId}/itineraries` | 查询按日期和时间排序的行程列表。 |
+| `GET /api/activities/{activityId}/itineraries` | 查询按日期和时间排序的行程列表；默认不返回已取消项，`includeCanceled=true` 用于“查看全部”。 |
 | `GET /api/activities/{activityId}/itineraries/{itineraryId}` | 查询行程详情及历史关联投票。 |
 | `POST /api/activities/{activityId}/itineraries` | 创建直接确认行程，或创建待决定行程并同时发起关联投票。 |
 | `PUT /api/activities/{activityId}/itineraries/{itineraryId}` | 编辑行程。 |
 | `POST /api/activities/{activityId}/itineraries/{itineraryId}/cancel` | 取消行程，保留历史。 |
+| `POST /api/activities/{activityId}/itineraries/{itineraryId}/restore` | 将已取消行程恢复为已确认。 |
+| `DELETE /api/activities/{activityId}/itineraries/{itineraryId}` | 物理删除行程；存在未完成关联投票时拒绝删除。 |
 | `GET /api/activities/{activityId}/itineraries/{itineraryId}/polls` | 查询行程历史关联投票。 |
 | `GET /api/activities/{activityId}/polls` | 查询投票列表，并触发过期投票幂等关闭。 |
 | `POST /api/activities/{activityId}/polls` | 创建普通、修改行程或生成行程投票。 |
@@ -56,9 +58,10 @@
 ## 权限与活动状态
 
 - ACTIVE 成员可读、创建行程和投票、参与投票。
-- 普通成员仅可编辑/取消自己创建的行程和投票；活动创建者可管理全部。
+- 普通成员仅可编辑、取消、恢复或删除自己创建的行程和投票；活动创建者可管理全部。
 - `PLANNING`、`ONGOING` 可写；`ENDED`、`CANCELED` 全部行程与投票接口只读。
 - 非成员访问任何 P1 数据均返回 `FORBIDDEN`。
+- 已取消行程默认不出现在活动详情摘要；“查看全部行程”会携带 `includeCanceled=true`，并允许有管理权限的用户恢复。删除为不可恢复的物理删除；未完成关联投票会阻止删除，已完成或已取消投票会先解除行程关联再删除。
 
 ## 投票规则
 
