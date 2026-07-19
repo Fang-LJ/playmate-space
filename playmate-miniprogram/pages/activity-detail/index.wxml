@@ -1,13 +1,14 @@
-<view class="page">
+<view class="page activity-detail-page">
   <view wx:if="{{loading}}" class="section card">正在加载活动空间…</view>
   <view wx:elif="{{errorMessage}}" class="section card">{{errorMessage}}</view>
 
   <view wx:else>
     <!-- 恢复 P1 改造前的活动空间摘要卡片；下方仍是 P1 协作模块。 -->
-    <view class="section activity-space-card">
+    <view class="section hero-section activity-space-card">
       <view class="cover-layer">
         <image wx:if="{{activity.coverUrl}}" class="space-cover" src="{{activity.coverUrl}}" mode="aspectFill" />
         <view wx:else class="space-cover default-hero"></view>
+        <view wx:if="{{activity.coverUrl}}" class="cover-scrim"></view>
       </view>
       <view class="space-content">
         <view class="pm-status {{activity.statusClass}}">{{activity.statusText}}</view>
@@ -20,7 +21,17 @@
           <button class="pm-button-like secondary share-button secondary" open-type="share">分享邀请</button>
         </view>
       </view>
+      <view wx:if="{{activity.isCreator&&!activity.isReadonly}}" class="activity-action-anchor">
+        <view class="activity-action-trigger" bindtap="toggleActionMenu" aria-label="活动操作">•••</view>
+        <view wx:if="{{actionMenuVisible}}" class="activity-action-menu" catchtap="stopActionMenu">
+          <view class="activity-action-item" bindtap="goEdit"><text class="activity-action-icon">✎</text><text>编辑活动</text></view>
+          <view class="activity-action-item" bindtap="confirmEnd"><text class="activity-action-icon">✓</text><text>结束活动</text></view>
+          <view class="activity-action-item danger" bindtap="confirmCancel"><text class="activity-action-icon">×</text><text>取消活动</text></view>
+        </view>
+      </view>
     </view>
+
+    <view wx:if="{{actionMenuVisible}}" class="activity-action-mask" catchtap="closeActionMenu"></view>
 
     <view class="section card member-card" bindtap="goMembers">
       <view class="section-heading">
@@ -49,10 +60,15 @@
     </view>
 
     <view wx:if="{{activeTab==='ITINERARIES'}}" class="section">
-      <view class="section-head"><view class="section-title">行程安排</view><view class="pm-link" bindtap="goItineraries">查看全部</view></view>
-      <view wx:if="{{!itineraries.length}}" class="card empty-card"><view>还没有行程安排</view><view class="section-desc">从集合、交通或第一站开始添加。</view><button wx:if="{{!activity.isReadonly}}" class="pm-native-button primary empty-add-button" bindtap="newItinerary">新增行程</button></view>
+      <view class="section-head">
+        <view class="section-title">行程安排</view>
+        <view class="section-icon-actions">
+          <view wx:if="{{!activity.isReadonly}}" class="section-icon-button" bindtap="newItinerary" aria-label="新增行程"><text class="section-add-icon">+</text></view>
+          <view class="section-icon-button" bindtap="goItineraries" aria-label="查看全部行程"><text class="section-list-icon">☰</text></view>
+        </view>
+      </view>
+      <view wx:if="{{!itineraries.length}}" class="card empty-card"><view>还没有行程安排</view><view class="section-desc">从集合、交通或第一站开始添加。</view></view>
       <view wx:for="{{itineraries}}" wx:key="itineraryId" class="card compact-row" data-id="{{item.itineraryId}}" bindtap="goItinerary"><view>{{item.timeText}}</view><view class="row-main"><view class="row-title">{{item.title}}</view><view class="muted">{{item.locationName||'地点待定'}} · {{item.planningStatusText}}</view></view></view>
-      <button wx:if="{{itineraries.length && !activity.isReadonly}}" class="pm-native-button primary section" bindtap="newItinerary">新增行程</button>
     </view>
 
     <view wx:if="{{activeTab==='POLLS'}}" class="section">
@@ -63,9 +79,5 @@
     </view>
 
     <view wx:if="{{activeTab==='COSTS'||activeTab==='PHOTOS'}}" class="section card empty-card"><view class="section-title">{{activeTab==='COSTS'?'费用管理':'照片墙'}}将在后续阶段开放</view><view class="section-desc">当前不展示伪造数据，活动协作会在后续模块继续完善。</view></view>
-    <view wx:if="{{activity.isCreator&&!activity.isReadonly}}" class="section management-card">
-      <view class="management-trigger" bindtap="toggleManagement"><view>管理活动</view><view class="muted">{{showManagement ? '收起' : '展开'}} ›</view></view>
-      <view wx:if="{{showManagement}}" class="management-actions"><button class="pm-native-button secondary" bindtap="goEdit">编辑活动</button><button class="pm-native-button secondary" bindtap="confirmEnd">结束活动</button><button class="pm-native-button danger-ghost" bindtap="confirmCancel">取消活动</button></view>
-    </view>
   </view>
 </view>

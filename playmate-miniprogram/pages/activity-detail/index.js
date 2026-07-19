@@ -7,7 +7,7 @@ const STATUS = { PLANNING: '规划中', ONGOING: '进行中', ENDED: '已结束'
 const TYPE = { TRAVEL: '旅行', MEAL: '聚餐', TEAM_BUILDING: '团建', BIRTHDAY: '生日', CAMPING: '露营', DRIVE: '自驾', BOARD_GAME: '桌游', OTHER: '其他' };
 
 Page({
-  data: { loading: true, activityId: '', activity: null, summary: null, itineraries: [], polls: [], activeTab: 'ITINERARIES', errorMessage: '' },
+  data: { loading: true, activityId: '', activity: null, summary: null, itineraries: [], polls: [], activeTab: 'ITINERARIES', errorMessage: '', actionMenuVisible: false },
 
   onLoad(options) {
     this.setData({ activityId: options.activityId || '' });
@@ -81,9 +81,15 @@ Page({
     const shareCode = this.data.activity && this.data.activity.shareCode;
     if (shareCode) wx.setClipboardData({ data: shareCode });
   },
-  goEdit() { wx.navigateTo({ url: `/pages/activity-edit/index?activityId=${this.data.activityId}` }); },
-  toggleManagement() { this.setData({ showManagement: !this.data.showManagement }); },
+  goEdit() {
+    this.closeActionMenu();
+    wx.navigateTo({ url: `/pages/activity-edit/index?activityId=${this.data.activityId}` });
+  },
+  toggleActionMenu() { this.setData({ actionMenuVisible: !this.data.actionMenuVisible }); },
+  closeActionMenu() { this.setData({ actionMenuVisible: false }); },
+  stopActionMenu() {},
   confirmEnd() {
+    this.closeActionMenu();
     wx.showModal({ title: '结束活动', content: '结束后行程和投票将变为只读。', success: async (result) => {
       if (!result.confirm) return;
       try { await endActivity(this.data.activityId); this.load(); }
@@ -91,6 +97,7 @@ Page({
     }});
   },
   confirmCancel() {
+    this.closeActionMenu();
     wx.showModal({ title: '取消活动', content: '取消后内容仅可查看，不会删除历史数据。', confirmColor: '#D94C4C', success: async (result) => {
       if (!result.confirm) return;
       try { await cancelActivity(this.data.activityId); this.load(); }
