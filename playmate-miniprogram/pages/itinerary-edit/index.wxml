@@ -35,6 +35,26 @@
         </picker>
       </view>
     </view>
+    <view wx:if="{{form.itineraryType === 'TRANSPORT'}}" class="structured-fields">
+      <view class="structured-title">交通安排</view>
+      <view class="pm-field"><view class="pm-label">交通方式</view><input class="pm-input" value="{{form.transportMode}}" data-key="transportMode" bindinput="input" placeholder="例如：高铁、自驾" /></view>
+      <view class="time-row">
+        <view class="pm-field"><view class="pm-label">出发地</view><input class="pm-input" value="{{form.departureName}}" data-key="departureName" bindinput="input" placeholder="从哪里出发" /></view>
+        <view class="pm-field"><view class="pm-label">目的地</view><input class="pm-input" value="{{form.destinationName}}" data-key="destinationName" bindinput="input" placeholder="到哪里" /></view>
+      </view>
+      <view class="pm-field"><view class="pm-label">路线</view><input class="pm-input" value="{{form.routeDetail}}" data-key="routeDetail" bindinput="input" placeholder="车次、途经点或路线说明" /></view>
+    </view>
+    <view wx:elif="{{form.itineraryType === 'MEAL'}}" class="structured-fields">
+      <view class="structured-title">用餐安排</view>
+      <view class="time-row">
+        <view class="pm-field"><view class="pm-label">用餐类型</view><input class="pm-input" value="{{form.mealType}}" data-key="mealType" bindinput="input" placeholder="例如：火锅" /></view>
+        <view class="pm-field"><view class="pm-label">具体餐厅</view><input class="pm-input" value="{{form.restaurantName}}" data-key="restaurantName" bindinput="input" placeholder="餐厅名称" /></view>
+      </view>
+    </view>
+    <view wx:elif="{{form.itineraryType === 'ACTIVITY' || form.itineraryType === 'SIGHTSEEING'}}" class="structured-fields">
+      <view class="structured-title">活动安排</view>
+      <view class="pm-field"><view class="pm-label">活动内容</view><input class="pm-input" value="{{form.activityContent}}" data-key="activityContent" bindinput="input" placeholder="例如：桌游、徒步" /></view>
+    </view>
     <view class="pm-field">
       <view class="pm-label">地点</view>
       <input class="pm-input" value="{{form.locationName}}" data-key="locationName" bindinput="input" placeholder="地点名称（可选）" />

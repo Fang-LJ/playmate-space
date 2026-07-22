@@ -1,11 +1,12 @@
-const { getPollDetail, submitVote, closePoll, applyPollResult } = require('../../services/poll');
+const { getPollDetail, submitVote, closePoll, applyPollResult, previewPollResult } = require('../../services/poll');
 const { getActivityDetail } = require('../../services/activity');
+const { getCurrentUser } = require('../../services/user');
 const { POLL_DECISION, POLL_PURPOSE, POLL_RESULT_STATUS, POLL_STATUS, formatDateTime, hasVisibleText, label } = require('../../utils/p1-display');
 
 Page({
   data: {
     activityId: '', pollId: '', poll: null, loading: true, errorMessage: '',
-    selected: [], submitting: false, canManage: false, canApply: false
+    selected: [], submitting: false, canManage: false, canApply: false, preview: null, previewing: false
   },
 
   onLoad(options) {
@@ -19,17 +20,23 @@ Page({
   async load() {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      const [poll, activity] = await Promise.all([
+      const [poll, activity, currentUser] = await Promise.all([
         getPollDetail(this.data.activityId, this.data.pollId),
-        getActivityDetail(this.data.activityId)
+        getActivityDetail(this.data.activityId),
+        getCurrentUser()
       ]);
       const decorated = this.decoratePoll(poll);
-      const isCreator = activity.currentUserRole === 'CREATOR';
+      const currentUserId = String(currentUser.userId);
+      const isActivityCreator = activity.currentUserRole === 'CREATOR';
+      const isPollCreator = currentUserId === String(poll.createdBy);
+      const isTargetItineraryCreator = poll.targetItinerary
+        && currentUserId === String(poll.targetItinerary.createdBy);
       this.setData({
         poll: decorated,
         selected: decorated.currentUserOptionIds,
-        canManage: isCreator || String(poll.createdBy) === String(activity.creatorUserId),
-        canApply: isCreator || String(poll.createdBy) === String(activity.creatorUserId)
+        canManage: isActivityCreator || isPollCreator,
+        canApply: isActivityCreator || isPollCreator || isTargetItineraryCreator,
+        preview: this.decoratePreview(poll.resultPreview)
       });
     } catch (error) {
       this.setData({ errorMessage: error.message || '加载失败' });
@@ -50,6 +57,17 @@ Page({
       statusText: label(POLL_STATUS, poll.status),
       resultApplyText: label(POLL_RESULT_STATUS, poll.resultApplyStatus),
       deadlineText: formatDateTime(poll.deadline) || '未设置截止时间',
+      scopeText: (poll.decisionScopeLabels || []).join('、') || '不修改行程',
+      unchangedText: (poll.unchangedFieldLabels || []).join('、') || '无',
+      applicationHistory: (poll.applicationHistory || []).map((history) => ({
+        ...history,
+        appliedAtText: formatDateTime(history.appliedAt),
+        operatorText: history.appliedByName || `用户 ${history.appliedBy}`,
+        changedFields: (history.changedFields || []).map((change) => ({
+          ...change, beforeText: this.displayValue(change.beforeValue), afterText: this.displayValue(change.afterValue)
+        })),
+        unchangedText: (history.unchangedFields || []).map((field) => field.label).join('、')
+      })),
       options: (poll.options || []).map((item) => ({
         ...item,
         optionId: Number(item.optionId),
@@ -58,6 +76,23 @@ Page({
         voteText: `${item.voteCount || 0} 票`
       }))
     };
+  },
+
+  decoratePreview(preview) {
+    if (!preview) return null;
+    return {
+      ...preview,
+      changedFields: (preview.changedFields || []).map((change) => ({
+        ...change,
+        beforeText: this.displayValue(change.beforeValue),
+        afterText: this.displayValue(change.afterValue)
+      })),
+      unchangedText: (preview.unchangedFields || []).map((field) => field.label).join('、')
+    };
+  },
+
+  displayValue(value) {
+    return value === null || value === undefined || String(value).trim() === '' ? '未设置' : String(value);
   },
 
   select(event) {
@@ -106,13 +141,32 @@ Page({
   },
 
   async apply(event) {
+    const optionId = Number(event.currentTarget.dataset.id || (this.data.preview && this.data.preview.optionId));
     try {
-      const poll = this.decoratePoll(await applyPollResult(this.data.activityId, this.data.pollId, Number(event.currentTarget.dataset.id)));
-      this.setData({ poll, selected: poll.currentUserOptionIds });
+      const poll = this.decoratePoll(await applyPollResult(this.data.activityId, this.data.pollId, optionId));
+      this.setData({ poll, selected: poll.currentUserOptionIds, preview: null });
       wx.showToast({ title: '结果已应用', icon: 'success' });
     } catch (error) {
       wx.showToast({ title: error.message || '应用失败', icon: 'none' });
     }
+  },
+
+  async previewResult(event) {
+    const optionId = Number(event.currentTarget.dataset.id);
+    this.setData({ previewing: true });
+    try {
+      this.setData({ preview: this.decoratePreview(
+        await previewPollResult(this.data.activityId, this.data.pollId, optionId)
+      ) });
+    } catch (error) {
+      wx.showToast({ title: error.message || '预览失败', icon: 'none' });
+    } finally {
+      this.setData({ previewing: false });
+    }
+  },
+
+  keepOriginal() {
+    this.setData({ preview: null });
   },
 
   goItinerary() {

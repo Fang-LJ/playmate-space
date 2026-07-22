@@ -18,5 +18,6 @@ public class PollController {
  @PostMapping("/{pollId}/votes") public ApiResponse<PollDetailResponse> vote(@PathVariable Long activityId,@PathVariable Long pollId,@Valid @RequestBody VoteRequest request){return ApiResponse.success(pollService.submitVote(activityId,pollId,request));}
  @PostMapping("/{pollId}/close") public ApiResponse<PollDetailResponse> close(@PathVariable Long activityId,@PathVariable Long pollId){return ApiResponse.success(pollService.close(activityId,pollId));}
  @PostMapping("/{pollId}/cancel") public ApiResponse<PollDetailResponse> cancel(@PathVariable Long activityId,@PathVariable Long pollId){return ApiResponse.success(pollService.cancel(activityId,pollId));}
+ @GetMapping("/{pollId}/result-preview") public ApiResponse<PollResultPreviewResponse> preview(@PathVariable Long activityId,@PathVariable Long pollId,@RequestParam Long optionId){return ApiResponse.success(pollService.previewResult(activityId,pollId,optionId));}
  @PostMapping("/{pollId}/apply-result") public ApiResponse<PollDetailResponse> apply(@PathVariable Long activityId,@PathVariable Long pollId,@Valid @RequestBody ApplyPollResultRequest request){return ApiResponse.success(pollService.applyResult(activityId,pollId,request));}
 }

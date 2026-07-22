@@ -1,1 +1,32 @@
-<view class="page p1-page"><view class="page-title">行程</view><view class="page-subtitle">按日期安排这次活动的每一步。</view><view wx:if="{{loading}}" class="section card">正在加载行程…</view><view wx:elif="{{errorMessage}}" class="section card stack"><view>{{errorMessage}}</view><button class="pm-native-button primary" bindtap="retry">重新加载</button></view><block wx:else><view wx:if="{{!items.length}}" class="section card empty-card"><view class="section-title">还没有行程安排</view><view class="section-desc">从集合、交通或第一站开始添加。</view><button wx:if="{{!readOnly}}" class="pm-native-button primary" bindtap="goCreate">新增行程</button><view wx:else class="read-only-note">活动已结束或取消，历史行程仅可查看。</view></view><block wx:for="{{items}}" wx:key="date"><view class="date-title">{{item.date}}</view><view wx:for="{{item.items}}" wx:key="itineraryId" class="itinerary-card" data-id="{{item.itineraryId}}" bindtap="goDetail"><view class="itinerary-time">{{item.timeText}}</view><view class="itinerary-main"><view class="itinerary-name">{{item.title}}</view><view class="itinerary-meta">{{item.locationName||'地点待定'}} · {{item.timeTextStatus}}</view></view><view class="itinerary-status">{{item.statusText}}</view></view></block><view wx:if="{{!readOnly}}" class="p1-bottom"><button class="pm-native-button primary" bindtap="goCreate">新增行程</button></view></block></view>
+<view class="page p1-page">
+  <view class="page-title">行程</view>
+  <view class="page-subtitle">按日期安排这次活动的每一步。</view>
+  <view wx:if="{{loading}}" class="section card">正在加载行程…</view>
+  <view wx:elif="{{errorMessage}}" class="section card stack">
+    <view>{{errorMessage}}</view>
+    <button class="pm-native-button primary" bindtap="retry">重新加载</button>
+  </view>
+  <block wx:else>
+    <view wx:if="{{!items.length}}" class="section card empty-card">
+      <view class="section-title">还没有行程安排</view>
+      <view class="section-desc">从集合、交通或第一站开始添加。</view>
+      <button wx:if="{{!readOnly}}" class="pm-native-button primary" bindtap="goCreate">新增行程</button>
+      <view wx:else class="read-only-note">活动已结束或取消，历史行程仅可查看。</view>
+    </view>
+    <block wx:for="{{items}}" wx:key="date">
+      <view class="date-head">
+        <view><text class="date-title">{{item.date}}</text><text class="date-weekday">{{item.weekday}}</text></view>
+        <view class="date-count">{{item.countText}}</view>
+      </view>
+      <view wx:for="{{item.items}}" wx:key="itineraryId" class="itinerary-card" data-id="{{item.itineraryId}}" bindtap="goDetail">
+        <view class="itinerary-time">{{item.timeText}}</view>
+        <view class="itinerary-main">
+          <view class="itinerary-name">{{item.title}}</view>
+          <view class="itinerary-meta">{{item.summaryText}}</view>
+        </view>
+        <view class="itinerary-status">{{item.statusText}}</view>
+      </view>
+    </block>
+    <view wx:if="{{!readOnly}}" class="p1-bottom"><button class="pm-native-button primary" bindtap="goCreate">新增行程</button></view>
+  </block>
+</view>

@@ -1,6 +1,17 @@
 .itinerary-detail-page { padding-bottom: 72rpx; }
 .itinerary-hero { position: relative; }
-.poll-row { margin-top: 14rpx; display: flex; justify-content: space-between; font-size: 27rpx; }
+.itinerary-type { margin-bottom: 12rpx; color: var(--pm-primary-dark); font-size: 22rpx; font-weight: 800; }
+.itinerary-summary { margin-top: 18rpx; color: var(--pm-text); font-size: 27rpx; font-weight: 700; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22rpx 18rpx; }
+.detail-heading { grid-column: 1 / -1; font-size: 29rpx; font-weight: 800; }
+.detail-cell { display: flex; flex-direction: column; gap: 8rpx; min-width: 0; }
+.detail-cell.full { grid-column: 1 / -1; }
+.detail-cell text { color: var(--pm-text-muted); font-size: 22rpx; }
+.detail-value { overflow-wrap: anywhere; color: var(--pm-text); font-size: 26rpx; font-weight: 700; }
+.poll-row { margin-top: 14rpx; display: flex; align-items: center; justify-content: space-between; gap: 16rpx; font-size: 27rpx; }
+.poll-main { flex: 1; min-width: 0; }
+.poll-arrow { color: var(--pm-text-muted); font-size: 36rpx; }
+.applied-summary { margin-top: 10rpx; color: var(--pm-primary-dark); font-size: 22rpx; line-height: 1.45; }
 .pm-status { margin-top: 20rpx; }
 .itinerary-action-anchor { position: absolute; top: 24rpx; right: 24rpx; z-index: 12; }
 .itinerary-action-trigger { display: flex; align-items: center; justify-content: center; width: 58rpx; height: 58rpx; color: var(--pm-primary-dark); font-size: 29rpx; font-weight: 900; letter-spacing: 2rpx; }

@@ -23,6 +23,7 @@
 | `POST /api/activities/{activityId}/polls/{pollId}/votes` | 提交或替换当前用户选择。 |
 | `POST /api/activities/{activityId}/polls/{pollId}/close` | 创建者或活动创建者主动结束投票。 |
 | `POST /api/activities/{activityId}/polls/{pollId}/cancel` | 取消投票。 |
+| `GET /api/activities/{activityId}/polls/{pollId}/result-preview?optionId={optionId}` | 服务端计算指定选项的结果应用预览，不修改数据。 |
 | `POST /api/activities/{activityId}/polls/{pollId}/apply-result` | 人工确认并应用指定胜出选项。 |
 | `GET /api/activities/{activityId}/collaboration-summary` | 返回活动详情默认 Tab、行程/投票摘要和动态待办。 |
 | `GET /api/users/me/activity-todos` | 查询当前用户 `PENDING` 的持久化待办，供首页角标和待办中心使用。 |
@@ -46,10 +47,11 @@
     "purpose": "UPDATE_ITINERARY",
     "decisionType": "RESTAURANT",
     "voteType": "SINGLE",
+    "decisionScope": ["mealType", "restaurantName", "address"],
     "allowModify": true,
     "options": [
-      {"optionText": "火锅", "resultPayload": {"title": "火锅晚餐", "locationName": "湖滨火锅"}},
-      {"optionText": "烧烤", "resultPayload": {"title": "烧烤晚餐"}}
+      {"optionText": "海底捞", "resultPayload": {"mealType": "火锅", "restaurantName": "海底捞湖滨店", "address": "湖滨路 88 号"}},
+      {"optionText": "烧烤", "resultPayload": {"mealType": "烧烤", "restaurantName": "湖滨烧烤店", "address": "湖滨路 18 号"}}
     ]
   }
 }
@@ -67,12 +69,16 @@
 
 - `GENERAL` 支持单选/多选，不应用行程。
 - `UPDATE_ITINERARY`、`CREATE_ITINERARY` 必须单选。
+- 关联行程投票必须保存 `decisionScope`。后端只接受 `title/itineraryDate/startTime/endTime/transportMode/departureName/destinationName/routeDetail/mealType/restaurantName/address/activityContent/locationName` 中的字段。
+- 每个选项的 `resultPayload` 必须是 `decisionScope` 的子集；未授权字段在创建投票时直接返回参数错误。
 - 单选限制、截止校验、选择替换均在事务中执行。
 - 过期投票会在列表、详情和投票操作前幂等关闭。
 
 ## 结果应用与人工确认
 
 - 唯一胜出、有效结果负载、活动可写且行程版本一致时自动应用。
+- 预览与正式应用使用同一套字段映射和白名单；正式应用不信任前端预览内容。
+- 应用成功后写入 `t_activity_poll_application`，详情响应返回 `applicationHistory`，包含前后快照、变化字段、未变化字段、操作人和应用时间。
 - 更新已有行程会确认状态并递增 `version`；生成行程会写入 `origin_type=POLL_RESULT`、`origin_poll_id` 和 `generated_itinerary_id`。
 - 无人投票、并列、版本冲突、结果负载为空，或普通成员试图自动覆盖他人行程时，设置 `REVIEW_REQUIRED`。
 - 人工确认只允许投票创建者、目标行程创建者或活动创建者；覆盖他人行程仍须由行程创建者或活动创建者确认。

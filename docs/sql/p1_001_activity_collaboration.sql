@@ -13,6 +13,13 @@ CREATE TABLE IF NOT EXISTS t_activity_itinerary (
   start_time TIME DEFAULT NULL COMMENT '开始时间；全天行程可为空',
   end_time TIME DEFAULT NULL COMMENT '结束时间；全天行程可为空',
   all_day TINYINT NOT NULL DEFAULT 0 COMMENT '是否全天：0 否，1 是',
+  transport_mode VARCHAR(64) DEFAULT NULL COMMENT '交通方式',
+  departure_name VARCHAR(128) DEFAULT NULL COMMENT '出发地',
+  destination_name VARCHAR(128) DEFAULT NULL COMMENT '目的地',
+  route_detail VARCHAR(512) DEFAULT NULL COMMENT '路线说明',
+  meal_type VARCHAR(64) DEFAULT NULL COMMENT '用餐类型',
+  restaurant_name VARCHAR(128) DEFAULT NULL COMMENT '具体餐厅',
+  activity_content VARCHAR(128) DEFAULT NULL COMMENT '活动内容',
   location_name VARCHAR(128) DEFAULT NULL COMMENT '地点名称',
   address VARCHAR(255) DEFAULT NULL COMMENT '详细地址',
   description TEXT DEFAULT NULL COMMENT '行程说明',
@@ -50,6 +57,7 @@ CREATE TABLE IF NOT EXISTS t_activity_poll (
   winner_option_id BIGINT DEFAULT NULL COMMENT '最终确认的胜出选项 ID（逻辑关联 t_activity_poll_option.id）',
   target_itinerary_version INT DEFAULT NULL COMMENT '发起修改行程投票时记录的行程版本',
   itinerary_template JSON DEFAULT NULL COMMENT '生成新行程时已确定的日期、时间、标题等固定字段',
+  decision_scope JSON DEFAULT NULL COMMENT '本次投票允许修改的行程字段白名单',
   created_by BIGINT NOT NULL COMMENT '创建人用户 ID（逻辑关联 t_user.id）',
   closed_at DATETIME DEFAULT NULL COMMENT '关闭时间',
   applied_at DATETIME DEFAULT NULL COMMENT '结果应用时间',
@@ -79,6 +87,29 @@ CREATE TABLE IF NOT EXISTS t_activity_poll_option (
   KEY idx_poll_option_poll (poll_id),
   KEY idx_poll_option_poll_sort (poll_id, sort_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='活动投票选项表';
+
+-- 投票结果应用记录：保存应用前后快照、实际变化和保持不变字段。
+CREATE TABLE IF NOT EXISTS t_activity_poll_application (
+  id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键 ID',
+  activity_id BIGINT NOT NULL COMMENT '活动 ID（逻辑关联 t_activity.id）',
+  poll_id BIGINT NOT NULL COMMENT '投票 ID（逻辑关联 t_activity_poll.id）',
+  target_itinerary_id BIGINT NOT NULL COMMENT '实际应用的行程 ID（逻辑关联 t_activity_itinerary.id）',
+  winner_option_id BIGINT NOT NULL COMMENT '胜出选项 ID（逻辑关联 t_activity_poll_option.id）',
+  before_snapshot JSON DEFAULT NULL COMMENT '应用前行程字段快照',
+  after_snapshot JSON NOT NULL COMMENT '应用后行程字段快照',
+  changed_fields JSON NOT NULL COMMENT '实际修改字段及前后值',
+  unchanged_fields JSON NOT NULL COMMENT '本次保持不变字段及值',
+  applied_by BIGINT NOT NULL COMMENT '应用操作人用户 ID（逻辑关联 t_user.id）',
+  applied_at DATETIME NOT NULL COMMENT '应用时间',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  delete_flag TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0 未删除，1 已删除',
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_poll_application_poll (poll_id),
+  KEY idx_poll_application_activity (activity_id, applied_at),
+  KEY idx_poll_application_itinerary (target_itinerary_id, applied_at),
+  KEY idx_poll_application_operator (applied_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='投票结果应用记录表';
 
 -- 投票记录：同一用户不能对同一选项重复投票；单选限制由阶段 C 的事务逻辑保证。
 CREATE TABLE IF NOT EXISTS t_activity_poll_vote (

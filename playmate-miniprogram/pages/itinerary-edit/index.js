@@ -34,6 +34,13 @@ Page({
       itineraryType: 'OTHER',
       ...defaultSchedule(),
       allDay: false,
+      transportMode: '',
+      departureName: '',
+      destinationName: '',
+      routeDetail: '',
+      mealType: '',
+      restaurantName: '',
+      activityContent: '',
       locationName: '',
       address: '',
       description: ''
@@ -138,17 +145,22 @@ Page({
       } else {
         const data = { ...form, creationMode: this.data.withPoll ? 'WITH_POLL' : 'DIRECT' };
         if (this.data.withPoll) {
+          const pollConfig = this.linkedPollConfig(form.itineraryType);
           data.poll = {
             title: this.data.poll.title.trim(),
             description: this.data.poll.description,
             deadline: this.data.poll.deadline || null,
             purpose: 'UPDATE_ITINERARY',
-            decisionType: 'OTHER',
+            decisionType: pollConfig.decisionType,
+            decisionScope: pollConfig.decisionScope,
             voteType: 'SINGLE',
             allowModify: true,
             options: this.data.poll.options
               .filter((item) => item.optionText.trim())
-              .map((item) => ({ optionText: item.optionText.trim(), resultPayload: {} }))
+              .map((item) => ({
+                optionText: item.optionText.trim(),
+                resultPayload: { [pollConfig.payloadField]: item.optionText.trim() }
+              }))
           };
         }
         await createItinerary(this.data.activityId, data);
@@ -160,5 +172,18 @@ Page({
     } finally {
       this.setData({ saving: false });
     }
+  },
+
+  linkedPollConfig(itineraryType) {
+    if (itineraryType === 'TRANSPORT') {
+      return { decisionType: 'TRANSPORT', decisionScope: ['transportMode'], payloadField: 'transportMode' };
+    }
+    if (itineraryType === 'MEAL') {
+      return { decisionType: 'RESTAURANT', decisionScope: ['restaurantName'], payloadField: 'restaurantName' };
+    }
+    if (['ACTIVITY', 'SIGHTSEEING'].includes(itineraryType)) {
+      return { decisionType: 'CONTENT', decisionScope: ['activityContent'], payloadField: 'activityContent' };
+    }
+    return { decisionType: 'PLACE', decisionScope: ['locationName'], payloadField: 'locationName' };
   }
 });

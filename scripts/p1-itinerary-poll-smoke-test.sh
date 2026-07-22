@@ -52,14 +52,36 @@ STATUS=$(api -o /dev/null -w '%{http_code}' -X DELETE "$BASE_URL/api/activities/
 STATUS=$(api -o /dev/null -w '%{http_code}' "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$DISPOSABLE_ID" -H "Authorization: Bearer $TA")
 [[ "$STATUS" == 404 ]] || fail "已删除行程不应继续可查"
 pass "行程取消默认隐藏、查看全部、恢复与物理删除"
-WITH=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TB" -H 'Content-Type: application/json' -d '{"creationMode":"WITH_POLL","title":"晚餐","itineraryType":"MEAL","itineraryDate":"2026-07-18","startTime":"18:00","endTime":"20:00","allDay":false,"poll":{"title":"晚餐吃什么？","purpose":"UPDATE_ITINERARY","decisionType":"RESTAURANT","voteType":"SINGLE","allowModify":true,"options":[{"optionText":"火锅","resultPayload":{"title":"火锅晚餐","locationName":"湖滨火锅"}},{"optionText":"烧烤","resultPayload":{"title":"烧烤晚餐"}}]}}')
+
+TRANSPORT=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"creationMode":"DIRECT","title":"周日返程","itineraryType":"TRANSPORT","itineraryDate":"2026-07-19","startTime":"09:00","endTime":"12:00","allDay":false,"transportMode":"高铁","departureName":"亚朵酒店","destinationName":"上海","routeDetail":"酒店集合后出发"}')
+TRANSPORT_ID=$(printf '%s' "$TRANSPORT"|jq -r '.data.itineraryId')
+TRANSPORT_POLL=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"title\":\"返程交通方式\",\"purpose\":\"UPDATE_ITINERARY\",\"decisionType\":\"TRANSPORT\",\"decisionScope\":[\"transportMode\"],\"targetItineraryId\":$TRANSPORT_ID,\"voteType\":\"SINGLE\",\"options\":[{\"optionText\":\"自驾\",\"resultPayload\":{\"transportMode\":\"自驾\"}},{\"optionText\":\"高铁\",\"resultPayload\":{\"transportMode\":\"高铁\"}}]}")
+TRANSPORT_POLL_ID=$(printf '%s' "$TRANSPORT_POLL"|jq -r '.data.pollId')
+TRANSPORT_OPTION=$(printf '%s' "$TRANSPORT_POLL"|jq -r '.data.options[0].optionId')
+for T in "$TA" "$TB" "$TC"; do api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$TRANSPORT_POLL_ID/votes" -H "Authorization: Bearer $T" -H 'Content-Type: application/json' -d "{\"optionIds\":[$TRANSPORT_OPTION]}" >/dev/null; done
+TRANSPORT_CLOSED=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$TRANSPORT_POLL_ID/close" -H "Authorization: Bearer $TA")
+[[ $(printf '%s' "$TRANSPORT_CLOSED"|jq -r '.data.resultApplyStatus') == APPLIED ]] || fail "交通投票自动应用"
+TRANSPORT_DETAIL=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$TRANSPORT_ID" -H "Authorization: Bearer $TA")
+[[ $(printf '%s' "$TRANSPORT_DETAIL"|jq -r '.data.itinerary.transportMode') == 自驾 ]] || fail "交通方式未更新"
+[[ $(printf '%s' "$TRANSPORT_DETAIL"|jq -r '.data.itinerary.title') == 周日返程 ]] || fail "交通投票覆盖了行程名称"
+[[ $(printf '%s' "$TRANSPORT_DETAIL"|jq -r '.data.itinerary.departureName') == 亚朵酒店 && $(printf '%s' "$TRANSPORT_DETAIL"|jq -r '.data.itinerary.destinationName') == 上海 ]] || fail "交通投票修改了出发地或目的地"
+[[ $(printf '%s' "$TRANSPORT_CLOSED"|jq -r '.data.applicationHistory | length') == 1 ]] || fail "交通投票应用历史未保存"
+pass "交通投票只更新交通方式并保存应用历史"
+
+INVALID_STATUS=$(api -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"title\":\"非法字段测试\",\"purpose\":\"UPDATE_ITINERARY\",\"decisionType\":\"TRANSPORT\",\"decisionScope\":[\"transportMode\"],\"targetItineraryId\":$TRANSPORT_ID,\"voteType\":\"SINGLE\",\"options\":[{\"optionText\":\"A\",\"resultPayload\":{\"transportMode\":\"飞机\",\"title\":\"不应覆盖\"}},{\"optionText\":\"B\",\"resultPayload\":{\"transportMode\":\"高铁\"}}]}")
+[[ "$INVALID_STATUS" == 400 ]] || fail "未授权 resultPayload 字段应被拒绝"
+pass "投票选项字段白名单"
+
+WITH=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TB" -H 'Content-Type: application/json' -d '{"creationMode":"WITH_POLL","title":"周日晚餐","itineraryType":"MEAL","itineraryDate":"2026-07-18","startTime":"18:00","endTime":"20:00","allDay":false,"poll":{"title":"晚餐吃什么？","purpose":"UPDATE_ITINERARY","decisionType":"RESTAURANT","decisionScope":["mealType","restaurantName","address"],"voteType":"SINGLE","allowModify":true,"options":[{"optionText":"海底捞","resultPayload":{"mealType":"火锅","restaurantName":"海底捞湖滨店","address":"湖滨路 88 号"}},{"optionText":"烧烤","resultPayload":{"mealType":"烧烤","restaurantName":"湖滨烧烤店","address":"湖滨路 18 号"}}]}}')
 WITH_ID=$(printf '%s' "$WITH"|jq -r '.data.itineraryId'); POLL_ID=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA"|jq -r '.data[] | select(.title == "晚餐吃什么？") | .pollId'); [[ "$WITH_ID" != null && "$POLL_ID" != null && -n "$POLL_ID" ]] || fail "待决定行程与投票"; pass "待决定行程与投票事务创建"
 DETAIL=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$POLL_ID" -H "Authorization: Bearer $TA"); O1=$(printf '%s' "$DETAIL"|jq -r '.data.options[0].optionId')
 for T in "$TA" "$TB" "$TC"; do api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$POLL_ID/votes" -H "Authorization: Bearer $T" -H 'Content-Type: application/json' -d "{\"optionIds\":[$O1]}" >/dev/null; done
 CLOSED=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$POLL_ID/close" -H "Authorization: Bearer $TB")
 [[ $(printf '%s' "$CLOSED"|jq -r '.data.resultApplyStatus') == APPLIED ]] || fail "唯一胜出自动应用"
-[[ $(api "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$WITH_ID" -H "Authorization: Bearer $TA"|jq -r '.data.itinerary.title') == 火锅晚餐 ]] || fail "投票更新行程"
-pass "唯一胜出自动更新行程"
+MEAL_DETAIL=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$WITH_ID" -H "Authorization: Bearer $TA")
+[[ $(printf '%s' "$MEAL_DETAIL"|jq -r '.data.itinerary.title') == 周日晚餐 ]] || fail "餐厅投票覆盖了行程名称"
+[[ $(printf '%s' "$MEAL_DETAIL"|jq -r '.data.itinerary.mealType') == 火锅 && $(printf '%s' "$MEAL_DETAIL"|jq -r '.data.itinerary.restaurantName') == 海底捞湖滨店 && $(printf '%s' "$MEAL_DETAIL"|jq -r '.data.itinerary.address') == "湖滨路 88 号" ]] || fail "餐厅投票字段应用错误"
+pass "唯一胜出只更新餐厅相关字段"
 STATUS=$(api -o /dev/null -w '%{http_code}' -X PUT "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$DIRECT_ID" -H "Authorization: Bearer $TB" -H 'Content-Type: application/json' -d '{"title":"越权修改"}')
 [[ "$STATUS" == 403 ]] || fail "普通成员越权校验"; pass "成员权限校验"
 OUTSIDER=$(login outsider); TO=$(token "$OUTSIDER")
@@ -72,7 +94,12 @@ TIE=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorizatio
 TIE_ID=$(printf '%s' "$TIE"|jq -r '.data.pollId'); T1=$(printf '%s' "$TIE"|jq -r '.data.options[0].optionId'); T2=$(printf '%s' "$TIE"|jq -r '.data.options[1].optionId')
 api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$TIE_ID/votes" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"optionIds\":[$T1]}" >/dev/null; api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$TIE_ID/votes" -H "Authorization: Bearer $TB" -H 'Content-Type: application/json' -d "{\"optionIds\":[$T2]}" >/dev/null
 REVIEW=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$TIE_ID/close" -H "Authorization: Bearer $TA")
-[[ $(printf '%s' "$REVIEW"|jq -r '.data.resultApplyStatus') == REVIEW_REQUIRED ]] || fail "并列人工确认"; api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$TIE_ID/apply-result" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"optionId\":$T1}" >/dev/null; pass "并列进入并完成人工确认"
+[[ $(printf '%s' "$REVIEW"|jq -r '.data.resultApplyStatus') == REVIEW_REQUIRED ]] || fail "并列人工确认"
+PREVIEW=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$TIE_ID/result-preview?optionId=$T1" -H "Authorization: Bearer $TA")
+[[ $(printf '%s' "$PREVIEW"|jq -r '.data.changedFields | length') == 1 && $(printf '%s' "$PREVIEW"|jq -r '.data.changedFields[0].field') == locationName ]] || fail "并列结果应用预览"
+APPLIED=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$TIE_ID/apply-result" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"optionId\":$T1}")
+[[ $(printf '%s' "$APPLIED"|jq -r '.data.applicationHistory | length') == 1 ]] || fail "并列人工应用历史"
+pass "并列进入人工确认、预览并保存应用历史"
 SUMMARY=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/collaboration-summary" -H "Authorization: Bearer $TA"); [[ $(printf '%s' "$SUMMARY"|jq -r '.code') == SUCCESS ]] || fail "协作摘要"; [[ $(printf '%s' "$SUMMARY"|jq -r '.data.todoCount') == 0 ]] || fail "已处理投票不应保留待办"; pass "活动详情协作摘要"
 api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/end" -H "Authorization: Bearer $TA" >/dev/null
 READ_ONLY=$(api -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"creationMode":"DIRECT","title":"不可创建","itineraryDate":"2026-07-19"}')

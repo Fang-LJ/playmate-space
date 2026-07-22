@@ -18,5 +18,6 @@ public record CreatePollRequest(
         Boolean allowModify,
         LocalDateTime deadline,
         Map<String, Object> itineraryTemplate,
+        List<String> decisionScope,
         @NotEmpty(message = "至少需要两个投票选项") @Size(min = 2, max = 20, message = "投票选项数量需在 2 到 20 之间") List<@Valid PollOptionRequest> options
 ) {}

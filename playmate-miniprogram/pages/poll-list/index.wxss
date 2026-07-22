@@ -1,1 +1,2 @@
 .filter-row{display:flex;gap:14rpx;margin-top:28rpx}.poll-card{position:relative}.poll-link{margin-top:16rpx;color:var(--pm-primary-dark);font-size:24rpx}.review{position:absolute;right:24rpx;top:24rpx;color:#8a6500;font-size:22rpx}.p1-bottom{position:sticky;bottom:0;margin-top:30rpx;padding:20rpx 0 calc(20rpx + env(safe-area-inset-bottom));background:var(--pm-bg)}
+.applied-summary{margin-top:12rpx;padding:12rpx 16rpx;border-radius:14rpx;background:var(--pm-primary-light);color:var(--pm-primary-dark);font-size:22rpx;line-height:1.5}

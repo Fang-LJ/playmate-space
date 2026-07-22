@@ -68,7 +68,7 @@
         </view>
       </view>
       <view wx:if="{{!itineraries.length}}" class="card empty-card"><view>还没有行程安排</view><view class="section-desc">从集合、交通或第一站开始添加。</view></view>
-      <view wx:for="{{itineraries}}" wx:key="itineraryId" class="card compact-row" data-id="{{item.itineraryId}}" bindtap="goItinerary"><view>{{item.timeText}}</view><view class="row-main"><view class="row-title">{{item.title}}</view><view class="muted">{{item.locationName||'地点待定'}} · {{item.planningStatusText}}</view></view></view>
+      <view wx:for="{{itineraries}}" wx:key="itineraryId" class="card compact-row" data-id="{{item.itineraryId}}" bindtap="goItinerary"><view>{{item.timeText}}</view><view class="row-main"><view class="row-title">{{item.title}} <text class="itinerary-type-mark">{{item.typeText}}</text></view><view class="muted">{{item.summaryText}} · {{item.planningStatusText}}</view></view></view>
     </view>
 
     <view wx:if="{{activeTab==='POLLS'}}" class="section">

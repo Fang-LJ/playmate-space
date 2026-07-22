@@ -5,7 +5,13 @@
   <view wx:if="{{target}}" class="section p1-context-card">
     <view class="context-eyebrow">为这个行程发起投票</view>
     <view class="section-title">{{target.title}}</view>
-    <view class="section-desc">{{target.itineraryDate}} · {{target.startTime || '时间待定'}}</view>
+    <view class="section-desc">{{target.itineraryDate}} · {{target.startTime || '时间待定'}} · {{target.summaryText}}</view>
+  </view>
+
+  <view wx:if="{{form.purpose !== 'GENERAL'}}" class="section scope-card">
+    <view class="scope-title">本次结果应用范围</view>
+    <view class="scope-line"><text>将修改</text><view><text wx:for="{{scopeLabels}}" wx:key="*this" class="scope-chip change">{{item}}</text></view></view>
+    <view class="scope-line"><text>保持不变</text><view class="scope-unchanged">{{unchangedText}}</view></view>
   </view>
 
   <view class="section card pm-form-card">
@@ -55,7 +61,24 @@
     <view wx:for="{{form.options}}" wx:key="index" class="poll-option-edit">
       <view class="option-card-title"><view class="pm-label">选项 {{index + 1}}</view><view wx:if="{{index >= 2}}" class="option-remove" data-index="{{index}}" bindtap="removeOption">删除</view></view>
       <input class="pm-input" value="{{item.optionText}}" data-index="{{index}}" data-key="optionText" bindinput="optionInput" placeholder="填写候选方案" />
-      <input wx:if="{{form.purpose !== 'GENERAL'}}" class="pm-input option-secondary" value="{{item.payloadLocation}}" data-index="{{index}}" data-key="payloadLocation" bindinput="optionInput" placeholder="地点（可选）" />
+      <input wx:if="{{form.purpose !== 'GENERAL' && form.decisionType === 'TRANSPORT'}}" class="pm-input option-secondary" value="{{item.transportMode}}" data-index="{{index}}" data-key="transportMode" bindinput="optionInput" placeholder="交通方式，例如：自驾" />
+      <block wx:if="{{form.purpose !== 'GENERAL' && form.decisionType === 'ROUTE'}}">
+        <input class="pm-input option-secondary" value="{{item.departureName}}" data-index="{{index}}" data-key="departureName" bindinput="optionInput" placeholder="出发地" />
+        <input class="pm-input option-secondary" value="{{item.destinationName}}" data-index="{{index}}" data-key="destinationName" bindinput="optionInput" placeholder="目的地" />
+        <input class="pm-input option-secondary" value="{{item.routeDetail}}" data-index="{{index}}" data-key="routeDetail" bindinput="optionInput" placeholder="路线说明" />
+      </block>
+      <block wx:if="{{form.purpose !== 'GENERAL' && form.decisionType === 'RESTAURANT'}}">
+        <input class="pm-input option-secondary" value="{{item.mealType}}" data-index="{{index}}" data-key="mealType" bindinput="optionInput" placeholder="用餐类型，例如：火锅" />
+        <input class="pm-input option-secondary" value="{{item.restaurantName}}" data-index="{{index}}" data-key="restaurantName" bindinput="optionInput" placeholder="具体餐厅" />
+        <input class="pm-input option-secondary" value="{{item.address}}" data-index="{{index}}" data-key="address" bindinput="optionInput" placeholder="详细地址" />
+      </block>
+      <block wx:if="{{form.purpose !== 'GENERAL' && form.decisionType === 'TIME'}}">
+        <picker mode="date" value="{{item.itineraryDate}}" data-index="{{index}}" data-key="itineraryDate" bindchange="optionInput"><view class="pm-picker option-secondary">{{item.itineraryDate || '选择日期'}}</view></picker>
+        <view class="time-row"><picker mode="time" value="{{item.startTime}}" data-index="{{index}}" data-key="startTime" bindchange="optionInput"><view class="pm-picker option-secondary">{{item.startTime || '开始时间'}}</view></picker><picker mode="time" value="{{item.endTime}}" data-index="{{index}}" data-key="endTime" bindchange="optionInput"><view class="pm-picker option-secondary">{{item.endTime || '结束时间'}}</view></picker></view>
+      </block>
+      <input wx:if="{{form.purpose !== 'GENERAL' && form.decisionType === 'PLACE'}}" class="pm-input option-secondary" value="{{item.locationName}}" data-index="{{index}}" data-key="locationName" bindinput="optionInput" placeholder="地点" />
+      <input wx:if="{{form.purpose !== 'GENERAL' && form.decisionType === 'CONTENT'}}" class="pm-input option-secondary" value="{{item.activityContent}}" data-index="{{index}}" data-key="activityContent" bindinput="optionInput" placeholder="活动内容" />
+      <input wx:if="{{form.purpose !== 'GENERAL' && (form.decisionType === 'ITINERARY_NAME' || form.decisionType === 'OTHER')}}" class="pm-input option-secondary" value="{{item.title}}" data-index="{{index}}" data-key="title" bindinput="optionInput" placeholder="新的行程名称" />
       <input class="pm-input option-secondary" value="{{item.optionDescription}}" data-index="{{index}}" data-key="optionDescription" bindinput="optionInput" placeholder="说明（可选）" />
     </view>
     <view class="pm-link" bindtap="addOption">+ 添加选项</view>

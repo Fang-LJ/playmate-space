@@ -24,9 +24,38 @@ const POLL_DECISION = {
   PLACE: '地点',
   TIME: '时间',
   TRANSPORT: '交通方式',
+  ROUTE: '出发地、目的地和路线',
   CONTENT: '活动内容',
   RESTAURANT: '餐厅',
+  ITINERARY_NAME: '行程名称',
   OTHER: '其他'
+};
+
+const DECISION_SCOPE = {
+  PLACE: ['locationName'],
+  TIME: ['itineraryDate', 'startTime', 'endTime'],
+  TRANSPORT: ['transportMode'],
+  ROUTE: ['departureName', 'destinationName', 'routeDetail'],
+  CONTENT: ['activityContent'],
+  RESTAURANT: ['mealType', 'restaurantName', 'address'],
+  ITINERARY_NAME: ['title'],
+  OTHER: ['title']
+};
+
+const FIELD_LABEL = {
+  title: '行程名称',
+  itineraryDate: '日期',
+  startTime: '开始时间',
+  endTime: '结束时间',
+  transportMode: '交通方式',
+  departureName: '出发地',
+  destinationName: '目的地',
+  routeDetail: '路线',
+  mealType: '用餐类型',
+  restaurantName: '具体餐厅',
+  address: '详细地址',
+  activityContent: '活动内容',
+  locationName: '地点'
 };
 
 const POLL_STATUS = {
@@ -76,16 +105,47 @@ function hasVisibleText(value) {
   return Boolean(text && text !== 'null' && text !== 'undefined');
 }
 
+function itinerarySummary(itinerary) {
+  if (!itinerary) return '具体方案待补充';
+  if (itinerary.displaySummary) return itinerary.displaySummary;
+  if (itinerary.planningStatus === 'PENDING_DECISION') return '具体方案待决定';
+  const join = (...values) => values.filter(hasVisibleText).slice(0, 2).join(' · ');
+  if (itinerary.itineraryType === 'TRANSPORT') {
+    const route = itinerary.departureName && itinerary.destinationName
+      ? `${itinerary.departureName} → ${itinerary.destinationName}`
+      : itinerary.departureName || itinerary.destinationName;
+    return join(itinerary.transportMode, route, itinerary.locationName) || '交通方案待补充';
+  }
+  if (itinerary.itineraryType === 'MEAL') {
+    return join(itinerary.mealType, itinerary.restaurantName, itinerary.locationName) || '用餐方案待补充';
+  }
+  return join(itinerary.activityContent, itinerary.locationName) || '具体方案待补充';
+}
+
+function dateGroupMeta(date, count) {
+  const parsed = new Date(`${date}T00:00:00`);
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  return {
+    date,
+    weekday: Number.isNaN(parsed.getTime()) ? '' : weekdays[parsed.getDay()],
+    countText: `${count} 项`
+  };
+}
+
 module.exports = {
   ITINERARY_TYPE,
   ITINERARY_STATUS,
   POLL_PURPOSE,
   POLL_DECISION,
+  DECISION_SCOPE,
+  FIELD_LABEL,
   POLL_STATUS,
   POLL_RESULT_STATUS,
   TODO_TYPE,
   label,
   formatDateTime,
   formatTimeRange,
-  hasVisibleText
+  hasVisibleText,
+  itinerarySummary,
+  dateGroupMeta
 };

@@ -22,6 +22,7 @@ services:
       - ../docs/sql/p0_init.sql:/docker-entrypoint-initdb.d/001-p0_init.sql:ro
       - ../docs/sql/p1_001_activity_collaboration.sql:/docker-entrypoint-initdb.d/002-p1_activity_collaboration.sql:ro
       - ../docs/sql/p1_002_activity_todo.sql:/docker-entrypoint-initdb.d/003-p1_activity_todo.sql:ro
+      - ../docs/sql/p1_003_itinerary_poll_field_linkage.sql:/docker-entrypoint-initdb.d/004-p1_itinerary_poll_field_linkage.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
       interval: 10s

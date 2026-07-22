@@ -1,6 +1,12 @@
 .p1-edit-page { padding-bottom: 142rpx; }
 .p1-context-card { padding: 30rpx; border: 1rpx solid rgba(107, 175, 146, 0.36); border-radius: var(--pm-radius-card); background: linear-gradient(135deg, #e9f5ef, #fffdf4); box-shadow: var(--pm-shadow-soft); }
 .context-eyebrow { margin-bottom: 10rpx; color: var(--pm-primary-dark); font-size: 23rpx; font-weight: 700; }
+.scope-card { padding: 26rpx; border: 1rpx solid rgba(107,175,146,.35); border-radius: 24rpx; background: #fff; box-shadow: var(--pm-shadow-soft); }
+.scope-title { margin-bottom: 18rpx; font-size: 27rpx; font-weight: 800; }
+.scope-line { display: grid; grid-template-columns: 110rpx 1fr; gap: 14rpx; margin-top: 12rpx; color: var(--pm-text-muted); font-size: 23rpx; line-height: 1.55; }
+.scope-chip { display: inline-block; margin: 0 10rpx 8rpx 0; padding: 4rpx 12rpx; border-radius: 999rpx; }
+.scope-chip.change { background: var(--pm-primary-light); color: var(--pm-primary-dark); font-weight: 700; }
+.scope-unchanged { color: var(--pm-text); }
 .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18rpx; }
 .placeholder { color: #9ca9a1; }
 .choice-row { display: flex; gap: 14rpx; }

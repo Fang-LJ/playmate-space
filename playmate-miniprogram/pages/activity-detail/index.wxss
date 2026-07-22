@@ -55,5 +55,6 @@
 .compact-row { display: flex; gap: 18rpx; align-items: flex-start; margin-top: 14rpx; padding: 22rpx; font-size: 25rpx; }
 .row-main { flex: 1; }
 .row-title { font-weight: 800; }
+.itinerary-type-mark { margin-left: 8rpx; color: var(--pm-primary-dark); font-size: 19rpx; font-weight: 700; }
 .review { color: #8a6500; font-size: 23rpx; }
 .empty-card { margin-top: 16rpx; }

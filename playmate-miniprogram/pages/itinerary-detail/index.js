@@ -1,5 +1,5 @@
 const { getItineraryDetail, cancelItinerary, deleteItinerary, restoreItinerary } = require('../../services/itinerary');
-const { ITINERARY_STATUS, POLL_RESULT_STATUS, POLL_STATUS, formatTimeRange, label } = require('../../utils/p1-display');
+const { ITINERARY_STATUS, ITINERARY_TYPE, POLL_RESULT_STATUS, POLL_STATUS, formatTimeRange, itinerarySummary, label } = require('../../utils/p1-display');
 
 Page({
   data: { activityId: '', itineraryId: '', detail: null, loading: true, errorMessage: '', actionMenuVisible: false },
@@ -15,7 +15,9 @@ Page({
           itinerary: {
             ...detail.itinerary,
             timeText: formatTimeRange(detail.itinerary),
-            planningStatusText: label(ITINERARY_STATUS, detail.itinerary.planningStatus)
+            planningStatusText: label(ITINERARY_STATUS, detail.itinerary.planningStatus),
+            typeText: label(ITINERARY_TYPE, detail.itinerary.itineraryType),
+            summaryText: itinerarySummary(detail.itinerary)
           },
           relatedPolls: (detail.relatedPolls || []).map((item) => ({
             ...item, statusText: label(POLL_STATUS, item.status), resultText: label(POLL_RESULT_STATUS, item.resultApplyStatus)

@@ -4,9 +4,10 @@
   <view wx:else>
     <view class="page-title">行程详情</view>
     <view class="section itinerary-hero pm-hero-card">
+      <view class="itinerary-type">{{detail.itinerary.typeText}}</view>
       <view class="section-title">{{detail.itinerary.title}}</view>
       <view class="section-desc">{{detail.itinerary.itineraryDate}} · {{detail.itinerary.timeText}}</view>
-      <view class="section-desc">{{detail.itinerary.locationName || '地点待定'}} {{detail.itinerary.address || ''}}</view>
+      <view class="itinerary-summary">{{detail.itinerary.summaryText}}</view>
       <view class="pm-status">{{detail.itinerary.planningStatusText}}</view>
       <view class="itinerary-action-anchor">
         <view class="itinerary-action-trigger" bindtap="toggleActionMenu" aria-label="行程操作">•••</view>
@@ -20,7 +21,35 @@
       </view>
     </view>
     <view wx:if="{{actionMenuVisible}}" class="itinerary-action-mask" catchtap="closeActionMenu"></view>
+
+    <view wx:if="{{detail.itinerary.itineraryType === 'TRANSPORT'}}" class="section card detail-grid">
+      <view class="detail-heading">交通安排</view>
+      <view class="detail-cell"><text>交通方式</text><view class="detail-value">{{detail.itinerary.transportMode || '待决定'}}</view></view>
+      <view class="detail-cell"><text>出发地</text><view class="detail-value">{{detail.itinerary.departureName || '待补充'}}</view></view>
+      <view class="detail-cell"><text>目的地</text><view class="detail-value">{{detail.itinerary.destinationName || '待补充'}}</view></view>
+      <view class="detail-cell full"><text>路线</text><view class="detail-value">{{detail.itinerary.routeDetail || '暂无路线说明'}}</view></view>
+    </view>
+    <view wx:elif="{{detail.itinerary.itineraryType === 'MEAL'}}" class="section card detail-grid">
+      <view class="detail-heading">用餐安排</view>
+      <view class="detail-cell"><text>用餐类型</text><view class="detail-value">{{detail.itinerary.mealType || '待决定'}}</view></view>
+      <view class="detail-cell"><text>具体餐厅</text><view class="detail-value">{{detail.itinerary.restaurantName || '待决定'}}</view></view>
+      <view class="detail-cell full"><text>详细地址</text><view class="detail-value">{{detail.itinerary.address || '待补充'}}</view></view>
+    </view>
+    <view wx:else class="section card detail-grid">
+      <view class="detail-heading">活动安排</view>
+      <view class="detail-cell"><text>活动内容</text><view class="detail-value">{{detail.itinerary.activityContent || '待补充'}}</view></view>
+      <view class="detail-cell"><text>地点</text><view class="detail-value">{{detail.itinerary.locationName || '待补充'}}</view></view>
+      <view class="detail-cell full"><text>详细地址</text><view class="detail-value">{{detail.itinerary.address || '待补充'}}</view></view>
+    </view>
+
     <view class="section card"><view class="section-title">行程说明</view><view class="section-desc">{{detail.itinerary.description || '暂无备注'}}</view></view>
-    <view class="section"><view class="section-title">关联投票</view><view wx:if="{{!detail.relatedPolls.length}}" class="card section-desc">还没有关联投票</view><view wx:for="{{detail.relatedPolls}}" wx:key="pollId" class="card poll-row" data-id="{{item.pollId}}" bindtap="goPoll"><view>{{item.title}}</view><view class="muted">{{item.statusText}} · {{item.resultText}}</view></view></view>
+    <view class="section">
+      <view class="section-title">关联投票与应用结果</view>
+      <view wx:if="{{!detail.relatedPolls.length}}" class="card section-desc">还没有关联投票</view>
+      <view wx:for="{{detail.relatedPolls}}" wx:key="pollId" class="card poll-row" data-id="{{item.pollId}}" bindtap="goPoll">
+        <view class="poll-main"><view>{{item.title}}</view><view class="muted">{{item.statusText}} · {{item.resultText}}</view><view wx:if="{{item.appliedChangeSummary}}" class="applied-summary">{{item.appliedChangeSummary}}</view></view>
+        <view class="poll-arrow">›</view>
+      </view>
+    </view>
   </view>
 </view>

@@ -1,6 +1,9 @@
 package com.playmate.space.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.playmate.space.common.ErrorCode;
 import com.playmate.space.common.exception.BusinessException;
 import com.playmate.space.common.exception.ForbiddenException;
@@ -8,64 +11,833 @@ import com.playmate.space.common.exception.NotFoundException;
 import com.playmate.space.dto.poll.*;
 import com.playmate.space.entity.*;
 import com.playmate.space.mapper.*;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import java.time.*;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 public class PollService {
     private static final Logger log = LoggerFactory.getLogger(PollService.class);
-    private static final Set<String> PURPOSES = Set.of("GENERAL","UPDATE_ITINERARY","CREATE_ITINERARY");
-    private static final Set<String> DECISIONS = Set.of("PLACE","TIME","TRANSPORT","CONTENT","RESTAURANT","OTHER");
-    private static final Set<String> VOTE_TYPES = Set.of("SINGLE","MULTIPLE");
-    private final ActivityCollaborationAccess access; private final ActivityPollMapper pollMapper; private final ActivityPollOptionMapper optionMapper; private final ActivityPollVoteMapper voteMapper; private final ActivityItineraryMapper itineraryMapper; private final ObjectMapper objectMapper; private final ActivityTodoLifecycleService todoLifecycleService;
-    public PollService(ActivityCollaborationAccess access, ActivityPollMapper pollMapper, ActivityPollOptionMapper optionMapper, ActivityPollVoteMapper voteMapper, ActivityItineraryMapper itineraryMapper, ObjectMapper objectMapper, ActivityTodoLifecycleService todoLifecycleService) { this.access=access;this.pollMapper=pollMapper;this.optionMapper=optionMapper;this.voteMapper=voteMapper;this.itineraryMapper=itineraryMapper;this.objectMapper=objectMapper;this.todoLifecycleService=todoLifecycleService; }
+    private static final Set<String> PURPOSES = Set.of("GENERAL", "UPDATE_ITINERARY", "CREATE_ITINERARY");
+    private static final Set<String> DECISIONS = Set.of(
+            "PLACE", "TIME", "TRANSPORT", "ROUTE", "CONTENT", "RESTAURANT", "ITINERARY_NAME", "OTHER");
+    private static final Set<String> VOTE_TYPES = Set.of("SINGLE", "MULTIPLE");
 
-    @Transactional public List<PollListItemResponse> list(Long activityId) { Long userId=access.requireUserId(); access.requireActivity(activityId); access.requireActiveMember(activityId,userId); finalizeExpiredByActivity(activityId); return listInternal(activityId,userId); }
-    @Transactional public PollDetailResponse detail(Long activityId,Long pollId){Long userId=access.requireUserId();access.requireActivity(activityId);access.requireActiveMember(activityId,userId);finalizeExpiredPollIfNeeded(pollId);return detailInternal(activityId,pollId,userId);}
+    private final ActivityCollaborationAccess access;
+    private final ActivityPollMapper pollMapper;
+    private final ActivityPollOptionMapper optionMapper;
+    private final ActivityPollVoteMapper voteMapper;
+    private final ActivityItineraryMapper itineraryMapper;
+    private final ActivityPollApplicationMapper applicationMapper;
+    private final UserMapper userMapper;
+    private final ObjectMapper objectMapper;
+    private final ActivityTodoLifecycleService todoLifecycleService;
+    private final ItineraryFieldPolicy fieldPolicy;
 
-    @Transactional public PollDetailResponse create(Long activityId,CreatePollRequest request){ Long userId=access.requireUserId();ActivityEntity a=access.requireActivity(activityId);access.requireActiveMember(activityId,userId);access.requireWritableActivity(a);ActivityPollEntity poll=createInternal(a,userId,request,null,null);todoLifecycleService.onPollCreated(poll);return detailInternal(activityId,poll.getId(),userId); }
-    public void createLinkedItineraryPoll(ActivityEntity activity, ActivityItineraryEntity itinerary, Long userId, CreatePollRequest request){ ActivityPollEntity poll=createInternal(activity,userId,request,itinerary.getId(),itinerary.getVersion()); todoLifecycleService.onPollCreated(poll); }
+    public PollService(
+            ActivityCollaborationAccess access,
+            ActivityPollMapper pollMapper,
+            ActivityPollOptionMapper optionMapper,
+            ActivityPollVoteMapper voteMapper,
+            ActivityItineraryMapper itineraryMapper,
+            ActivityPollApplicationMapper applicationMapper,
+            UserMapper userMapper,
+            ObjectMapper objectMapper,
+            ActivityTodoLifecycleService todoLifecycleService,
+            ItineraryFieldPolicy fieldPolicy
+    ) {
+        this.access = access;
+        this.pollMapper = pollMapper;
+        this.optionMapper = optionMapper;
+        this.voteMapper = voteMapper;
+        this.itineraryMapper = itineraryMapper;
+        this.applicationMapper = applicationMapper;
+        this.userMapper = userMapper;
+        this.objectMapper = objectMapper;
+        this.todoLifecycleService = todoLifecycleService;
+        this.fieldPolicy = fieldPolicy;
+    }
 
-    @Transactional public PollDetailResponse update(Long activityId,Long pollId,UpdatePollRequest request){Long userId=access.requireUserId();ActivityEntity a=access.requireActivity(activityId);ActivityMemberEntity m=access.requireActiveMember(activityId,userId);access.requireWritableActivity(a);ActivityPollEntity p=requirePoll(activityId,pollId);requirePollManager(a,m,userId,p);if(!"DRAFT".equals(p.getStatus())&&!"ACTIVE".equals(p.getStatus()))throw param("当前投票不能编辑");if(request.title()!=null){if(!StringUtils.hasText(request.title()))throw param("投票标题不能为空");p.setTitle(request.title().trim());}if(request.description()!=null)p.setDescription(trim(request.description()));if(request.deadline()!=null)p.setDeadline(request.deadline());if(request.allowModify()!=null)p.setAllowModify(request.allowModify()?1:0);p.setVersion(p.getVersion()+1);p.setUpdateTime(LocalDateTime.now());pollMapper.updateById(p);return detailInternal(activityId,pollId,userId);}
+    @Transactional
+    public List<PollListItemResponse> list(Long activityId) {
+        Long userId = access.requireUserId();
+        access.requireActivity(activityId);
+        access.requireActiveMember(activityId, userId);
+        finalizeExpiredByActivity(activityId);
+        return listInternal(activityId, userId);
+    }
 
-    @Transactional public PollDetailResponse submitVote(Long activityId,Long pollId,VoteRequest request){Long userId=access.requireUserId();ActivityEntity a=access.requireActivity(activityId);access.requireActiveMember(activityId,userId);access.requireWritableActivity(a);finalizeExpiredPollIfNeeded(pollId);ActivityPollEntity p=requirePoll(activityId,pollId);if(!"ACTIVE".equals(p.getStatus()))throw param("投票已结束，不能继续参与");Set<Long> selected=new LinkedHashSet<>(request.optionIds());if(selected.size()!=request.optionIds().size())throw param("投票选项不能重复");if("SINGLE".equals(p.getVoteType())&&selected.size()!=1)throw param("单选投票只能选择一个选项");Set<Long> valid=optionMapper.selectList(new LambdaQueryWrapper<ActivityPollOptionEntity>().eq(ActivityPollOptionEntity::getPollId,pollId)).stream().map(ActivityPollOptionEntity::getId).collect(Collectors.toSet());if(!valid.containsAll(selected))throw param("包含无效投票选项");
-        LocalDateTime now=LocalDateTime.now();List<ActivityPollVoteEntity> existing=voteMapper.selectList(new LambdaQueryWrapper<ActivityPollVoteEntity>().eq(ActivityPollVoteEntity::getPollId,pollId).eq(ActivityPollVoteEntity::getUserId,userId));Set<Long> old=existing.stream().map(ActivityPollVoteEntity::getOptionId).collect(Collectors.toSet());
-        if ("SINGLE".equals(p.getVoteType())) {
-            // Repair historical inconsistent data in the same transaction before writing the new choice.
+    @Transactional
+    public PollDetailResponse detail(Long activityId, Long pollId) {
+        Long userId = access.requireUserId();
+        access.requireActivity(activityId);
+        access.requireActiveMember(activityId, userId);
+        finalizeExpiredPollIfNeeded(pollId);
+        return detailInternal(activityId, pollId, userId);
+    }
+
+    @Transactional
+    public PollDetailResponse create(Long activityId, CreatePollRequest request) {
+        Long userId = access.requireUserId();
+        ActivityEntity activity = access.requireActivity(activityId);
+        access.requireActiveMember(activityId, userId);
+        access.requireWritableActivity(activity);
+        ActivityPollEntity poll = createInternal(activity, userId, request, null, null);
+        todoLifecycleService.onPollCreated(poll);
+        return detailInternal(activityId, poll.getId(), userId);
+    }
+
+    public void createLinkedItineraryPoll(
+            ActivityEntity activity,
+            ActivityItineraryEntity itinerary,
+            Long userId,
+            CreatePollRequest request
+    ) {
+        ActivityPollEntity poll = createInternal(
+                activity, userId, request, itinerary.getId(), itinerary.getVersion());
+        todoLifecycleService.onPollCreated(poll);
+    }
+
+    @Transactional
+    public PollDetailResponse update(Long activityId, Long pollId, UpdatePollRequest request) {
+        Long userId = access.requireUserId();
+        ActivityEntity activity = access.requireActivity(activityId);
+        ActivityMemberEntity member = access.requireActiveMember(activityId, userId);
+        access.requireWritableActivity(activity);
+        ActivityPollEntity poll = requirePoll(activityId, pollId);
+        requirePollManager(activity, member, userId, poll);
+        if (!"DRAFT".equals(poll.getStatus()) && !"ACTIVE".equals(poll.getStatus())) {
+            throw param("当前投票不能编辑");
+        }
+        if (request.title() != null) {
+            if (!StringUtils.hasText(request.title())) throw param("投票标题不能为空");
+            poll.setTitle(request.title().trim());
+        }
+        if (request.description() != null) poll.setDescription(trim(request.description()));
+        if (request.deadline() != null) poll.setDeadline(request.deadline());
+        if (request.allowModify() != null) poll.setAllowModify(request.allowModify() ? 1 : 0);
+        poll.setVersion(poll.getVersion() + 1);
+        poll.setUpdateTime(LocalDateTime.now());
+        pollMapper.updateById(poll);
+        return detailInternal(activityId, pollId, userId);
+    }
+
+    @Transactional
+    public PollDetailResponse submitVote(Long activityId, Long pollId, VoteRequest request) {
+        Long userId = access.requireUserId();
+        ActivityEntity activity = access.requireActivity(activityId);
+        access.requireActiveMember(activityId, userId);
+        access.requireWritableActivity(activity);
+        finalizeExpiredPollIfNeeded(pollId);
+        ActivityPollEntity poll = requirePoll(activityId, pollId);
+        if (!"ACTIVE".equals(poll.getStatus())) throw param("投票已结束，不能继续参与");
+
+        Set<Long> selected = new LinkedHashSet<>(request.optionIds());
+        if (selected.size() != request.optionIds().size()) throw param("投票选项不能重复");
+        if ("SINGLE".equals(poll.getVoteType()) && selected.size() != 1) {
+            throw param("单选投票只能选择一个选项");
+        }
+        Set<Long> validOptionIds = optionMapper.selectList(
+                        new LambdaQueryWrapper<ActivityPollOptionEntity>()
+                                .eq(ActivityPollOptionEntity::getPollId, pollId))
+                .stream().map(ActivityPollOptionEntity::getId).collect(Collectors.toSet());
+        if (!validOptionIds.containsAll(selected)) throw param("包含无效投票选项");
+
+        LocalDateTime now = LocalDateTime.now();
+        List<ActivityPollVoteEntity> existing = voteMapper.selectList(
+                new LambdaQueryWrapper<ActivityPollVoteEntity>()
+                        .eq(ActivityPollVoteEntity::getPollId, pollId)
+                        .eq(ActivityPollVoteEntity::getUserId, userId));
+        Set<Long> oldOptionIds = existing.stream()
+                .map(ActivityPollVoteEntity::getOptionId).collect(Collectors.toSet());
+        if ("SINGLE".equals(poll.getVoteType())) {
             voteMapper.removeOtherActiveVotes(pollId, userId, selected.iterator().next(), now);
         }
-        for(ActivityPollVoteEntity vote:existing)if(!selected.contains(vote.getOptionId())){vote.setDeleteFlag(1);vote.setUpdateTime(now);voteMapper.updateById(vote);}for(Long optionId:selected)if(!old.contains(optionId)){int restored=voteMapper.restoreVote(pollId,optionId,userId,now);if(restored==0){ActivityPollVoteEntity vote=new ActivityPollVoteEntity();vote.setPollId(pollId);vote.setOptionId(optionId);vote.setUserId(userId);vote.setCreateTime(now);vote.setUpdateTime(now);vote.setDeleteFlag(0);voteMapper.insert(vote);}}
-        todoLifecycleService.onUserVoted(p.getId(), userId); return detailInternal(activityId,pollId,userId);}
+        for (ActivityPollVoteEntity vote : existing) {
+            if (!selected.contains(vote.getOptionId())) {
+                vote.setDeleteFlag(1);
+                vote.setUpdateTime(now);
+                voteMapper.updateById(vote);
+            }
+        }
+        for (Long optionId : selected) {
+            if (oldOptionIds.contains(optionId)) continue;
+            int restored = voteMapper.restoreVote(pollId, optionId, userId, now);
+            if (restored == 0) {
+                ActivityPollVoteEntity vote = new ActivityPollVoteEntity();
+                vote.setPollId(pollId);
+                vote.setOptionId(optionId);
+                vote.setUserId(userId);
+                vote.setCreateTime(now);
+                vote.setUpdateTime(now);
+                vote.setDeleteFlag(0);
+                voteMapper.insert(vote);
+            }
+        }
+        todoLifecycleService.onUserVoted(poll.getId(), userId);
+        return detailInternal(activityId, pollId, userId);
+    }
 
-    @Transactional public PollDetailResponse close(Long activityId,Long pollId){Long userId=access.requireUserId();ActivityEntity a=access.requireActivity(activityId);ActivityMemberEntity m=access.requireActiveMember(activityId,userId);access.requireWritableActivity(a);ActivityPollEntity p=requirePoll(activityId,pollId);requirePollManager(a,m,userId,p);closeAndFinalize(p,a);return detailInternal(activityId,pollId,userId);}
-    @Transactional public PollDetailResponse cancel(Long activityId,Long pollId){Long userId=access.requireUserId();ActivityEntity a=access.requireActivity(activityId);ActivityMemberEntity m=access.requireActiveMember(activityId,userId);access.requireWritableActivity(a);ActivityPollEntity p=requirePoll(activityId,pollId);requirePollManager(a,m,userId,p);if(!"DRAFT".equals(p.getStatus())&&!"ACTIVE".equals(p.getStatus()))throw param("当前投票不能取消");p.setStatus("CANCELED");p.setUpdateTime(LocalDateTime.now());p.setVersion(p.getVersion()+1);pollMapper.updateById(p);todoLifecycleService.cancelPollTodos(p);return detailInternal(activityId,pollId,userId);}
-    @Transactional public PollDetailResponse applyResult(Long activityId,Long pollId,ApplyPollResultRequest request){Long userId=access.requireUserId();ActivityEntity a=access.requireActivity(activityId);ActivityMemberEntity m=access.requireActiveMember(activityId,userId);access.requireWritableActivity(a);ActivityPollEntity p=requirePoll(activityId,pollId);if(!"CLOSED".equals(p.getStatus()))throw param("投票尚未结束");if("APPLIED".equals(p.getResultApplyStatus()))return detailInternal(activityId,pollId,userId);if("GENERAL".equals(p.getPurpose()))throw param("普通投票不需要应用结果");ActivityPollOptionEntity option=requireOption(pollId,request.optionId());if("UPDATE_ITINERARY".equals(p.getPurpose())){ActivityItineraryEntity target=requireTarget(p);if(!userId.equals(target.getCreatedBy())&&!access.isActivityCreator(a,m,userId))throw new ForbiddenException("只有行程创建者或活动创建者可以确认应用结果");}else if(!userId.equals(p.getCreatedBy())&&!access.isActivityCreator(a,m,userId))throw new ForbiddenException("无权确认投票结果");p.setWinnerOptionId(option.getId());applyResultInternal(p,a,option,true);return detailInternal(activityId,pollId,userId);}
+    @Transactional
+    public PollDetailResponse close(Long activityId, Long pollId) {
+        Long userId = access.requireUserId();
+        ActivityEntity activity = access.requireActivity(activityId);
+        ActivityMemberEntity member = access.requireActiveMember(activityId, userId);
+        access.requireWritableActivity(activity);
+        ActivityPollEntity poll = requirePoll(activityId, pollId);
+        requirePollManager(activity, member, userId, poll);
+        closeAndFinalize(poll, activity);
+        return detailInternal(activityId, pollId, userId);
+    }
 
-    public List<PollListItemResponse> listForItineraryInternal(Long activityId,Long itineraryId,Long userId){finalizeExpiredByActivity(activityId);return listInternal(activityId,userId).stream().filter(p->itineraryId.equals(p.targetItineraryId())||itineraryId.equals(p.generatedItineraryId())).toList();}
-    public void finalizeExpiredPollIfNeeded(Long pollId){ActivityPollEntity p=pollMapper.selectById(pollId);if(p==null||!"ACTIVE".equals(p.getStatus())||p.getDeadline()==null||p.getDeadline().isAfter(LocalDateTime.now()))return;ActivityEntity a=access.requireActivity(p.getActivityId());closeAndFinalize(p,a);}
-    private void finalizeExpiredByActivity(Long activityId){List<ActivityPollEntity> polls=pollMapper.selectList(new LambdaQueryWrapper<ActivityPollEntity>().eq(ActivityPollEntity::getActivityId,activityId).eq(ActivityPollEntity::getStatus,"ACTIVE").le(ActivityPollEntity::getDeadline,LocalDateTime.now()));for(ActivityPollEntity p:polls)finalizeExpiredPollIfNeeded(p.getId());}
+    @Transactional
+    public PollDetailResponse cancel(Long activityId, Long pollId) {
+        Long userId = access.requireUserId();
+        ActivityEntity activity = access.requireActivity(activityId);
+        ActivityMemberEntity member = access.requireActiveMember(activityId, userId);
+        access.requireWritableActivity(activity);
+        ActivityPollEntity poll = requirePoll(activityId, pollId);
+        requirePollManager(activity, member, userId, poll);
+        if (!"DRAFT".equals(poll.getStatus()) && !"ACTIVE".equals(poll.getStatus())) {
+            throw param("当前投票不能取消");
+        }
+        poll.setStatus("CANCELED");
+        poll.setUpdateTime(LocalDateTime.now());
+        poll.setVersion(poll.getVersion() + 1);
+        pollMapper.updateById(poll);
+        todoLifecycleService.cancelPollTodos(poll);
+        return detailInternal(activityId, pollId, userId);
+    }
 
-    private ActivityPollEntity createInternal(ActivityEntity a,Long userId,CreatePollRequest r,Long forcedTargetId,Integer forcedVersion){String purpose=upper(r.purpose());String voteType=upper(r.voteType());String decision=upper(r.decisionType());if(!PURPOSES.contains(purpose)||!VOTE_TYPES.contains(voteType)||!DECISIONS.contains(decision))throw param("投票参数不合法");if(("UPDATE_ITINERARY".equals(purpose)||"CREATE_ITINERARY".equals(purpose))&&!"SINGLE".equals(voteType))throw param("关联行程的投票必须使用单选");Long targetId=forcedTargetId!=null?forcedTargetId:r.targetItineraryId();Integer targetVersion=forcedVersion;if("UPDATE_ITINERARY".equals(purpose)){if(targetId==null)throw param("关联已有行程时必须指定目标行程");ActivityItineraryEntity target=itineraryMapper.selectById(targetId);if(target==null||!a.getId().equals(target.getActivityId()))throw param("关联行程不存在");if(targetVersion==null)targetVersion=target.getVersion();}if("CREATE_ITINERARY".equals(purpose)&&(r.itineraryTemplate()==null||r.itineraryTemplate().isEmpty()))throw param("生成行程投票需要固定行程信息");
-        LocalDateTime now=LocalDateTime.now();ActivityPollEntity p=new ActivityPollEntity();p.setActivityId(a.getId());p.setPurpose(purpose);p.setDecisionType(decision);p.setTargetItineraryId(targetId);p.setTitle(r.title().trim());p.setDescription(trim(r.description()));p.setVoteType(voteType);p.setAllowModify(Boolean.TRUE.equals(r.allowModify())?1:0);p.setDeadline(r.deadline());p.setStatus("ACTIVE");p.setResultApplyMode("GENERAL".equals(purpose)?"NONE":"AUTO");p.setResultApplyStatus("GENERAL".equals(purpose)?"NOT_REQUIRED":"PENDING");p.setTargetItineraryVersion(targetVersion);p.setItineraryTemplate(json(r.itineraryTemplate()));p.setCreatedBy(userId);p.setVersion(0);p.setCreateTime(now);p.setUpdateTime(now);p.setDeleteFlag(0);pollMapper.insert(p);int sort=0;for(PollOptionRequest o:r.options()){ActivityPollOptionEntity option=new ActivityPollOptionEntity();option.setPollId(p.getId());option.setOptionText(o.optionText().trim());option.setOptionDescription(trim(o.optionDescription()));option.setResultPayload(json(o.resultPayload()));option.setSortNo(sort++);option.setCreateTime(now);option.setUpdateTime(now);option.setDeleteFlag(0);optionMapper.insert(option);}return p;}
-    private void closeAndFinalize(ActivityPollEntity p,ActivityEntity a){if(!"ACTIVE".equals(p.getStatus()))return;LocalDateTime now=LocalDateTime.now();if(pollMapper.closeActivePoll(p.getId(),now)!=1)return;ActivityPollEntity closed=pollMapper.selectById(p.getId());todoLifecycleService.closePollVoteTodos(closed, closed.getDeadline()!=null&&!closed.getDeadline().isAfter(now));List<ActivityPollVoteEntity> votes=voteMapper.selectList(new LambdaQueryWrapper<ActivityPollVoteEntity>().eq(ActivityPollVoteEntity::getPollId,p.getId()));Map<Long,Long> counts=votes.stream().collect(Collectors.groupingBy(ActivityPollVoteEntity::getOptionId,Collectors.counting()));if("GENERAL".equals(closed.getPurpose())){closed.setResultApplyStatus("NOT_REQUIRED");closed.setUpdateTime(now);pollMapper.updateById(closed);return;}if(counts.isEmpty()){review(closed,a);return;}long max=counts.values().stream().max(Long::compareTo).orElse(0L);List<Long>winners=counts.entrySet().stream().filter(e->e.getValue()==max).map(Map.Entry::getKey).toList();if(winners.size()!=1){review(closed,a);return;}ActivityPollOptionEntity winner=requireOption(closed.getId(),winners.getFirst());closed.setWinnerOptionId(winner.getId());applyResultInternal(closed,a,winner,false);}
-    private void applyResultInternal(ActivityPollEntity p,ActivityEntity a,ActivityPollOptionEntity winner,boolean manual){try{if("UPDATE_ITINERARY".equals(p.getPurpose()))applyUpdate(p,a,winner,manual);else if("CREATE_ITINERARY".equals(p.getPurpose()))applyCreate(p,a,winner,manual);else {p.setResultApplyStatus("NOT_REQUIRED");pollMapper.updateById(p);}}catch(BusinessException ex){if(manual)throw ex;review(p,a);}}
-    private void applyUpdate(ActivityPollEntity p,ActivityEntity a,ActivityPollOptionEntity winner,boolean manual){ActivityItineraryEntity target=requireTarget(p);if(!manual&&!p.getCreatedBy().equals(target.getCreatedBy())&&!p.getCreatedBy().equals(a.getCreatorUserId())){review(p,a);return;}if(!Objects.equals(target.getVersion(),p.getTargetItineraryVersion())){review(p,a);return;}Map<String,Object> payload=map(winner.getResultPayload());if(payload.isEmpty()){review(p,a);return;}applyPayload(target,payload);target.setPlanningStatus("CONFIRMED");target.setVersion(target.getVersion()+1);target.setUpdateTime(LocalDateTime.now());itineraryMapper.updateById(target);markApplied(p);}
-    private void applyCreate(ActivityPollEntity p,ActivityEntity a,ActivityPollOptionEntity winner,boolean manual){Map<String,Object> merged=new LinkedHashMap<>(map(p.getItineraryTemplate()));merged.putAll(map(winner.getResultPayload()));String title=str(merged,"title");String date=str(merged,"itineraryDate");if(!StringUtils.hasText(title)||!StringUtils.hasText(date)){review(p,a);return;}ActivityItineraryEntity i=new ActivityItineraryEntity();i.setActivityId(a.getId());i.setTitle(title);i.setItineraryType(upperOr(str(merged,"itineraryType"),"OTHER"));i.setItineraryDate(LocalDate.parse(date));i.setAllDay(bool(merged,"allDay")?1:0);i.setStartTime(bool(merged,"allDay")?null:time(merged,"startTime"));i.setEndTime(bool(merged,"allDay")?null:time(merged,"endTime"));i.setLocationName(str(merged,"locationName"));i.setAddress(str(merged,"address"));i.setDescription(str(merged,"description"));i.setPlanningStatus("CONFIRMED");i.setOriginType("POLL_RESULT");i.setOriginPollId(p.getId());i.setCreatedBy(p.getCreatedBy());i.setVersion(0);i.setCreateTime(LocalDateTime.now());i.setUpdateTime(LocalDateTime.now());i.setDeleteFlag(0);itineraryMapper.insert(i);p.setGeneratedItineraryId(i.getId());markApplied(p);}
-    private void markApplied(ActivityPollEntity p){p.setResultApplyStatus("APPLIED");p.setAppliedAt(LocalDateTime.now());p.setUpdateTime(LocalDateTime.now());p.setVersion(p.getVersion()+1);pollMapper.updateById(p);todoLifecycleService.onResultApplied(p);} private void review(ActivityPollEntity p,ActivityEntity a){p.setResultApplyStatus("REVIEW_REQUIRED");p.setUpdateTime(LocalDateTime.now());p.setVersion(p.getVersion()+1);pollMapper.updateById(p);todoLifecycleService.onReviewRequired(p);}
-    private void applyPayload(ActivityItineraryEntity i,Map<String,Object> m){if(m.containsKey("title"))i.setTitle(str(m,"title"));if(m.containsKey("itineraryType"))i.setItineraryType(upperOr(str(m,"itineraryType"),i.getItineraryType()));if(m.containsKey("locationName"))i.setLocationName(str(m,"locationName"));if(m.containsKey("address"))i.setAddress(str(m,"address"));if(m.containsKey("description"))i.setDescription(str(m,"description"));if(m.containsKey("allDay"))i.setAllDay(bool(m,"allDay")?1:0);if(m.containsKey("startTime"))i.setStartTime(time(m,"startTime"));if(m.containsKey("endTime"))i.setEndTime(time(m,"endTime"));if(Integer.valueOf(1).equals(i.getAllDay())){i.setStartTime(null);i.setEndTime(null);}}
-    private PollDetailResponse detailInternal(Long activityId,Long pollId,Long userId){ActivityPollEntity p=requirePoll(activityId,pollId);List<ActivityPollOptionEntity> opts=optionMapper.selectList(new LambdaQueryWrapper<ActivityPollOptionEntity>().eq(ActivityPollOptionEntity::getPollId,pollId).orderByAsc(ActivityPollOptionEntity::getSortNo));List<ActivityPollVoteEntity> votes=voteMapper.selectList(new LambdaQueryWrapper<ActivityPollVoteEntity>().eq(ActivityPollVoteEntity::getPollId,pollId));Map<Long,Long>counts=votes.stream().collect(Collectors.groupingBy(ActivityPollVoteEntity::getOptionId,Collectors.counting()));List<ActivityPollVoteEntity> currentVotes=votes.stream().filter(v->userId.equals(v.getUserId())).sorted(Comparator.comparing(ActivityPollVoteEntity::getUpdateTime, Comparator.nullsLast(Comparator.naturalOrder())).reversed()).toList();if("SINGLE".equals(p.getVoteType())&&currentVotes.size()>1){log.warn("single vote data inconsistent: pollId={}, userId={}, activeOptionIds={}",pollId,userId,currentVotes.stream().map(ActivityPollVoteEntity::getOptionId).toList());currentVotes=currentVotes.subList(0,1);}Set<Long>selected=currentVotes.stream().map(ActivityPollVoteEntity::getOptionId).collect(Collectors.toCollection(LinkedHashSet::new));String target=null;if(p.getTargetItineraryId()!=null){ActivityItineraryEntity i=itineraryMapper.selectById(p.getTargetItineraryId());target=i==null?null:i.getTitle();}return new PollDetailResponse(p.getId(),p.getActivityId(),p.getTitle(),p.getDescription(),p.getPurpose(),p.getDecisionType(),p.getVoteType(),Integer.valueOf(1).equals(p.getAllowModify()),p.getDeadline(),p.getStatus(),p.getResultApplyMode(),p.getResultApplyStatus(),p.getTargetItineraryId(),target,p.getGeneratedItineraryId(),p.getWinnerOptionId(),map(p.getItineraryTemplate()),p.getCreatedBy(),p.getClosedAt(),p.getAppliedAt(),votes.stream().map(ActivityPollVoteEntity::getUserId).distinct().count(),selected.stream().toList(),opts.stream().map(o->new PollOptionResponse(o.getId(),o.getOptionText(),o.getOptionDescription(),map(o.getResultPayload()),o.getSortNo(),counts.getOrDefault(o.getId(),0L),selected.contains(o.getId()))).toList());}
-    private List<PollListItemResponse> listInternal(Long activityId,Long userId){List<ActivityPollEntity>polls=pollMapper.selectList(new LambdaQueryWrapper<ActivityPollEntity>().eq(ActivityPollEntity::getActivityId,activityId).orderByDesc(ActivityPollEntity::getCreateTime));return polls.stream().map(p->{List<ActivityPollVoteEntity>v=voteMapper.selectList(new LambdaQueryWrapper<ActivityPollVoteEntity>().eq(ActivityPollVoteEntity::getPollId,p.getId()));String target=null;if(p.getTargetItineraryId()!=null){ActivityItineraryEntity i=itineraryMapper.selectById(p.getTargetItineraryId());target=i==null?null:i.getTitle();}return new PollListItemResponse(p.getId(),p.getTitle(),p.getPurpose(),p.getDecisionType(),p.getVoteType(),p.getStatus(),p.getResultApplyStatus(),p.getTargetItineraryId(),p.getGeneratedItineraryId(),target,p.getDeadline(),v.stream().map(ActivityPollVoteEntity::getUserId).distinct().count(),v.stream().anyMatch(x->userId.equals(x.getUserId())),p.getWinnerOptionId());}).toList();}
-    private ActivityPollEntity requirePoll(Long activityId,Long pollId){ActivityPollEntity p=pollMapper.selectById(pollId);if(p==null||!activityId.equals(p.getActivityId()))throw new NotFoundException("投票不存在");return p;}private ActivityPollOptionEntity requireOption(Long pollId,Long optionId){ActivityPollOptionEntity o=optionMapper.selectById(optionId);if(o==null||!pollId.equals(o.getPollId()))throw new NotFoundException("投票选项不存在");return o;}private ActivityItineraryEntity requireTarget(ActivityPollEntity p){ActivityItineraryEntity i=itineraryMapper.selectById(p.getTargetItineraryId());if(i==null||!p.getActivityId().equals(i.getActivityId()))throw param("关联行程不存在");return i;}
-    private void requirePollManager(ActivityEntity a,ActivityMemberEntity m,Long userId,ActivityPollEntity p){if(!userId.equals(p.getCreatedBy())&&!access.isActivityCreator(a,m,userId))throw new ForbiddenException("只能管理自己创建的投票");}
-    private String json(Map<String,Object>m){if(m==null||m.isEmpty())return null;try{return objectMapper.writeValueAsString(m);}catch(JsonProcessingException e){throw param("投票结果内容格式错误");}}private Map<String,Object> map(String json){if(!StringUtils.hasText(json))return new LinkedHashMap<>();try{return objectMapper.readValue(json,new TypeReference<LinkedHashMap<String,Object>>(){});}catch(JsonProcessingException e){throw new BusinessException("投票数据格式异常");}}
-    private String str(Map<String,Object>m,String k){Object v=m.get(k);return v==null?null:String.valueOf(v).trim();}private boolean bool(Map<String,Object>m,String k){Object v=m.get(k);return v instanceof Boolean b?b:Boolean.parseBoolean(String.valueOf(v));}private LocalTime time(Map<String,Object>m,String k){String v=str(m,k);return StringUtils.hasText(v)?LocalTime.parse(v):null;}private String upper(String v){return v==null?null:v.trim().toUpperCase();}private String upperOr(String v,String d){return StringUtils.hasText(v)?upper(v):d;}private String trim(String v){return StringUtils.hasText(v)?v.trim():null;}private BusinessException param(String m){return new BusinessException(ErrorCode.PARAM_ERROR.code(),m);}
+    @Transactional(readOnly = true)
+    public PollResultPreviewResponse previewResult(Long activityId, Long pollId, Long optionId) {
+        Long userId = access.requireUserId();
+        access.requireActivity(activityId);
+        access.requireActiveMember(activityId, userId);
+        ActivityPollEntity poll = requirePoll(activityId, pollId);
+        if ("GENERAL".equals(poll.getPurpose())) throw param("普通投票不需要应用结果");
+        ActivityPollOptionEntity option = requireOption(pollId, optionId);
+        return buildPreview(poll, option);
+    }
+
+    @Transactional
+    public PollDetailResponse applyResult(
+            Long activityId, Long pollId, ApplyPollResultRequest request
+    ) {
+        Long userId = access.requireUserId();
+        ActivityEntity activity = access.requireActivity(activityId);
+        ActivityMemberEntity member = access.requireActiveMember(activityId, userId);
+        access.requireWritableActivity(activity);
+        ActivityPollEntity poll = requirePoll(activityId, pollId);
+        if (!"CLOSED".equals(poll.getStatus())) throw param("投票尚未结束");
+        if ("APPLIED".equals(poll.getResultApplyStatus())) return detailInternal(activityId, pollId, userId);
+        if ("GENERAL".equals(poll.getPurpose())) throw param("普通投票不需要应用结果");
+        ActivityPollOptionEntity option = requireOption(pollId, request.optionId());
+        if ("UPDATE_ITINERARY".equals(poll.getPurpose())) {
+            ActivityItineraryEntity target = requireTarget(poll);
+            if (!userId.equals(target.getCreatedBy()) && !access.isActivityCreator(activity, member, userId)) {
+                throw new ForbiddenException("只有行程创建者或活动创建者可以确认应用结果");
+            }
+        } else if (!userId.equals(poll.getCreatedBy()) && !access.isActivityCreator(activity, member, userId)) {
+            throw new ForbiddenException("无权确认投票结果");
+        }
+        poll.setWinnerOptionId(option.getId());
+        applyResultInternal(poll, activity, option, true, userId);
+        return detailInternal(activityId, pollId, userId);
+    }
+
+    public List<PollListItemResponse> listForItineraryInternal(
+            Long activityId, Long itineraryId, Long userId
+    ) {
+        finalizeExpiredByActivity(activityId);
+        return listInternal(activityId, userId).stream()
+                .filter(poll -> itineraryId.equals(poll.targetItineraryId())
+                        || itineraryId.equals(poll.generatedItineraryId()))
+                .toList();
+    }
+
+    public void finalizeExpiredPollIfNeeded(Long pollId) {
+        ActivityPollEntity poll = pollMapper.selectById(pollId);
+        if (poll == null || !"ACTIVE".equals(poll.getStatus()) || poll.getDeadline() == null
+                || poll.getDeadline().isAfter(LocalDateTime.now())) return;
+        ActivityEntity activity = access.requireActivity(poll.getActivityId());
+        closeAndFinalize(poll, activity);
+    }
+
+    private void finalizeExpiredByActivity(Long activityId) {
+        List<ActivityPollEntity> polls = pollMapper.selectList(
+                new LambdaQueryWrapper<ActivityPollEntity>()
+                        .eq(ActivityPollEntity::getActivityId, activityId)
+                        .eq(ActivityPollEntity::getStatus, "ACTIVE")
+                        .le(ActivityPollEntity::getDeadline, LocalDateTime.now()));
+        for (ActivityPollEntity poll : polls) finalizeExpiredPollIfNeeded(poll.getId());
+    }
+
+    private ActivityPollEntity createInternal(
+            ActivityEntity activity,
+            Long userId,
+            CreatePollRequest request,
+            Long forcedTargetId,
+            Integer forcedVersion
+    ) {
+        String purpose = upper(request.purpose());
+        String voteType = upper(request.voteType());
+        String decisionType = upper(request.decisionType());
+        if (!PURPOSES.contains(purpose) || !VOTE_TYPES.contains(voteType)
+                || !DECISIONS.contains(decisionType)) throw param("投票参数不合法");
+        if (!"GENERAL".equals(purpose) && !"SINGLE".equals(voteType)) {
+            throw param("关联行程的投票必须使用单选");
+        }
+
+        Long targetId = forcedTargetId != null ? forcedTargetId : request.targetItineraryId();
+        Integer targetVersion = forcedVersion;
+        if ("UPDATE_ITINERARY".equals(purpose)) {
+            if (targetId == null) throw param("关联已有行程时必须指定目标行程");
+            ActivityItineraryEntity target = itineraryMapper.selectById(targetId);
+            if (target == null || !activity.getId().equals(target.getActivityId())) {
+                throw param("关联行程不存在");
+            }
+            if (targetVersion == null) targetVersion = target.getVersion();
+        }
+        if ("CREATE_ITINERARY".equals(purpose)
+                && (request.itineraryTemplate() == null || request.itineraryTemplate().isEmpty())) {
+            throw param("生成行程投票需要固定行程信息");
+        }
+
+        List<String> decisionScope = fieldPolicy.normalizeScope(
+                purpose, decisionType, request.decisionScope());
+        fieldPolicy.validateTemplate(request.itineraryTemplate());
+        for (PollOptionRequest option : request.options()) {
+            Map<String, Object> payload = option.resultPayload() == null
+                    ? Map.of() : option.resultPayload();
+            if (!"GENERAL".equals(purpose)) {
+                if (payload.isEmpty()) throw param("关联行程的投票选项必须包含结果字段");
+                fieldPolicy.validatePayload(payload, decisionScope);
+            }
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        ActivityPollEntity poll = new ActivityPollEntity();
+        poll.setActivityId(activity.getId());
+        poll.setPurpose(purpose);
+        poll.setDecisionType(decisionType);
+        poll.setTargetItineraryId(targetId);
+        poll.setTitle(request.title().trim());
+        poll.setDescription(trim(request.description()));
+        poll.setVoteType(voteType);
+        poll.setAllowModify(Boolean.TRUE.equals(request.allowModify()) ? 1 : 0);
+        poll.setDeadline(request.deadline());
+        poll.setStatus("ACTIVE");
+        poll.setResultApplyMode("GENERAL".equals(purpose) ? "NONE" : "AUTO");
+        poll.setResultApplyStatus("GENERAL".equals(purpose) ? "NOT_REQUIRED" : "PENDING");
+        poll.setTargetItineraryVersion(targetVersion);
+        poll.setItineraryTemplate(jsonObject(request.itineraryTemplate()));
+        poll.setDecisionScope(jsonValue(decisionScope));
+        poll.setCreatedBy(userId);
+        poll.setVersion(0);
+        poll.setCreateTime(now);
+        poll.setUpdateTime(now);
+        poll.setDeleteFlag(0);
+        pollMapper.insert(poll);
+
+        int sortNo = 0;
+        for (PollOptionRequest optionRequest : request.options()) {
+            ActivityPollOptionEntity option = new ActivityPollOptionEntity();
+            option.setPollId(poll.getId());
+            option.setOptionText(optionRequest.optionText().trim());
+            option.setOptionDescription(trim(optionRequest.optionDescription()));
+            option.setResultPayload(jsonObject(optionRequest.resultPayload()));
+            option.setSortNo(sortNo++);
+            option.setCreateTime(now);
+            option.setUpdateTime(now);
+            option.setDeleteFlag(0);
+            optionMapper.insert(option);
+        }
+        return poll;
+    }
+
+    private void closeAndFinalize(ActivityPollEntity poll, ActivityEntity activity) {
+        if (!"ACTIVE".equals(poll.getStatus())) return;
+        LocalDateTime now = LocalDateTime.now();
+        if (pollMapper.closeActivePoll(poll.getId(), now) != 1) return;
+        ActivityPollEntity closed = pollMapper.selectById(poll.getId());
+        todoLifecycleService.closePollVoteTodos(
+                closed, closed.getDeadline() != null && !closed.getDeadline().isAfter(now));
+
+        List<ActivityPollVoteEntity> votes = voteMapper.selectList(
+                new LambdaQueryWrapper<ActivityPollVoteEntity>()
+                        .eq(ActivityPollVoteEntity::getPollId, poll.getId()));
+        Map<Long, Long> counts = votes.stream().collect(
+                Collectors.groupingBy(ActivityPollVoteEntity::getOptionId, Collectors.counting()));
+        if ("GENERAL".equals(closed.getPurpose())) {
+            closed.setResultApplyStatus("NOT_REQUIRED");
+            closed.setUpdateTime(now);
+            pollMapper.updateById(closed);
+            return;
+        }
+        if (counts.isEmpty()) {
+            review(closed, activity);
+            return;
+        }
+        long max = counts.values().stream().max(Long::compareTo).orElse(0L);
+        List<Long> winners = counts.entrySet().stream()
+                .filter(entry -> entry.getValue() == max)
+                .map(Map.Entry::getKey).toList();
+        if (winners.size() != 1) {
+            review(closed, activity);
+            return;
+        }
+        ActivityPollOptionEntity winner = requireOption(closed.getId(), winners.getFirst());
+        closed.setWinnerOptionId(winner.getId());
+        applyResultInternal(closed, activity, winner, false, closed.getCreatedBy());
+    }
+
+    private void applyResultInternal(
+            ActivityPollEntity poll,
+            ActivityEntity activity,
+            ActivityPollOptionEntity winner,
+            boolean manual,
+            Long appliedBy
+    ) {
+        try {
+            if ("UPDATE_ITINERARY".equals(poll.getPurpose())) {
+                applyUpdate(poll, activity, winner, manual, appliedBy);
+            } else if ("CREATE_ITINERARY".equals(poll.getPurpose())) {
+                applyCreate(poll, activity, winner, appliedBy);
+            } else {
+                poll.setResultApplyStatus("NOT_REQUIRED");
+                pollMapper.updateById(poll);
+            }
+        } catch (BusinessException ex) {
+            if (manual) throw ex;
+            log.info("automatic poll result requires review: pollId={}, reason={}", poll.getId(), ex.getMessage());
+            review(poll, activity);
+        }
+    }
+
+    private void applyUpdate(
+            ActivityPollEntity poll,
+            ActivityEntity activity,
+            ActivityPollOptionEntity winner,
+            boolean manual,
+            Long appliedBy
+    ) {
+        ActivityItineraryEntity target = requireTarget(poll);
+        if (!manual && !poll.getCreatedBy().equals(target.getCreatedBy())
+                && !poll.getCreatedBy().equals(activity.getCreatorUserId())) {
+            review(poll, activity);
+            return;
+        }
+        if (!Objects.equals(target.getVersion(), poll.getTargetItineraryVersion())) {
+            review(poll, activity);
+            return;
+        }
+
+        List<String> scope = decisionScope(poll);
+        Map<String, Object> payload = jsonMap(winner.getResultPayload());
+        Map<String, Object> before = fieldPolicy.snapshot(target);
+        fieldPolicy.apply(target, payload, scope);
+        Map<String, Object> after = fieldPolicy.snapshot(target);
+        ItineraryFieldPolicy.ChangeSet changeSet = fieldPolicy.changes(before, after, scope);
+        if (changeSet.changedFields().isEmpty()) throw param("胜出方案没有产生可应用的字段变化");
+
+        target.setPlanningStatus("CONFIRMED");
+        target.setVersion(target.getVersion() + 1);
+        target.setUpdateTime(LocalDateTime.now());
+        itineraryMapper.updateById(target);
+        saveApplication(poll, target, winner, before, after, changeSet, appliedBy);
+        markApplied(poll);
+    }
+
+    private void applyCreate(
+            ActivityPollEntity poll,
+            ActivityEntity activity,
+            ActivityPollOptionEntity winner,
+            Long appliedBy
+    ) {
+        ActivityItineraryEntity itinerary = itineraryFromTemplate(
+                activity, poll, jsonMap(poll.getItineraryTemplate()));
+        Map<String, Object> before = fieldPolicy.snapshot(itinerary);
+        List<String> scope = decisionScope(poll);
+        fieldPolicy.apply(itinerary, jsonMap(winner.getResultPayload()), scope);
+        validateNewItinerary(itinerary);
+        Map<String, Object> after = fieldPolicy.snapshot(itinerary);
+        ItineraryFieldPolicy.ChangeSet changeSet = fieldPolicy.changes(before, after, scope);
+        if (changeSet.changedFields().isEmpty()) throw param("胜出方案没有产生可应用的字段变化");
+
+        itineraryMapper.insert(itinerary);
+        poll.setGeneratedItineraryId(itinerary.getId());
+        saveApplication(poll, itinerary, winner, before, after, changeSet, appliedBy);
+        markApplied(poll);
+    }
+
+    private PollResultPreviewResponse buildPreview(
+            ActivityPollEntity poll, ActivityPollOptionEntity option
+    ) {
+        List<String> scope = decisionScope(poll);
+        ActivityItineraryEntity candidate;
+        Map<String, Object> before;
+        if ("UPDATE_ITINERARY".equals(poll.getPurpose())) {
+            ActivityItineraryEntity target = requireTarget(poll);
+            candidate = fieldPolicy.copy(target);
+            before = fieldPolicy.snapshot(target);
+        } else if ("CREATE_ITINERARY".equals(poll.getPurpose())) {
+            ActivityEntity activity = access.requireActivity(poll.getActivityId());
+            candidate = itineraryFromTemplate(activity, poll, jsonMap(poll.getItineraryTemplate()));
+            before = fieldPolicy.snapshot(candidate);
+        } else {
+            throw param("普通投票不需要应用结果");
+        }
+        fieldPolicy.apply(candidate, jsonMap(option.getResultPayload()), scope);
+        Map<String, Object> after = fieldPolicy.snapshot(candidate);
+        ItineraryFieldPolicy.ChangeSet changes = fieldPolicy.changes(before, after, scope);
+        return new PollResultPreviewResponse(
+                poll.getId(), option.getId(), option.getOptionText(),
+                candidate.getId() != null ? candidate.getId() : poll.getTargetItineraryId(),
+                candidate.getTitle(), changes.changedFields(), changes.unchangedFields(),
+                !changes.changedFields().isEmpty());
+    }
+
+    private ActivityItineraryEntity itineraryFromTemplate(
+            ActivityEntity activity, ActivityPollEntity poll, Map<String, Object> template
+    ) {
+        ActivityItineraryEntity itinerary = new ActivityItineraryEntity();
+        LocalDateTime now = LocalDateTime.now();
+        itinerary.setActivityId(activity.getId());
+        itinerary.setTitle(string(template, "title"));
+        itinerary.setItineraryType(upperOr(string(template, "itineraryType"), "OTHER"));
+        itinerary.setItineraryDate(date(template, "itineraryDate"));
+        itinerary.setAllDay(booleanValue(template, "allDay") ? 1 : 0);
+        itinerary.setStartTime(Integer.valueOf(1).equals(itinerary.getAllDay())
+                ? null : time(template, "startTime"));
+        itinerary.setEndTime(Integer.valueOf(1).equals(itinerary.getAllDay())
+                ? null : time(template, "endTime"));
+        itinerary.setTransportMode(string(template, "transportMode"));
+        itinerary.setDepartureName(string(template, "departureName"));
+        itinerary.setDestinationName(string(template, "destinationName"));
+        itinerary.setRouteDetail(string(template, "routeDetail"));
+        itinerary.setMealType(string(template, "mealType"));
+        itinerary.setRestaurantName(string(template, "restaurantName"));
+        itinerary.setActivityContent(string(template, "activityContent"));
+        itinerary.setLocationName(string(template, "locationName"));
+        itinerary.setAddress(string(template, "address"));
+        itinerary.setDescription(string(template, "description"));
+        itinerary.setPlanningStatus("CONFIRMED");
+        itinerary.setOriginType("POLL_RESULT");
+        itinerary.setOriginPollId(poll.getId());
+        itinerary.setCreatedBy(poll.getCreatedBy());
+        itinerary.setVersion(0);
+        itinerary.setCreateTime(now);
+        itinerary.setUpdateTime(now);
+        itinerary.setDeleteFlag(0);
+        return itinerary;
+    }
+
+    private void validateNewItinerary(ActivityItineraryEntity itinerary) {
+        if (!StringUtils.hasText(itinerary.getTitle()) || itinerary.getItineraryDate() == null) {
+            throw param("生成行程需要固定的行程名称和日期");
+        }
+        if (itinerary.getStartTime() != null && itinerary.getEndTime() != null
+                && !itinerary.getEndTime().isAfter(itinerary.getStartTime())) {
+            throw param("结束时间必须晚于开始时间");
+        }
+    }
+
+    private void saveApplication(
+            ActivityPollEntity poll,
+            ActivityItineraryEntity itinerary,
+            ActivityPollOptionEntity winner,
+            Map<String, Object> before,
+            Map<String, Object> after,
+            ItineraryFieldPolicy.ChangeSet changeSet,
+            Long appliedBy
+    ) {
+        ActivityPollApplicationEntity existing = applicationMapper.selectOne(
+                new LambdaQueryWrapper<ActivityPollApplicationEntity>()
+                        .eq(ActivityPollApplicationEntity::getPollId, poll.getId()));
+        if (existing != null) return;
+        LocalDateTime now = LocalDateTime.now();
+        ActivityPollApplicationEntity application = new ActivityPollApplicationEntity();
+        application.setActivityId(poll.getActivityId());
+        application.setPollId(poll.getId());
+        application.setTargetItineraryId(itinerary.getId());
+        application.setWinnerOptionId(winner.getId());
+        application.setBeforeSnapshot(jsonValue(before));
+        application.setAfterSnapshot(jsonValue(after));
+        application.setChangedFields(jsonValue(changeSet.changedFields()));
+        application.setUnchangedFields(jsonValue(changeSet.unchangedFields()));
+        application.setAppliedBy(appliedBy);
+        application.setAppliedAt(now);
+        application.setCreateTime(now);
+        application.setUpdateTime(now);
+        application.setDeleteFlag(0);
+        applicationMapper.insert(application);
+    }
+
+    private void markApplied(ActivityPollEntity poll) {
+        poll.setResultApplyStatus("APPLIED");
+        poll.setAppliedAt(LocalDateTime.now());
+        poll.setUpdateTime(LocalDateTime.now());
+        poll.setVersion(poll.getVersion() + 1);
+        pollMapper.updateById(poll);
+        todoLifecycleService.onResultApplied(poll);
+    }
+
+    private void review(ActivityPollEntity poll, ActivityEntity activity) {
+        poll.setResultApplyStatus("REVIEW_REQUIRED");
+        poll.setUpdateTime(LocalDateTime.now());
+        poll.setVersion(poll.getVersion() + 1);
+        pollMapper.updateById(poll);
+        todoLifecycleService.onReviewRequired(poll);
+    }
+
+    private PollDetailResponse detailInternal(Long activityId, Long pollId, Long userId) {
+        ActivityPollEntity poll = requirePoll(activityId, pollId);
+        List<ActivityPollOptionEntity> options = optionMapper.selectList(
+                new LambdaQueryWrapper<ActivityPollOptionEntity>()
+                        .eq(ActivityPollOptionEntity::getPollId, pollId)
+                        .orderByAsc(ActivityPollOptionEntity::getSortNo));
+        List<ActivityPollVoteEntity> votes = voteMapper.selectList(
+                new LambdaQueryWrapper<ActivityPollVoteEntity>()
+                        .eq(ActivityPollVoteEntity::getPollId, pollId));
+        Map<Long, Long> counts = votes.stream().collect(
+                Collectors.groupingBy(ActivityPollVoteEntity::getOptionId, Collectors.counting()));
+        List<ActivityPollVoteEntity> currentVotes = votes.stream()
+                .filter(vote -> userId.equals(vote.getUserId()))
+                .sorted(Comparator.comparing(
+                        ActivityPollVoteEntity::getUpdateTime,
+                        Comparator.nullsLast(Comparator.naturalOrder())).reversed())
+                .toList();
+        if ("SINGLE".equals(poll.getVoteType()) && currentVotes.size() > 1) {
+            log.warn("single vote data inconsistent: pollId={}, userId={}, activeOptionIds={}",
+                    pollId, userId, currentVotes.stream().map(ActivityPollVoteEntity::getOptionId).toList());
+            currentVotes = currentVotes.subList(0, 1);
+        }
+        Set<Long> selected = currentVotes.stream().map(ActivityPollVoteEntity::getOptionId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        ActivityItineraryEntity target = poll.getTargetItineraryId() == null
+                ? null : itineraryMapper.selectById(poll.getTargetItineraryId());
+        List<String> scope = decisionScope(poll);
+        PollResultPreviewResponse preview = null;
+        if (!"APPLIED".equals(poll.getResultApplyStatus()) && poll.getWinnerOptionId() != null
+                && !"GENERAL".equals(poll.getPurpose())) {
+            preview = buildPreview(poll, requireOption(pollId, poll.getWinnerOptionId()));
+        }
+
+        return new PollDetailResponse(
+                poll.getId(), poll.getActivityId(), poll.getTitle(), poll.getDescription(),
+                poll.getPurpose(), poll.getDecisionType(), poll.getVoteType(),
+                Integer.valueOf(1).equals(poll.getAllowModify()), poll.getDeadline(), poll.getStatus(),
+                poll.getResultApplyMode(), poll.getResultApplyStatus(), poll.getTargetItineraryId(),
+                target == null ? null : target.getTitle(), poll.getGeneratedItineraryId(),
+                poll.getWinnerOptionId(), targetSummary(target), jsonMap(poll.getItineraryTemplate()),
+                scope, fieldPolicy.labels(scope), fieldPolicy.unchangedLabels(scope), poll.getCreatedBy(),
+                poll.getClosedAt(), poll.getAppliedAt(),
+                votes.stream().map(ActivityPollVoteEntity::getUserId).distinct().count(),
+                selected.stream().toList(),
+                options.stream().map(option -> new PollOptionResponse(
+                        option.getId(), option.getOptionText(), option.getOptionDescription(),
+                        jsonMap(option.getResultPayload()), option.getSortNo(),
+                        counts.getOrDefault(option.getId(), 0L), selected.contains(option.getId())))
+                        .toList(),
+                preview, applicationHistory(pollId));
+    }
+
+    private List<PollListItemResponse> listInternal(Long activityId, Long userId) {
+        List<ActivityPollEntity> polls = pollMapper.selectList(
+                new LambdaQueryWrapper<ActivityPollEntity>()
+                        .eq(ActivityPollEntity::getActivityId, activityId)
+                        .orderByDesc(ActivityPollEntity::getCreateTime));
+        Map<Long, String> applicationSummaries = applicationMapper.selectList(
+                        new LambdaQueryWrapper<ActivityPollApplicationEntity>()
+                                .eq(ActivityPollApplicationEntity::getActivityId, activityId))
+                .stream().collect(Collectors.toMap(
+                        ActivityPollApplicationEntity::getPollId,
+                        this::applicationSummary,
+                        (first, ignored) -> first));
+        return polls.stream().map(poll -> {
+            List<ActivityPollVoteEntity> votes = voteMapper.selectList(
+                    new LambdaQueryWrapper<ActivityPollVoteEntity>()
+                            .eq(ActivityPollVoteEntity::getPollId, poll.getId()));
+            ActivityItineraryEntity target = poll.getTargetItineraryId() == null
+                    ? null : itineraryMapper.selectById(poll.getTargetItineraryId());
+            return new PollListItemResponse(
+                    poll.getId(), poll.getTitle(), poll.getPurpose(), poll.getDecisionType(),
+                    poll.getVoteType(), poll.getStatus(), poll.getResultApplyStatus(),
+                    poll.getTargetItineraryId(), poll.getGeneratedItineraryId(),
+                    target == null ? null : target.getTitle(), poll.getDeadline(),
+                    votes.stream().map(ActivityPollVoteEntity::getUserId).distinct().count(),
+                    votes.stream().anyMatch(vote -> userId.equals(vote.getUserId())),
+                    poll.getWinnerOptionId(), applicationSummaries.get(poll.getId()));
+        }).toList();
+    }
+
+    private List<PollApplicationHistoryResponse> applicationHistory(Long pollId) {
+        return applicationMapper.selectList(
+                        new LambdaQueryWrapper<ActivityPollApplicationEntity>()
+                                .eq(ActivityPollApplicationEntity::getPollId, pollId)
+                                .orderByDesc(ActivityPollApplicationEntity::getAppliedAt))
+                .stream().map(application -> {
+                    UserEntity user = userMapper.selectById(application.getAppliedBy());
+                    return new PollApplicationHistoryResponse(
+                            application.getId(), application.getPollId(),
+                            application.getTargetItineraryId(), application.getWinnerOptionId(),
+                            application.getAppliedBy(), user == null ? null : user.getNickname(),
+                            application.getAppliedAt(), jsonMap(application.getBeforeSnapshot()),
+                            jsonMap(application.getAfterSnapshot()),
+                            jsonList(application.getChangedFields(), new TypeReference<>() {}),
+                            jsonList(application.getUnchangedFields(), new TypeReference<>() {}));
+                }).toList();
+    }
+
+    private String applicationSummary(ActivityPollApplicationEntity application) {
+        List<PollFieldChangeResponse> changes = jsonList(
+                application.getChangedFields(), new TypeReference<>() {});
+        return changes.stream().map(change -> change.label() + "："
+                        + displayValue(change.beforeValue()) + " → " + displayValue(change.afterValue()))
+                .collect(Collectors.joining("；"));
+    }
+
+    private Map<String, Object> targetSummary(ActivityItineraryEntity target) {
+        if (target == null) return Map.of();
+        LinkedHashMap<String, Object> result = new LinkedHashMap<>();
+        result.put("itineraryId", target.getId());
+        result.put("createdBy", target.getCreatedBy());
+        result.put("title", target.getTitle());
+        result.put("itineraryType", target.getItineraryType());
+        result.put("itineraryDate", target.getItineraryDate());
+        result.put("startTime", target.getStartTime());
+        result.put("endTime", target.getEndTime());
+        result.putAll(fieldPolicy.snapshot(target));
+        return result;
+    }
+
+    private List<String> decisionScope(ActivityPollEntity poll) {
+        List<String> stored = jsonStringList(poll.getDecisionScope());
+        return fieldPolicy.normalizeScope(poll.getPurpose(), poll.getDecisionType(), stored);
+    }
+
+    private ActivityPollEntity requirePoll(Long activityId, Long pollId) {
+        ActivityPollEntity poll = pollMapper.selectById(pollId);
+        if (poll == null || !activityId.equals(poll.getActivityId())) {
+            throw new NotFoundException("投票不存在");
+        }
+        return poll;
+    }
+
+    private ActivityPollOptionEntity requireOption(Long pollId, Long optionId) {
+        ActivityPollOptionEntity option = optionMapper.selectById(optionId);
+        if (option == null || !pollId.equals(option.getPollId())) {
+            throw new NotFoundException("投票选项不存在");
+        }
+        return option;
+    }
+
+    private ActivityItineraryEntity requireTarget(ActivityPollEntity poll) {
+        ActivityItineraryEntity itinerary = itineraryMapper.selectById(poll.getTargetItineraryId());
+        if (itinerary == null || !poll.getActivityId().equals(itinerary.getActivityId())) {
+            throw param("关联行程不存在");
+        }
+        return itinerary;
+    }
+
+    private void requirePollManager(
+            ActivityEntity activity,
+            ActivityMemberEntity member,
+            Long userId,
+            ActivityPollEntity poll
+    ) {
+        if (!userId.equals(poll.getCreatedBy()) && !access.isActivityCreator(activity, member, userId)) {
+            throw new ForbiddenException("只能管理自己创建的投票");
+        }
+    }
+
+    private String jsonObject(Map<String, Object> value) {
+        return value == null || value.isEmpty() ? null : jsonValue(value);
+    }
+
+    private String jsonValue(Object value) {
+        if (value == null) return null;
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException ex) {
+            throw param("投票结果内容格式错误");
+        }
+    }
+
+    private Map<String, Object> jsonMap(String json) {
+        if (!StringUtils.hasText(json)) return new LinkedHashMap<>();
+        try {
+            return objectMapper.readValue(json, new TypeReference<LinkedHashMap<String, Object>>() {});
+        } catch (JsonProcessingException ex) {
+            throw new BusinessException("投票数据格式异常");
+        }
+    }
+
+    private List<String> jsonStringList(String json) {
+        if (!StringUtils.hasText(json)) return List.of();
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {});
+        } catch (JsonProcessingException ex) {
+            throw new BusinessException("投票字段范围格式异常");
+        }
+    }
+
+    private <T> List<T> jsonList(String json, TypeReference<List<T>> type) {
+        if (!StringUtils.hasText(json)) return List.of();
+        try {
+            return objectMapper.readValue(json, type);
+        } catch (JsonProcessingException ex) {
+            throw new BusinessException("投票应用记录格式异常");
+        }
+    }
+
+    private String string(Map<String, Object> values, String key) {
+        Object value = values.get(key);
+        return value == null ? null : String.valueOf(value).trim();
+    }
+
+    private boolean booleanValue(Map<String, Object> values, String key) {
+        Object value = values.get(key);
+        return value instanceof Boolean bool ? bool : Boolean.parseBoolean(String.valueOf(value));
+    }
+
+    private LocalDate date(Map<String, Object> values, String key) {
+        String value = string(values, key);
+        return StringUtils.hasText(value) ? LocalDate.parse(value) : null;
+    }
+
+    private LocalTime time(Map<String, Object> values, String key) {
+        String value = string(values, key);
+        return StringUtils.hasText(value) ? LocalTime.parse(value) : null;
+    }
+
+    private String upper(String value) {
+        return value == null ? null : value.trim().toUpperCase();
+    }
+
+    private String upperOr(String value, String defaultValue) {
+        return StringUtils.hasText(value) ? upper(value) : defaultValue;
+    }
+
+    private String trim(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private String displayValue(Object value) {
+        return value == null || !StringUtils.hasText(String.valueOf(value)) ? "未设置" : String.valueOf(value);
+    }
+
+    private BusinessException param(String message) {
+        return new BusinessException(ErrorCode.PARAM_ERROR.code(), message);
+    }
 }

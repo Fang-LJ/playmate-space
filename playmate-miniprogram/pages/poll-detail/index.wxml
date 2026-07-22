@@ -9,7 +9,15 @@
       <view wx:if="{{poll.description}}" class="section-desc">{{poll.description}}</view>
       <view class="section-desc">决定{{poll.decisionText}} · {{poll.voteType === 'SINGLE' ? '单选' : '多选'}}</view>
       <view class="section-desc">截止时间：{{poll.deadlineText}}</view>
-      <view wx:if="{{poll.targetItineraryTitle}}" class="poll-context">关联行程：{{poll.targetItineraryTitle}}</view>
+      <view wx:if="{{poll.targetItineraryTitle}}" class="poll-context">
+        <view class="context-label">关联行程</view>
+        <view class="context-title">{{poll.targetItineraryTitle}}</view>
+        <view class="section-desc">{{poll.targetItinerary.itineraryDate}} · {{poll.targetItinerary.startTime || '时间待定'}}</view>
+      </view>
+      <view wx:if="{{poll.purpose !== 'GENERAL'}}" class="scope-summary">
+        <view><text>将修改：</text><text class="scope-change">{{poll.scopeText}}</text></view>
+        <view><text>保持不变：</text><text>{{poll.unchangedText}}</text></view>
+      </view>
     </view>
 
     <view class="section">
@@ -18,6 +26,7 @@
         <view class="choice-control {{poll.voteType === 'SINGLE' ? 'radio' : 'checkbox'}} {{item.selected ? 'checked' : ''}}"><view wx:if="{{item.selected && poll.voteType === 'SINGLE'}}" class="radio-dot"></view><view wx:if="{{item.selected && poll.voteType !== 'SINGLE'}}" class="check-mark">✓</view></view>
         <view class="option-content"><view class="option-name">{{item.optionText}}</view><view wx:if="{{item.hasDescription}}" class="option-desc">{{item.optionDescription}}</view></view>
         <view class="vote-count">{{item.voteText}}</view>
+        <view wx:if="{{poll.status === 'CLOSED' && poll.resultApplyStatus === 'REVIEW_REQUIRED' && canApply}}" class="preview-link" data-id="{{item.optionId}}" catchtap="previewResult">预览应用</view>
       </view>
     </view>
 
@@ -29,8 +38,31 @@
     <view wx:if="{{poll.status === 'CLOSED'}}" class="section card result-card">
       <view class="section-title">投票结果</view>
       <view class="section-desc">{{poll.resultApplyText}}</view>
-      <button wx:if="{{poll.resultApplyStatus === 'REVIEW_REQUIRED' && poll.winnerOptionId && canApply}}" class="pm-native-button primary" data-id="{{poll.winnerOptionId}}" bindtap="apply">确认应用结果</button>
       <button wx:if="{{poll.generatedItineraryId || poll.targetItineraryId}}" class="pm-native-button secondary" bindtap="goItinerary">查看行程</button>
+    </view>
+
+    <view wx:if="{{preview}}" class="section preview-card">
+      <view class="preview-eyebrow">应用前预览</view>
+      <view class="section-title">胜出方案：{{preview.optionText}}</view>
+      <view wx:for="{{preview.changedFields}}" wx:key="field" class="change-row">
+        <view class="change-label">{{item.label}}</view>
+        <view class="change-values"><text>{{item.beforeText}}</text><text class="change-arrow">→</text><text class="change-after">{{item.afterText}}</text></view>
+      </view>
+      <view class="unchanged-box"><view class="unchanged-title">保持不变</view><view>{{preview.unchangedText || '无'}}</view></view>
+      <view class="preview-actions">
+        <button class="pm-native-button secondary" bindtap="keepOriginal">保留原安排</button>
+        <button wx:if="{{canApply && preview.canApply}}" class="pm-native-button primary" data-id="{{preview.optionId}}" bindtap="apply">应用投票结果</button>
+      </view>
+    </view>
+
+    <view wx:if="{{poll.applicationHistory.length}}" class="section">
+      <view class="section-title">已应用记录</view>
+      <view wx:for="{{poll.applicationHistory}}" wx:key="applicationId" class="card history-card">
+        <view class="history-meta">{{item.appliedAtText}} · {{item.operatorText}}</view>
+        <view wx:for="{{item.changedFields}}" wx:key="field" class="history-change">{{item.label}}：{{item.beforeText}} → {{item.afterText}}</view>
+        <view class="history-unchanged">未修改：{{item.unchangedText || '无'}}</view>
+        <view class="pm-link" bindtap="goItinerary">查看关联行程</view>
+      </view>
     </view>
   </view>
 </view>

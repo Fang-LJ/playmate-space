@@ -2,6 +2,8 @@
 .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18rpx; }
 .placeholder { color: #9ca9a1; }
 .time-completion-tip { margin-top: 24rpx; padding: 20rpx 24rpx; border: 1rpx solid #f3df9c; border-radius: 20rpx; background: #fff8e6; color: #755b17; font-size: 24rpx; line-height: 1.5; }
+.structured-fields { display: flex; flex-direction: column; gap: 18rpx; padding: 22rpx; border: 1rpx solid var(--pm-border); border-radius: 22rpx; background: var(--pm-primary-light); }
+.structured-title { color: var(--pm-primary-dark); font-size: 25rpx; font-weight: 800; }
 .poll-switch { display: flex; align-items: center; justify-content: space-between; gap: 24rpx; }
 .poll-option-edit { display: flex; flex-direction: column; gap: 12rpx; }
 .option-edit-row { display: flex; align-items: center; gap: 14rpx; }

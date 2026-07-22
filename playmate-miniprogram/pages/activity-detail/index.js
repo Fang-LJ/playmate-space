@@ -2,7 +2,7 @@ const { cancelActivity, endActivity, getActivityDetail } = require('../../servic
 const { getItineraries } = require('../../services/itinerary');
 const { getPolls, getSummary } = require('../../services/poll');
 const { getActivityMembers } = require('../../services/member');
-const { ITINERARY_STATUS, POLL_RESULT_STATUS, POLL_STATUS, formatTimeRange, label } = require('../../utils/p1-display');
+const { ITINERARY_STATUS, ITINERARY_TYPE, POLL_RESULT_STATUS, POLL_STATUS, formatTimeRange, itinerarySummary, label } = require('../../utils/p1-display');
 
 const STATUS = { PLANNING: '规划中', ONGOING: '进行中', ENDED: '已结束', CANCELED: '已取消' };
 const TYPE = { TRAVEL: '旅行', MEAL: '聚餐', TEAM_BUILDING: '团建', BIRTHDAY: '生日', CAMPING: '露营', DRIVE: '自驾', BOARD_GAME: '桌游', OTHER: '其他' };
@@ -34,7 +34,9 @@ Page({
         itineraries: (itineraries || []).map((item) => ({
           ...item,
           timeText: formatTimeRange(item),
-          planningStatusText: label(ITINERARY_STATUS, item.planningStatus)
+          planningStatusText: label(ITINERARY_STATUS, item.planningStatus),
+          typeText: label(ITINERARY_TYPE, item.itineraryType),
+          summaryText: itinerarySummary(item)
         })),
         polls: (polls || []).map((item) => ({
           ...item,
