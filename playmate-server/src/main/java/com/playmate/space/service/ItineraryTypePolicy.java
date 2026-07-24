@@ -42,41 +42,86 @@ public class ItineraryTypePolicy {
         fieldLabels.put("routeDetail", "历史路线说明");
 
         add("TRANSPORT", "交通",
-                List.of("transportMode", "departureName", "destinationName"),
-                List.of("title", "itineraryDate", "startTime", "endTime", "description"),
+                fields(
+                        "transportMode", "交通方式",
+                        "departureName", "出发地",
+                        "destinationName", "目的地"),
+                fields(
+                        "title", "行程标题",
+                        "itineraryDate", "日期",
+                        "startTime", "开始时间",
+                        "endTime", "结束时间",
+                        "description", "备注说明"),
                 decisions(
                         "TRANSPORT", List.of("transportMode"),
                         "ROUTE", List.of("departureName", "destinationName"),
                         "TIME", List.of("itineraryDate", "startTime", "endTime")));
         add("MEAL", "用餐",
-                List.of("mealType", "restaurantName"),
-                List.of("title", "itineraryDate", "startTime", "endTime", "address", "description"),
+                fields(
+                        "mealType", "用餐类型",
+                        "restaurantName", "具体餐厅"),
+                fields(
+                        "title", "行程标题",
+                        "itineraryDate", "日期",
+                        "startTime", "开始时间",
+                        "endTime", "结束时间",
+                        "address", "详细地址",
+                        "description", "备注说明"),
                 decisions(
                         "RESTAURANT", List.of("mealType", "restaurantName", "address"),
                         "TIME", List.of("itineraryDate", "startTime", "endTime")));
         add("LODGING", "住宿",
-                List.of("locationName", "startTime", "endTime"),
-                List.of("title", "itineraryDate", "address", "description"),
+                fields(
+                        "locationName", "酒店名称",
+                        "startTime", "入住时间",
+                        "endTime", "离开时间"),
+                fields(
+                        "title", "行程标题",
+                        "itineraryDate", "日期",
+                        "address", "详细地址",
+                        "description", "备注说明"),
                 decisions(
                         "PLACE", List.of("locationName", "address"),
                         "TIME", List.of("itineraryDate", "startTime", "endTime")));
         add("SIGHTSEEING", "景点",
-                List.of("activityContent", "locationName"),
-                List.of("title", "itineraryDate", "startTime", "endTime", "address", "description"),
+                fields(
+                        "activityContent", "游玩内容",
+                        "locationName", "景点名称"),
+                fields(
+                        "title", "行程标题",
+                        "itineraryDate", "日期",
+                        "startTime", "开始时间",
+                        "endTime", "结束时间",
+                        "address", "详细地址",
+                        "description", "备注说明"),
                 decisions(
                         "CONTENT", List.of("activityContent"),
                         "PLACE", List.of("locationName", "address"),
                         "TIME", List.of("itineraryDate", "startTime", "endTime")));
         add("ACTIVITY", "活动",
-                List.of("activityContent", "locationName"),
-                List.of("title", "itineraryDate", "startTime", "endTime", "address", "description"),
+                fields(
+                        "activityContent", "活动内容",
+                        "locationName", "活动地点"),
+                fields(
+                        "title", "行程标题",
+                        "itineraryDate", "日期",
+                        "startTime", "开始时间",
+                        "endTime", "结束时间",
+                        "address", "详细地址",
+                        "description", "备注说明"),
                 decisions(
                         "CONTENT", List.of("activityContent"),
                         "PLACE", List.of("locationName", "address"),
                         "TIME", List.of("itineraryDate", "startTime", "endTime")));
         add("OTHER", "其他",
-                List.of("locationName"),
-                List.of("title", "itineraryDate", "startTime", "endTime", "address", "description"),
+                fields("locationName", "地点"),
+                fields(
+                        "title", "行程标题",
+                        "itineraryDate", "日期",
+                        "startTime", "开始时间",
+                        "endTime", "结束时间",
+                        "address", "详细地址",
+                        "description", "备注说明"),
                 decisions(
                         "PLACE", List.of("locationName", "address"),
                         "TIME", List.of("itineraryDate", "startTime", "endTime")));
@@ -93,11 +138,11 @@ public class ItineraryTypePolicy {
     }
 
     public List<String> focusFields(String type) {
-        return requireDefinition(normalizeType(type)).focusFields();
+        return keys(requireDefinition(normalizeType(type)).focusFields());
     }
 
     public List<String> commonFields(String type) {
-        return requireDefinition(normalizeType(type)).commonFields();
+        return keys(requireDefinition(normalizeType(type)).commonFields());
     }
 
     public List<String> allowedDecisionTypes(String type) {
@@ -173,6 +218,19 @@ public class ItineraryTypePolicy {
         itinerary.setAddress(null);
     }
 
+    public void clearDisallowedFields(ActivityItineraryEntity itinerary, String type) {
+        Set<String> allowed = allowedFields(normalizeType(type));
+        if (!allowed.contains("transportMode")) itinerary.setTransportMode(null);
+        if (!allowed.contains("departureName")) itinerary.setDepartureName(null);
+        if (!allowed.contains("destinationName")) itinerary.setDestinationName(null);
+        if (!allowed.contains("mealType")) itinerary.setMealType(null);
+        if (!allowed.contains("restaurantName")) itinerary.setRestaurantName(null);
+        if (!allowed.contains("activityContent")) itinerary.setActivityContent(null);
+        if (!allowed.contains("locationName")) itinerary.setLocationName(null);
+        if (!allowed.contains("address")) itinerary.setAddress(null);
+        itinerary.setRouteDetail(null);
+    }
+
     public String mergeLegacyRouteDetail(String description, String routeDetail) {
         String normalizedDescription = trim(description);
         String normalizedRoute = trim(routeDetail);
@@ -226,8 +284,8 @@ public class ItineraryTypePolicy {
         return definitions.values().stream().map(definition -> new ItineraryTypeMetadataResponse(
                 definition.type(),
                 definition.label(),
-                metadataFields(definition.focusFields()),
-                metadataFields(definition.commonFields()),
+                definition.focusFields(),
+                definition.commonFields(),
                 List.copyOf(definition.decisionScopes().keySet())))
                 .toList();
     }
@@ -259,20 +317,31 @@ public class ItineraryTypePolicy {
 
     private Set<String> allowedFields(String type) {
         TypeDefinition definition = requireDefinition(type);
-        LinkedHashSet<String> allowed = new LinkedHashSet<>(definition.commonFields());
-        allowed.addAll(definition.focusFields());
+        LinkedHashSet<String> allowed = new LinkedHashSet<>(keys(definition.commonFields()));
+        allowed.addAll(keys(definition.focusFields()));
         return Set.copyOf(allowed);
     }
 
-    private List<ItineraryFieldMetadata> metadataFields(List<String> fields) {
-        return fields.stream().map(field -> new ItineraryFieldMetadata(field, fieldLabel(field))).toList();
+    private List<String> keys(List<ItineraryFieldMetadata> fields) {
+        return fields.stream().map(ItineraryFieldMetadata::key).toList();
+    }
+
+    private List<ItineraryFieldMetadata> fields(String... values) {
+        if (values.length % 2 != 0) {
+            throw new IllegalArgumentException("字段元数据必须按 key、label 成对配置");
+        }
+        java.util.ArrayList<ItineraryFieldMetadata> result = new java.util.ArrayList<>();
+        for (int index = 0; index < values.length; index += 2) {
+            result.add(new ItineraryFieldMetadata(values[index], values[index + 1]));
+        }
+        return List.copyOf(result);
     }
 
     private void add(
             String type,
             String label,
-            List<String> focusFields,
-            List<String> commonFields,
+            List<ItineraryFieldMetadata> focusFields,
+            List<ItineraryFieldMetadata> commonFields,
             LinkedHashMap<String, List<String>> decisionScopes
     ) {
         definitions.put(type, new TypeDefinition(
@@ -360,8 +429,8 @@ public class ItineraryTypePolicy {
     private record TypeDefinition(
             String type,
             String label,
-            List<String> focusFields,
-            List<String> commonFields,
+            List<ItineraryFieldMetadata> focusFields,
+            List<ItineraryFieldMetadata> commonFields,
             LinkedHashMap<String, List<String>> decisionScopes
     ) {
     }

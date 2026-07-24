@@ -101,6 +101,9 @@ public class ItineraryService {
                 ? oldType : typePolicy.normalizeType(request.itineraryType());
         boolean typeChanged = !oldType.equals(newType);
         String legacyRouteDetail = itinerary.getRouteDetail();
+        itinerary.setDescription(typePolicy.mergeLegacyRouteDetail(
+                itinerary.getDescription(), legacyRouteDetail));
+        itinerary.setRouteDetail(null);
         typePolicy.validateRequestedFields(newType, requestedTypeFields(
                 request.transportMode(), request.departureName(), request.destinationName(),
                 request.mealType(), request.restaurantName(), request.activityContent(),
@@ -109,6 +112,8 @@ public class ItineraryService {
         if (typeChanged) {
             typePolicy.clearTypeSpecificFields(itinerary);
             itinerary.setItineraryType(newType);
+        } else {
+            typePolicy.clearDisallowedFields(itinerary, newType);
         }
         if (request.title() != null) { if (!StringUtils.hasText(request.title())) throw param("行程标题不能为空"); itinerary.setTitle(request.title().trim()); }
         if (request.itineraryDate() != null) itinerary.setItineraryDate(request.itineraryDate());
@@ -125,20 +130,13 @@ public class ItineraryService {
         if (request.address() != null) itinerary.setAddress(trim(request.address()));
         String description = request.description() != null
                 ? trim(request.description()) : itinerary.getDescription();
-        if (typeChanged) {
-            description = typePolicy.mergeLegacyRouteDetail(description, legacyRouteDetail);
-        }
+        description = typePolicy.mergeLegacyRouteDetail(description, legacyRouteDetail);
         if (request.routeDetail() != null) {
             description = typePolicy.mergeLegacyRouteDetail(description, request.routeDetail());
-            itinerary.setRouteDetail(null);
         }
         itinerary.setDescription(description);
-        if (typeChanged) typePolicy.validatePersistedFields(itinerary);
-        typePolicy.validateTimes(
-                itinerary.getItineraryType(),
-                itinerary.getStartTime(),
-                itinerary.getEndTime(),
-                itinerary.getAllDay());
+        itinerary.setRouteDetail(null);
+        typePolicy.validatePersistedFields(itinerary);
         itinerary.setVersion(itinerary.getVersion() + 1); itinerary.setUpdateTime(LocalDateTime.now()); itineraryMapper.updateById(itinerary);
         return toResponse(itinerary);
     }

@@ -9,6 +9,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -39,7 +40,47 @@ class ItineraryTypePolicyTest {
                 List.of("title", "itineraryDate", "address", "description"),
                 keys(metadata.get(2).commonFields()));
         assertEquals(List.of("locationName"), keys(metadata.get(5).focusFields()));
+        assertEquals(Map.of(
+                "transportMode", "交通方式",
+                "departureName", "出发地",
+                "destinationName", "目的地"), labels(metadata.get(0).focusFields()));
+        assertEquals(Map.of(
+                "mealType", "用餐类型",
+                "restaurantName", "具体餐厅"), labels(metadata.get(1).focusFields()));
+        assertEquals(Map.of(
+                "locationName", "酒店名称",
+                "startTime", "入住时间",
+                "endTime", "离开时间"), labels(metadata.get(2).focusFields()));
+        assertEquals(Map.of(
+                "activityContent", "游玩内容",
+                "locationName", "景点名称"), labels(metadata.get(3).focusFields()));
+        assertEquals(Map.of(
+                "activityContent", "活动内容",
+                "locationName", "活动地点"), labels(metadata.get(4).focusFields()));
+        assertEquals(Map.of("locationName", "地点"), labels(metadata.get(5).focusFields()));
         assertThrows(BusinessException.class, () -> policy.normalizeType("UNKNOWN"));
+    }
+
+    @Test
+    void clearsOnlyFieldsDisallowedByCurrentType() {
+        ActivityItineraryEntity meal = base("MEAL");
+        meal.setMealType("火锅");
+        meal.setRestaurantName("海底捞");
+        meal.setAddress("湖滨路 1 号");
+        meal.setTransportMode("自驾");
+        meal.setDepartureName("酒店");
+        meal.setActivityContent("聚餐");
+        meal.setLocationName("旧地点");
+
+        policy.clearDisallowedFields(meal, "MEAL");
+
+        assertEquals("火锅", meal.getMealType());
+        assertEquals("海底捞", meal.getRestaurantName());
+        assertEquals("湖滨路 1 号", meal.getAddress());
+        assertNull(meal.getTransportMode());
+        assertNull(meal.getDepartureName());
+        assertNull(meal.getActivityContent());
+        assertNull(meal.getLocationName());
     }
 
     @Test
@@ -208,5 +249,15 @@ class ItineraryTypePolicyTest {
     ) {
         return fields.stream().map(
                 com.playmate.space.dto.itinerary.ItineraryFieldMetadata::key).toList();
+    }
+
+    private Map<String, String> labels(
+            List<com.playmate.space.dto.itinerary.ItineraryFieldMetadata> fields
+    ) {
+        return fields.stream().collect(Collectors.toMap(
+                com.playmate.space.dto.itinerary.ItineraryFieldMetadata::key,
+                com.playmate.space.dto.itinerary.ItineraryFieldMetadata::label,
+                (left, right) -> left,
+                java.util.LinkedHashMap::new));
     }
 }
