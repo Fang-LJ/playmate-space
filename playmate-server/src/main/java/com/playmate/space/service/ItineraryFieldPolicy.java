@@ -13,7 +13,6 @@ import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -21,46 +20,44 @@ import java.util.Set;
 
 @Component
 public class ItineraryFieldPolicy {
-    private static final LinkedHashMap<String, String> LABELS = new LinkedHashMap<>();
-    private static final Map<String, List<String>> DEFAULT_SCOPES = Map.of(
-            "TRANSPORT", List.of("transportMode"),
-            "ROUTE", List.of("departureName", "destinationName", "routeDetail"),
-            "TIME", List.of("itineraryDate", "startTime", "endTime"),
-            "RESTAURANT", List.of("mealType", "restaurantName", "address"),
-            "PLACE", List.of("locationName"),
-            "CONTENT", List.of("activityContent"),
-            "ITINERARY_NAME", List.of("title"),
-            "OTHER", List.of("title")
+    private static final List<String> SNAPSHOT_FIELDS = List.of(
+            "title", "itineraryDate", "startTime", "endTime", "transportMode",
+            "departureName", "destinationName", "routeDetail", "mealType",
+            "restaurantName", "address", "activityContent", "locationName"
     );
+    private final ItineraryTypePolicy typePolicy;
 
-    static {
-        LABELS.put("title", "行程名称");
-        LABELS.put("itineraryDate", "日期");
-        LABELS.put("startTime", "开始时间");
-        LABELS.put("endTime", "结束时间");
-        LABELS.put("transportMode", "交通方式");
-        LABELS.put("departureName", "出发地");
-        LABELS.put("destinationName", "目的地");
-        LABELS.put("routeDetail", "路线");
-        LABELS.put("mealType", "用餐类型");
-        LABELS.put("restaurantName", "具体餐厅");
-        LABELS.put("address", "详细地址");
-        LABELS.put("activityContent", "活动内容");
-        LABELS.put("locationName", "地点");
+    public ItineraryFieldPolicy(ItineraryTypePolicy typePolicy) {
+        this.typePolicy = typePolicy;
     }
 
-    public List<String> normalizeScope(String purpose, String decisionType, List<String> requestedScope) {
+    public List<String> normalizeNewScope(
+            String purpose,
+            String itineraryType,
+            String decisionType,
+            List<String> requestedScope
+    ) {
         if ("GENERAL".equals(purpose)) return List.of();
-        List<String> source = requestedScope == null || requestedScope.isEmpty()
-                ? DEFAULT_SCOPES.getOrDefault(decisionType, List.of())
-                : requestedScope;
-        LinkedHashSet<String> normalized = new LinkedHashSet<>();
-        for (String field : source) {
-            if (!LABELS.containsKey(field)) throw param("不支持修改行程字段：" + field);
-            normalized.add(field);
+        return typePolicy.resolveDecisionScope(itineraryType, decisionType, requestedScope);
+    }
+
+    public List<String> normalizeStoredScope(
+            String purpose,
+            String decisionType,
+            List<String> storedScope
+    ) {
+        if ("GENERAL".equals(purpose)) return List.of();
+        List<String> source = storedScope == null || storedScope.isEmpty()
+                ? typePolicy.legacyDefaultScope(decisionType)
+                : storedScope;
+        List<String> normalized = source.stream().distinct().toList();
+        for (String field : normalized) {
+            if (!SNAPSHOT_FIELDS.contains(field)) {
+                throw param("不支持修改行程字段：" + field);
+            }
         }
-        if (normalized.isEmpty()) throw param("关联行程投票必须声明允许修改的字段");
-        return List.copyOf(normalized);
+        if (normalized.isEmpty()) throw param("关联行程投票缺少允许修改的字段");
+        return normalized;
     }
 
     public void validatePayload(Map<String, Object> payload, List<String> scope) {
@@ -68,7 +65,7 @@ public class ItineraryFieldPolicy {
         Set<String> allowed = Set.copyOf(scope);
         for (Map.Entry<String, Object> entry : payload.entrySet()) {
             String field = entry.getKey();
-            if (!LABELS.containsKey(field)) throw param("投票选项包含不支持的行程字段：" + field);
+            if (!SNAPSHOT_FIELDS.contains(field)) throw param("投票选项包含不支持的行程字段：" + field);
             if (!allowed.contains(field)) throw param("投票选项不能修改未授权字段：" + label(field));
             validateValue(field, entry.getValue());
         }
@@ -76,11 +73,11 @@ public class ItineraryFieldPolicy {
 
     public void validateTemplate(Map<String, Object> template) {
         if (template == null) return;
-        Set<String> allowed = new LinkedHashSet<>(LABELS.keySet());
+        Set<String> allowed = new java.util.LinkedHashSet<>(SNAPSHOT_FIELDS);
         allowed.addAll(List.of("itineraryType", "allDay", "description"));
         for (Map.Entry<String, Object> entry : template.entrySet()) {
             if (!allowed.contains(entry.getKey())) throw param("行程模板包含不支持字段：" + entry.getKey());
-            if (LABELS.containsKey(entry.getKey())) validateValue(entry.getKey(), entry.getValue());
+            if (SNAPSHOT_FIELDS.contains(entry.getKey())) validateValue(entry.getKey(), entry.getValue());
         }
     }
 
@@ -152,24 +149,25 @@ public class ItineraryFieldPolicy {
                 default -> throw param("不支持修改行程字段：" + field);
             }
         }
-        if (itinerary.getStartTime() != null && itinerary.getEndTime() != null
-                && !itinerary.getEndTime().isAfter(itinerary.getStartTime())) {
-            throw param("结束时间必须晚于开始时间");
-        }
+        typePolicy.validateTimes(
+                itinerary.getItineraryType(),
+                itinerary.getStartTime(),
+                itinerary.getEndTime(),
+                itinerary.getAllDay());
     }
 
     public ChangeSet changes(Map<String, Object> before, Map<String, Object> after, List<String> scope) {
         List<PollFieldChangeResponse> changed = new ArrayList<>();
         List<PollUnchangedFieldResponse> unchanged = new ArrayList<>();
         Set<String> scoped = Set.copyOf(scope);
-        for (Map.Entry<String, String> field : LABELS.entrySet()) {
-            Object oldValue = before.get(field.getKey());
-            Object newValue = after.get(field.getKey());
-            if (scoped.contains(field.getKey()) && !Objects.equals(normalize(oldValue), normalize(newValue))) {
-                changed.add(new PollFieldChangeResponse(field.getKey(), field.getValue(), oldValue, newValue));
-            } else if (!scoped.contains(field.getKey()) && hasValue(oldValue, newValue)) {
+        for (String field : SNAPSHOT_FIELDS) {
+            Object oldValue = before.get(field);
+            Object newValue = after.get(field);
+            if (scoped.contains(field) && !Objects.equals(normalize(oldValue), normalize(newValue))) {
+                changed.add(new PollFieldChangeResponse(field, label(field), oldValue, newValue));
+            } else if (!scoped.contains(field) && hasValue(oldValue, newValue)) {
                 unchanged.add(new PollUnchangedFieldResponse(
-                        field.getKey(), field.getValue(), newValue != null ? newValue : oldValue));
+                        field, label(field), newValue != null ? newValue : oldValue));
             }
         }
         return new ChangeSet(changed, unchanged);
@@ -181,11 +179,15 @@ public class ItineraryFieldPolicy {
 
     public List<String> unchangedLabels(List<String> scope) {
         Set<String> scoped = Set.copyOf(scope);
-        return LABELS.keySet().stream().filter(field -> !scoped.contains(field)).map(this::label).toList();
+        return SNAPSHOT_FIELDS.stream().filter(field -> !scoped.contains(field)).map(this::label).toList();
     }
 
     public String label(String field) {
-        return LABELS.getOrDefault(field, field);
+        return typePolicy.fieldLabel(field);
+    }
+
+    public boolean requiresManualReview(List<String> scope) {
+        return typePolicy.isLegacySensitiveScope(scope);
     }
 
     private void validateValue(String field, Object value) {

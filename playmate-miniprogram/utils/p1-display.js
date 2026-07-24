@@ -35,7 +35,7 @@ const DECISION_SCOPE = {
   PLACE: ['locationName'],
   TIME: ['itineraryDate', 'startTime', 'endTime'],
   TRANSPORT: ['transportMode'],
-  ROUTE: ['departureName', 'destinationName', 'routeDetail'],
+  ROUTE: ['departureName', 'destinationName'],
   CONTENT: ['activityContent'],
   RESTAURANT: ['mealType', 'restaurantName', 'address'],
   ITINERARY_NAME: ['title'],

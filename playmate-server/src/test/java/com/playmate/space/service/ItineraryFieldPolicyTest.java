@@ -12,7 +12,8 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ItineraryFieldPolicyTest {
-    private final ItineraryFieldPolicy policy = new ItineraryFieldPolicy();
+    private final ItineraryTypePolicy typePolicy = new ItineraryTypePolicy();
+    private final ItineraryFieldPolicy policy = new ItineraryFieldPolicy(typePolicy);
 
     @Test
     void transportVoteOnlyChangesTransportMode() {
@@ -60,15 +61,25 @@ class ItineraryFieldPolicyTest {
                 () -> policy.validatePayload(
                         Map.of("transportMode", "自驾", "title", "自驾"),
                         List.of("transportMode")));
-        assertTrue(error.getMessage().contains("行程名称"));
+        assertTrue(error.getMessage().contains("行程标题"));
     }
 
     @Test
     void defaultScopeIsDerivedFromDecisionType() {
         assertEquals(
                 List.of("mealType", "restaurantName", "address"),
-                policy.normalizeScope("UPDATE_ITINERARY", "RESTAURANT", null));
-        assertEquals(List.of(), policy.normalizeScope("GENERAL", "RESTAURANT", null));
+                policy.normalizeNewScope("UPDATE_ITINERARY", "MEAL", "RESTAURANT", null));
+        assertEquals(
+                List.of("departureName", "destinationName", "routeDetail"),
+                policy.normalizeStoredScope("UPDATE_ITINERARY", "ROUTE", null));
+        assertEquals(List.of(), policy.normalizeNewScope("GENERAL", null, "RESTAURANT", null));
+    }
+
+    @Test
+    void legacyTitleAndRouteScopesRequireManualReview() {
+        assertTrue(policy.requiresManualReview(List.of("title")));
+        assertTrue(policy.requiresManualReview(List.of("departureName", "routeDetail")));
+        assertFalse(policy.requiresManualReview(List.of("transportMode")));
     }
 
     private ActivityItineraryEntity transportItinerary() {

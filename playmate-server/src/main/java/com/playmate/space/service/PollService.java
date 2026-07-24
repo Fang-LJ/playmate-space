@@ -41,6 +41,7 @@ public class PollService {
     private final ObjectMapper objectMapper;
     private final ActivityTodoLifecycleService todoLifecycleService;
     private final ItineraryFieldPolicy fieldPolicy;
+    private final ItineraryTypePolicy typePolicy;
 
     public PollService(
             ActivityCollaborationAccess access,
@@ -52,7 +53,8 @@ public class PollService {
             UserMapper userMapper,
             ObjectMapper objectMapper,
             ActivityTodoLifecycleService todoLifecycleService,
-            ItineraryFieldPolicy fieldPolicy
+            ItineraryFieldPolicy fieldPolicy,
+            ItineraryTypePolicy typePolicy
     ) {
         this.access = access;
         this.pollMapper = pollMapper;
@@ -64,6 +66,7 @@ public class PollService {
         this.objectMapper = objectMapper;
         this.todoLifecycleService = todoLifecycleService;
         this.fieldPolicy = fieldPolicy;
+        this.typePolicy = typePolicy;
     }
 
     @Transactional
@@ -299,6 +302,7 @@ public class PollService {
 
         Long targetId = forcedTargetId != null ? forcedTargetId : request.targetItineraryId();
         Integer targetVersion = forcedVersion;
+        String itineraryType = null;
         if ("UPDATE_ITINERARY".equals(purpose)) {
             if (targetId == null) throw param("关联已有行程时必须指定目标行程");
             ActivityItineraryEntity target = itineraryMapper.selectById(targetId);
@@ -306,15 +310,22 @@ public class PollService {
                 throw param("关联行程不存在");
             }
             if (targetVersion == null) targetVersion = target.getVersion();
+            itineraryType = typePolicy.normalizeType(target.getItineraryType());
         }
+        Map<String, Object> itineraryTemplate = normalizeItineraryTemplate(
+                request.itineraryTemplate());
         if ("CREATE_ITINERARY".equals(purpose)
-                && (request.itineraryTemplate() == null || request.itineraryTemplate().isEmpty())) {
+                && itineraryTemplate.isEmpty()) {
             throw param("生成行程投票需要固定行程信息");
         }
+        fieldPolicy.validateTemplate(itineraryTemplate);
+        if ("CREATE_ITINERARY".equals(purpose)) {
+            itineraryType = typePolicy.normalizeType(string(itineraryTemplate, "itineraryType"));
+            validateItineraryTemplate(itineraryTemplate, itineraryType);
+        }
 
-        List<String> decisionScope = fieldPolicy.normalizeScope(
-                purpose, decisionType, request.decisionScope());
-        fieldPolicy.validateTemplate(request.itineraryTemplate());
+        List<String> decisionScope = fieldPolicy.normalizeNewScope(
+                purpose, itineraryType, decisionType, request.decisionScope());
         for (PollOptionRequest option : request.options()) {
             Map<String, Object> payload = option.resultPayload() == null
                     ? Map.of() : option.resultPayload();
@@ -339,7 +350,7 @@ public class PollService {
         poll.setResultApplyMode("GENERAL".equals(purpose) ? "NONE" : "AUTO");
         poll.setResultApplyStatus("GENERAL".equals(purpose) ? "NOT_REQUIRED" : "PENDING");
         poll.setTargetItineraryVersion(targetVersion);
-        poll.setItineraryTemplate(jsonObject(request.itineraryTemplate()));
+        poll.setItineraryTemplate(jsonObject(itineraryTemplate));
         poll.setDecisionScope(jsonValue(decisionScope));
         poll.setCreatedBy(userId);
         poll.setVersion(0);
@@ -408,6 +419,11 @@ public class PollService {
             Long appliedBy
     ) {
         try {
+            List<String> scope = decisionScope(poll);
+            if (!manual && fieldPolicy.requiresManualReview(scope)) {
+                review(poll, activity);
+                return;
+            }
             if ("UPDATE_ITINERARY".equals(poll.getPurpose())) {
                 applyUpdate(poll, activity, winner, manual, appliedBy);
             } else if ("CREATE_ITINERARY".equals(poll.getPurpose())) {
@@ -445,6 +461,7 @@ public class PollService {
         Map<String, Object> payload = jsonMap(winner.getResultPayload());
         Map<String, Object> before = fieldPolicy.snapshot(target);
         fieldPolicy.apply(target, payload, scope);
+        typePolicy.validatePersistedFields(target);
         Map<String, Object> after = fieldPolicy.snapshot(target);
         ItineraryFieldPolicy.ChangeSet changeSet = fieldPolicy.changes(before, after, scope);
         if (changeSet.changedFields().isEmpty()) throw param("胜出方案没有产生可应用的字段变化");
@@ -497,6 +514,7 @@ public class PollService {
             throw param("普通投票不需要应用结果");
         }
         fieldPolicy.apply(candidate, jsonMap(option.getResultPayload()), scope);
+        typePolicy.validatePersistedFields(candidate);
         Map<String, Object> after = fieldPolicy.snapshot(candidate);
         ItineraryFieldPolicy.ChangeSet changes = fieldPolicy.changes(before, after, scope);
         return new PollResultPreviewResponse(
@@ -513,7 +531,7 @@ public class PollService {
         LocalDateTime now = LocalDateTime.now();
         itinerary.setActivityId(activity.getId());
         itinerary.setTitle(string(template, "title"));
-        itinerary.setItineraryType(upperOr(string(template, "itineraryType"), "OTHER"));
+        itinerary.setItineraryType(typePolicy.normalizeType(string(template, "itineraryType")));
         itinerary.setItineraryDate(date(template, "itineraryDate"));
         itinerary.setAllDay(booleanValue(template, "allDay") ? 1 : 0);
         itinerary.setStartTime(Integer.valueOf(1).equals(itinerary.getAllDay())
@@ -523,13 +541,15 @@ public class PollService {
         itinerary.setTransportMode(string(template, "transportMode"));
         itinerary.setDepartureName(string(template, "departureName"));
         itinerary.setDestinationName(string(template, "destinationName"));
-        itinerary.setRouteDetail(string(template, "routeDetail"));
+        String legacyRouteDetail = string(template, "routeDetail");
+        itinerary.setRouteDetail(legacyRouteDetail);
         itinerary.setMealType(string(template, "mealType"));
         itinerary.setRestaurantName(string(template, "restaurantName"));
         itinerary.setActivityContent(string(template, "activityContent"));
         itinerary.setLocationName(string(template, "locationName"));
         itinerary.setAddress(string(template, "address"));
-        itinerary.setDescription(string(template, "description"));
+        itinerary.setDescription(typePolicy.mergeLegacyRouteDetail(
+                string(template, "description"), legacyRouteDetail));
         itinerary.setPlanningStatus("CONFIRMED");
         itinerary.setOriginType("POLL_RESULT");
         itinerary.setOriginPollId(poll.getId());
@@ -545,10 +565,7 @@ public class PollService {
         if (!StringUtils.hasText(itinerary.getTitle()) || itinerary.getItineraryDate() == null) {
             throw param("生成行程需要固定的行程名称和日期");
         }
-        if (itinerary.getStartTime() != null && itinerary.getEndTime() != null
-                && !itinerary.getEndTime().isAfter(itinerary.getStartTime())) {
-            throw param("结束时间必须晚于开始时间");
-        }
+        typePolicy.validatePersistedFields(itinerary);
     }
 
     private void saveApplication(
@@ -723,7 +740,51 @@ public class PollService {
 
     private List<String> decisionScope(ActivityPollEntity poll) {
         List<String> stored = jsonStringList(poll.getDecisionScope());
-        return fieldPolicy.normalizeScope(poll.getPurpose(), poll.getDecisionType(), stored);
+        return fieldPolicy.normalizeStoredScope(poll.getPurpose(), poll.getDecisionType(), stored);
+    }
+
+    private Map<String, Object> normalizeItineraryTemplate(Map<String, Object> source) {
+        if (source == null || source.isEmpty()) return Map.of();
+        LinkedHashMap<String, Object> template = new LinkedHashMap<>(source);
+        String routeDetail = string(template, "routeDetail");
+        String description = typePolicy.mergeLegacyRouteDetail(
+                string(template, "description"), routeDetail);
+        template.remove("routeDetail");
+        if (StringUtils.hasText(description)) {
+            template.put("description", description);
+        } else {
+            template.remove("description");
+        }
+        if (template.containsKey("itineraryType")) {
+            template.put("itineraryType", typePolicy.normalizeType(
+                    string(template, "itineraryType")));
+        }
+        return template;
+    }
+
+    private void validateItineraryTemplate(
+            Map<String, Object> template,
+            String itineraryType
+    ) {
+        if (!StringUtils.hasText(string(template, "title"))
+                || date(template, "itineraryDate") == null) {
+            throw param("生成行程需要固定的行程名称和日期");
+        }
+        LinkedHashMap<String, String> typedFields = new LinkedHashMap<>();
+        typedFields.put("transportMode", string(template, "transportMode"));
+        typedFields.put("departureName", string(template, "departureName"));
+        typedFields.put("destinationName", string(template, "destinationName"));
+        typedFields.put("mealType", string(template, "mealType"));
+        typedFields.put("restaurantName", string(template, "restaurantName"));
+        typedFields.put("activityContent", string(template, "activityContent"));
+        typedFields.put("locationName", string(template, "locationName"));
+        typedFields.put("address", string(template, "address"));
+        typePolicy.validateRequestedFields(itineraryType, typedFields);
+        typePolicy.validateTimes(
+                itineraryType,
+                time(template, "startTime"),
+                time(template, "endTime"),
+                booleanValue(template, "allDay") ? 1 : 0);
     }
 
     private ActivityPollEntity requirePoll(Long activityId, Long pollId) {
@@ -823,10 +884,6 @@ public class PollService {
 
     private String upper(String value) {
         return value == null ? null : value.trim().toUpperCase();
-    }
-
-    private String upperOr(String value, String defaultValue) {
-        return StringUtils.hasText(value) ? upper(value) : defaultValue;
     }
 
     private String trim(String value) {

@@ -20,6 +20,31 @@ ACTIVITY_ID=$(printf '%s' "$ACT"|jq -r '.data.activityId'); CODE=$(printf '%s' "
 for T in "$TB" "$TC"; do api -X POST "$BASE_URL/api/activity-invites/$CODE/join" -H "Authorization: Bearer $T" >/dev/null; done
 pass "创建活动并邀请成员"
 
+METADATA=$(api "$BASE_URL/api/itineraries/type-metadata" -H "Authorization: Bearer $TA")
+[[ $(printf '%s' "$METADATA" | jq -r '.data | length') == 6 ]] || fail "六种行程类型元数据"
+[[ $(printf '%s' "$METADATA" | jq -r '.data[0].type') == TRANSPORT
+  && $(printf '%s' "$METADATA" | jq -r '.data[5].type') == OTHER ]] || fail "行程类型元数据顺序"
+pass "六种行程类型元数据"
+
+INVALID_MIX=$(api -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"creationMode":"DIRECT","title":"非法混写","itineraryType":"TRANSPORT","itineraryDate":"2026-07-18","startTime":"09:00","endTime":"10:00","restaurantName":"不应保存"}')
+[[ "$INVALID_MIX" == 400 ]] || fail "交通行程混写餐厅字段应被拒绝"
+INVALID_TEMPLATE=$(api -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"title":"非法模板","purpose":"CREATE_ITINERARY","decisionType":"RESTAURANT","voteType":"SINGLE","itineraryTemplate":{"title":"候选晚餐","itineraryType":"MEAL","itineraryDate":"2026-07-18","transportMode":"自驾"},"options":[{"optionText":"A","resultPayload":{"restaurantName":"A"}},{"optionText":"B","resultPayload":{"restaurantName":"B"}}]}')
+[[ "$INVALID_TEMPLATE" == 400 ]] || fail "生成行程模板混写其他类型字段应被拒绝"
+LODGING=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"creationMode":"DIRECT","title":"跨夜住宿","itineraryType":"LODGING","itineraryDate":"2026-07-18","startTime":"21:00","endTime":"09:00","locationName":"亚朵酒店","address":"幸福路 88 号"}')
+[[ $(printf '%s' "$LODGING" | jq -r '.data.itineraryType') == LODGING ]] || fail "住宿跨午夜规则"
+pass "类型字段混写校验与住宿跨午夜"
+
+SWITCH_SOURCE=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"creationMode":"DIRECT","title":"类型切换测试","itineraryType":"TRANSPORT","itineraryDate":"2026-07-18","startTime":"11:00","endTime":"12:00","transportMode":"自驾","departureName":"杭州","destinationName":"桐庐","routeDetail":"高速集合","description":"保留备注"}')
+SWITCH_ID=$(printf '%s' "$SWITCH_SOURCE" | jq -r '.data.itineraryId')
+SWITCHED=$(api -X PUT "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$SWITCH_ID" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"itineraryType":"MEAL","mealType":"火锅","restaurantName":"江边火锅","address":"滨江路 1 号"}')
+[[ $(printf '%s' "$SWITCHED" | jq -r '.data.transportMode') == null
+  && $(printf '%s' "$SWITCHED" | jq -r '.data.departureName') == null
+  && $(printf '%s' "$SWITCHED" | jq -r '.data.destinationName') == null
+  && $(printf '%s' "$SWITCHED" | jq -r '.data.mealType') == 火锅
+  && $(printf '%s' "$SWITCHED" | jq -r '.data.title') == 类型切换测试
+  && $(printf '%s' "$SWITCHED" | jq -r '.data.description | contains("高速集合")') == true ]] || fail "类型切换字段清理或历史路线归并"
+pass "类型切换清理旧字段并保留通用信息"
+
 SINGLE=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"title":"单选改投测试","purpose":"GENERAL","decisionType":"RESTAURANT","voteType":"SINGLE","allowModify":true,"options":[{"optionText":"选项 A"},{"optionText":"选项 B"}]}')
 SINGLE_ID=$(printf '%s' "$SINGLE" | jq -r '.data.pollId'); S1=$(printf '%s' "$SINGLE" | jq -r '.data.options[0].optionId'); S2=$(printf '%s' "$SINGLE" | jq -r '.data.options[1].optionId')
 api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$SINGLE_ID/votes" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"optionIds\":[$S1]}" >/dev/null
@@ -55,6 +80,15 @@ pass "行程取消默认隐藏、查看全部、恢复与物理删除"
 
 TRANSPORT=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"creationMode":"DIRECT","title":"周日返程","itineraryType":"TRANSPORT","itineraryDate":"2026-07-19","startTime":"09:00","endTime":"12:00","allDay":false,"transportMode":"高铁","departureName":"亚朵酒店","destinationName":"上海","routeDetail":"酒店集合后出发"}')
 TRANSPORT_ID=$(printf '%s' "$TRANSPORT"|jq -r '.data.itineraryId')
+[[ $(printf '%s' "$TRANSPORT" | jq -r '.data.routeDetail') == null
+  && $(printf '%s' "$TRANSPORT" | jq -r '.data.description') == 酒店集合后出发 ]] || fail "routeDetail 未归并到 description"
+INVALID_ROUTE_SCOPE=$(api -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"title\":\"非法路线范围\",\"purpose\":\"UPDATE_ITINERARY\",\"decisionType\":\"ROUTE\",\"decisionScope\":[\"departureName\",\"routeDetail\"],\"targetItineraryId\":$TRANSPORT_ID,\"voteType\":\"SINGLE\",\"options\":[{\"optionText\":\"A\",\"resultPayload\":{\"departureName\":\"杭州\"}},{\"optionText\":\"B\",\"resultPayload\":{\"departureName\":\"上海\"}}]}")
+[[ "$INVALID_ROUTE_SCOPE" == 400 ]] || fail "新路线投票不应允许 routeDetail"
+INVALID_TITLE_SCOPE=$(api -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"title\":\"非法标题范围\",\"purpose\":\"UPDATE_ITINERARY\",\"decisionType\":\"ITINERARY_NAME\",\"decisionScope\":[\"title\"],\"targetItineraryId\":$TRANSPORT_ID,\"voteType\":\"SINGLE\",\"options\":[{\"optionText\":\"A\",\"resultPayload\":{\"title\":\"新标题 A\"}},{\"optionText\":\"B\",\"resultPayload\":{\"title\":\"新标题 B\"}}]}")
+[[ "$INVALID_TITLE_SCOPE" == 400 ]] || fail "新关联投票不应修改稳定标题"
+INVALID_DECISION=$(api -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"title\":\"非法类型决策\",\"purpose\":\"UPDATE_ITINERARY\",\"decisionType\":\"RESTAURANT\",\"targetItineraryId\":$TRANSPORT_ID,\"voteType\":\"SINGLE\",\"options\":[{\"optionText\":\"A\",\"resultPayload\":{\"restaurantName\":\"A\"}},{\"optionText\":\"B\",\"resultPayload\":{\"restaurantName\":\"B\"}}]}")
+[[ "$INVALID_DECISION" == 400 ]] || fail "交通行程不应接受餐厅决策"
+pass "routeDetail 兼容归并、决策范围和稳定标题保护"
 TRANSPORT_POLL=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"title\":\"返程交通方式\",\"purpose\":\"UPDATE_ITINERARY\",\"decisionType\":\"TRANSPORT\",\"decisionScope\":[\"transportMode\"],\"targetItineraryId\":$TRANSPORT_ID,\"voteType\":\"SINGLE\",\"options\":[{\"optionText\":\"自驾\",\"resultPayload\":{\"transportMode\":\"自驾\"}},{\"optionText\":\"高铁\",\"resultPayload\":{\"transportMode\":\"高铁\"}}]}")
 TRANSPORT_POLL_ID=$(printf '%s' "$TRANSPORT_POLL"|jq -r '.data.pollId')
 TRANSPORT_OPTION=$(printf '%s' "$TRANSPORT_POLL"|jq -r '.data.options[0].optionId')

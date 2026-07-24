@@ -87,7 +87,19 @@ Page({
 
   pickType(event) {
     const typeIndex = Number(event.detail.value);
-    this.setData({ typeIndex, 'form.itineraryType': TYPES[typeIndex] });
+    this.setData({
+      typeIndex,
+      'form.itineraryType': TYPES[typeIndex],
+      'form.transportMode': '',
+      'form.departureName': '',
+      'form.destinationName': '',
+      'form.routeDetail': '',
+      'form.mealType': '',
+      'form.restaurantName': '',
+      'form.activityContent': '',
+      'form.locationName': '',
+      'form.address': ''
+    });
   },
 
   togglePoll() {
@@ -123,7 +135,9 @@ Page({
     if (!form.itineraryDate || !form.startTime || !form.endTime) {
       return this.data.needsTimeCompletion ? '历史全天行程请补充开始和结束时间' : '请选择开始和结束时间';
     }
-    if (form.endTime <= form.startTime) return '结束时间必须晚于开始时间';
+    if (form.itineraryType !== 'LODGING' && form.endTime <= form.startTime) {
+      return '结束时间必须晚于开始时间';
+    }
     if (this.data.withPoll) {
       if (!this.data.poll.title.trim()) return '请填写投票问题';
       if (this.data.poll.options.filter((item) => item.optionText.trim()).length < 2) return '请至少填写两个投票选项';

@@ -20,5 +20,14 @@ class ItineraryTimeStatusResolverTest {
         itinerary.setPlanningStatus("CANCELED");
         assertEquals("CANCELED", ItineraryTimeStatusResolver.resolve(itinerary, LocalDateTime.now()));
     }
-    private ActivityItineraryEntity itinerary(LocalDate date, LocalTime start, LocalTime end, int allDay) { ActivityItineraryEntity i=new ActivityItineraryEntity();i.setItineraryDate(date);i.setStartTime(start);i.setEndTime(end);i.setAllDay(allDay);i.setPlanningStatus("CONFIRMED");return i; }
+    @Test void resolvesLodgingAcrossMidnight() {
+        ActivityItineraryEntity itinerary = itinerary(
+                LocalDate.of(2026, 7, 12), LocalTime.of(21, 0), LocalTime.of(9, 0), 0);
+        itinerary.setItineraryType("LODGING");
+        assertEquals("IN_PROGRESS", ItineraryTimeStatusResolver.resolve(
+                itinerary, LocalDateTime.of(2026, 7, 13, 8, 0)));
+        assertEquals("FINISHED", ItineraryTimeStatusResolver.resolve(
+                itinerary, LocalDateTime.of(2026, 7, 13, 10, 0)));
+    }
+    private ActivityItineraryEntity itinerary(LocalDate date, LocalTime start, LocalTime end, int allDay) { ActivityItineraryEntity i=new ActivityItineraryEntity();i.setItineraryDate(date);i.setStartTime(start);i.setEndTime(end);i.setAllDay(allDay);i.setPlanningStatus("CONFIRMED");i.setItineraryType("OTHER");return i; }
 }

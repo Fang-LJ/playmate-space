@@ -30,6 +30,26 @@
 | `POST /api/activities/{activityId}/reminders` | 活动创建者向全体有效成员发布人工提醒。 |
 | `POST /api/activity-todos/{todoId}/ack` | 当前被分配成员确认人工提醒。 |
 | `GET /api/activities/{activityId}/reminders/{todoId}/ack-status` | 活动创建者查看人工提醒确认情况。 |
+| `GET /api/itineraries/type-metadata` | 返回固定顺序的六种行程类型、重点字段、通用字段和允许的决策类型。 |
+
+## 行程类型策略
+
+后端以 `ItineraryTypePolicy` 作为行程类型规则的单一事实来源。创建、编辑、投票范围推导、结果应用、摘要和元数据接口均复用同一份规则。
+
+| 类型 | 重点字段 | 通用字段 | 可用决策 |
+| --- | --- | --- | --- |
+| `TRANSPORT` | `transportMode/departureName/destinationName` | `title/itineraryDate/startTime/endTime/description` | `TRANSPORT/ROUTE/TIME` |
+| `MEAL` | `mealType/restaurantName` | `title/itineraryDate/startTime/endTime/address/description` | `RESTAURANT/TIME` |
+| `LODGING` | `locationName/startTime/endTime` | `title/itineraryDate/address/description` | `PLACE/TIME` |
+| `SIGHTSEEING` | `activityContent/locationName` | `title/itineraryDate/startTime/endTime/address/description` | `CONTENT/PLACE/TIME` |
+| `ACTIVITY` | `activityContent/locationName` | `title/itineraryDate/startTime/endTime/address/description` | `CONTENT/PLACE/TIME` |
+| `OTHER` | `locationName` | `title/itineraryDate/startTime/endTime/address/description` | `PLACE/TIME` |
+
+- 创建时，其他类型字段为空字符串会归一化为 `null`，包含真实内容则返回参数错误；重点字段可以为空，以支持 `PENDING_DECISION`。
+- 类型切换会清空全部类型重点字段和 `address`，保留标题、日期、时间和备注，再写入请求明确提供的新类型字段。同名的 `locationName` 也不会跨语义保留。
+- `LODGING` 的 `endTime <= startTime` 表示次日离开；其他非全天行程仍要求结束时间晚于开始时间。
+- `displaySummary` 按六种类型分别生成，不包含 `description`。
+- `routeDetail` 进入兼容废弃状态：数据库列保留；新请求内容合并到 `description`，新投票不允许修改；历史记录在 `description` 为空时仍可展示历史路线内容。
 
 ## 核心请求示例
 
@@ -69,8 +89,10 @@
 
 - `GENERAL` 支持单选/多选，不应用行程。
 - `UPDATE_ITINERARY`、`CREATE_ITINERARY` 必须单选。
-- 关联行程投票必须保存 `decisionScope`。后端只接受 `title/itineraryDate/startTime/endTime/transportMode/departureName/destinationName/routeDetail/mealType/restaurantName/address/activityContent/locationName` 中的字段。
+- `UPDATE_ITINERARY` 根据目标行程类型推导最大 `decisionScope`；`CREATE_ITINERARY` 根据模板中的 `itineraryType` 推导。前端可以不传，也只能传后端范围的非空子集，不能扩大范围。
+- 决策范围固定为：交通方式 `transportMode`；交通路线 `departureName/destinationName`；时间 `itineraryDate/startTime/endTime`；餐厅 `mealType/restaurantName/address`；地点 `locationName/address`；活动内容 `activityContent`。不适用于目标类型的组合直接拒绝。
 - 每个选项的 `resultPayload` 必须是 `decisionScope` 的子集；未授权字段在创建投票时直接返回参数错误。
+- 新关联投票不能使用 `ITINERARY_NAME/OTHER` 修改稳定标题，`title` 固定来自已有行程或 `itineraryTemplate`。
 - 单选限制、截止校验、选择替换均在事务中执行。
 - 过期投票会在列表、详情和投票操作前幂等关闭。
 
@@ -80,7 +102,9 @@
 - 预览与正式应用使用同一套字段映射和白名单；正式应用不信任前端预览内容。
 - 应用成功后写入 `t_activity_poll_application`，详情响应返回 `applicationHistory`，包含前后快照、变化字段、未变化字段、操作人和应用时间。
 - 更新已有行程会确认状态并递增 `version`；生成行程会写入 `origin_type=POLL_RESULT`、`origin_poll_id` 和 `generated_itinerary_id`。
+- 预览和正式应用后都会再次执行目标类型的完整字段与时间校验，非法组合不会写入行程。
 - 无人投票、并列、版本冲突、结果负载为空，或普通成员试图自动覆盖他人行程时，设置 `REVIEW_REQUIRED`。
+- 历史 `decisionScope` 含 `title` 或 `routeDetail` 的投票仍可读取和预览，但不会自动覆盖行程，会进入 `REVIEW_REQUIRED`，由有权限用户明确确认。
 - 人工确认只允许投票创建者、目标行程创建者或活动创建者；覆盖他人行程仍须由行程创建者或活动创建者确认。
 
 ## 持久化待办
@@ -96,3 +120,7 @@
 - 创建待决定行程 + 创建投票、替换投票选择、关闭投票 + 应用结果均使用事务。
 - 参数错误使用 `PARAM_ERROR`；非成员或只读活动使用 `FORBIDDEN`；活动、行程、投票或选项不存在使用 `NOT_FOUND`。
 - 不实现费用、照片、AA、复杂多轮/排名投票或一次投票生成多条行程。
+
+## 当前阶段边界
+
+本轮仅完成阶段 1 的后端类型策略与模型对齐。阶段 2 的行程页面 Figma 重构和阶段 3 的投票页面重构尚未执行；小程序仅做清除旧类型字段、住宿跨午夜校验和移除新路线投票 `routeDetail` 的必要兼容调整。

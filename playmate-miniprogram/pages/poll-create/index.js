@@ -180,7 +180,9 @@ Page({
       if (!template.title.trim() || !template.itineraryDate || !template.startTime || !template.endTime) {
         return '请填写生成行程的标题、日期和时间';
       }
-      if (template.endTime <= template.startTime) return '生成行程的结束时间必须晚于开始时间';
+      if (template.itineraryType !== 'LODGING' && template.endTime <= template.startTime) {
+        return '生成行程的结束时间必须晚于开始时间';
+      }
     }
     if (form.purpose !== 'GENERAL') {
       const scope = DECISION_SCOPE[form.decisionType] || [];

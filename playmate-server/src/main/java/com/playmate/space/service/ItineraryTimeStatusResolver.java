@@ -16,6 +16,12 @@ public final class ItineraryTimeStatusResolver {
         }
         LocalDateTime start = itinerary.getStartTime() == null ? date.atStartOfDay() : date.atTime(itinerary.getStartTime());
         LocalDateTime end = itinerary.getEndTime() == null ? date.plusDays(1).atStartOfDay() : date.atTime(itinerary.getEndTime());
+        if ("LODGING".equals(itinerary.getItineraryType())
+                && itinerary.getStartTime() != null
+                && itinerary.getEndTime() != null
+                && !itinerary.getEndTime().isAfter(itinerary.getStartTime())) {
+            end = date.plusDays(1).atTime(itinerary.getEndTime());
+        }
         if (now.isBefore(start)) return "UPCOMING";
         return now.isBefore(end) ? "IN_PROGRESS" : "FINISHED";
     }
