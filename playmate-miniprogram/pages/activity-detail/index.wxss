@@ -52,9 +52,9 @@
 .section-icon-button:active { opacity: 0.58; }
 .section-add-icon { font-size: 39rpx; font-weight: 500; line-height: 1; }
 .section-list-icon { font-size: 32rpx; font-weight: 700; line-height: 1; }
+.itinerary-card-list { display: flex; flex-direction: column; gap: 20rpx; margin-top: 20rpx; }
 .compact-row { display: flex; gap: 18rpx; align-items: flex-start; margin-top: 14rpx; padding: 22rpx; font-size: 25rpx; }
 .row-main { flex: 1; }
 .row-title { font-weight: 800; }
-.itinerary-type-mark { margin-left: 8rpx; color: var(--pm-primary-dark); font-size: 19rpx; font-weight: 700; }
 .review { color: #8a6500; font-size: 23rpx; }
 .empty-card { margin-top: 16rpx; }

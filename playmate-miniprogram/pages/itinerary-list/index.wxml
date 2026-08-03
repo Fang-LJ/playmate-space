@@ -1,6 +1,6 @@
 <view class="page p1-page">
   <view class="page-title">行程</view>
-  <view class="page-subtitle">按日期安排这次活动的每一步。</view>
+  <view class="page-subtitle">按日期查看每一步，标题说明做什么，第二行突出最终方案。</view>
   <view wx:if="{{loading}}" class="section card">正在加载行程…</view>
   <view wx:elif="{{errorMessage}}" class="section card stack">
     <view>{{errorMessage}}</view>
@@ -15,16 +15,11 @@
     </view>
     <block wx:for="{{items}}" wx:key="date">
       <view class="date-head">
-        <view><text class="date-title">{{item.date}}</text><text class="date-weekday">{{item.weekday}}</text></view>
-        <view class="date-count">{{item.countText}}</view>
+        <view class="date-title">{{item.dateText}}</view>
+        <view class="date-count"><view>共 {{item.count}}</view><view>项</view></view>
       </view>
-      <view wx:for="{{item.items}}" wx:key="itineraryId" class="itinerary-card" data-id="{{item.itineraryId}}" bindtap="goDetail">
-        <view class="itinerary-time">{{item.timeText}}</view>
-        <view class="itinerary-main">
-          <view class="itinerary-name">{{item.title}}</view>
-          <view class="itinerary-meta">{{item.summaryText}}</view>
-        </view>
-        <view class="itinerary-status">{{item.statusText}}</view>
+      <view class="date-itinerary-list">
+        <itinerary-card wx:for="{{item.items}}" wx:key="itineraryId" item="{{item}}" bindselect="goDetail" />
       </view>
     </block>
     <view wx:if="{{!readOnly}}" class="p1-bottom"><button class="pm-native-button primary" bindtap="goCreate">新增行程</button></view>

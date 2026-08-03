@@ -1,7 +1,25 @@
-const { createItinerary, getItineraryDetail, updateItinerary } = require('../../services/itinerary');
-const { ITINERARY_TYPE } = require('../../utils/p1-display');
+const {
+  createItinerary,
+  getItineraryDetail,
+  getItineraryTypeMetadata,
+  updateItinerary
+} = require('../../services/itinerary');
+const { ITINERARY_STATUS, label } = require('../../utils/p1-display');
+const {
+  buildFormViewModel,
+  normalizeMetadata,
+  typeOptions,
+  typeSpecificKeys
+} = require('../../utils/itinerary-ui');
 
-const TYPES = Object.keys(ITINERARY_TYPE);
+const TYPE_COPY = {
+  TRANSPORT: '交通行程重点是方式、起点、终点和路线。',
+  MEAL: '用餐行程重点是吃什么、去哪家店和具体地址。',
+  LODGING: '住宿只保留酒店、地址和入住安排，避免表单过重。',
+  SIGHTSEEING: '景点行程重点是游玩内容、景点名称和地址。',
+  ACTIVITY: '活动行程重点是活动内容、地点和具体安排。',
+  OTHER: '其他行程保留地点和备注，适合自由安排。'
+};
 
 function pad(value) {
   return String(value).padStart(2, '0');
@@ -20,31 +38,43 @@ function defaultSchedule() {
   };
 }
 
+function createForm(metadata, itinerary) {
+  const form = {
+    title: '',
+    itineraryType: 'OTHER',
+    ...defaultSchedule(),
+    allDay: false,
+    description: ''
+  };
+  normalizeMetadata(metadata).forEach((definition) => {
+    [...(definition.focusFields || []), ...(definition.commonFields || [])].forEach((field) => {
+      if (!(field.key in form)) form[field.key] = '';
+    });
+  });
+  if (!itinerary) return form;
+  Object.keys(form).forEach((key) => {
+    if (itinerary[key] !== undefined && itinerary[key] !== null) form[key] = itinerary[key];
+  });
+  form.itineraryType = itinerary.itineraryType || 'OTHER';
+  form.allDay = false;
+  return form;
+}
+
 Page({
   data: {
     activityId: '',
     itineraryId: '',
+    loading: true,
+    metadataError: '',
     saving: false,
     withPoll: false,
-    types: TYPES.map((value) => ({ value, label: ITINERARY_TYPE[value] })),
-    typeIndex: TYPES.indexOf('OTHER'),
+    metadata: [],
+    types: [],
+    form: null,
+    formView: null,
+    typeCopy: '',
+    statusText: '保存后已确认',
     needsTimeCompletion: false,
-    form: {
-      title: '',
-      itineraryType: 'OTHER',
-      ...defaultSchedule(),
-      allDay: false,
-      transportMode: '',
-      departureName: '',
-      destinationName: '',
-      routeDetail: '',
-      mealType: '',
-      restaurantName: '',
-      activityContent: '',
-      locationName: '',
-      address: '',
-      description: ''
-    },
     poll: {
       title: '',
       description: '',
@@ -53,52 +83,78 @@ Page({
     }
   },
 
-  async onLoad(options) {
+  onLoad(options) {
     this.setData({ activityId: options.activityId || '', itineraryId: options.itineraryId || '' });
-    if (!options.itineraryId) return;
+    this.load();
+  },
+
+  async load(forceMetadata = false) {
+    this.setData({ loading: true, metadataError: '' });
     try {
-      const detail = await getItineraryDetail(options.activityId, options.itineraryId);
-      const itinerary = detail.itinerary || {};
-      const historicalAllDay = Boolean(itinerary.allDay);
-      const typeIndex = Math.max(0, TYPES.indexOf(itinerary.itineraryType || 'OTHER'));
+      const [metadataResponse, detail] = await Promise.all([
+        getItineraryTypeMetadata(forceMetadata),
+        this.data.itineraryId
+          ? getItineraryDetail(this.data.activityId, this.data.itineraryId)
+          : Promise.resolve(null)
+      ]);
+      const metadata = normalizeMetadata(metadataResponse);
+      if (metadata.length !== 6) throw new Error('行程类型信息不完整，请重试');
+      const itinerary = detail && detail.itinerary;
+      const historicalAllDay = Boolean(itinerary && itinerary.allDay);
+      const form = createForm(metadata, itinerary);
+      if (historicalAllDay) {
+        form.startTime = '';
+        form.endTime = '';
+      }
       this.setData({
-        typeIndex,
-        needsTimeCompletion: historicalAllDay || !itinerary.startTime || !itinerary.endTime,
-        form: {
-          ...this.data.form,
-          ...itinerary,
-          allDay: false,
-          startTime: historicalAllDay ? '' : (itinerary.startTime || ''),
-          endTime: historicalAllDay ? '' : (itinerary.endTime || '')
-        }
+        metadata,
+        types: typeOptions(metadata),
+        form,
+        formView: buildFormViewModel(metadata, form.itineraryType, form),
+        typeCopy: TYPE_COPY[form.itineraryType] || '',
+        statusText: itinerary
+          ? label(ITINERARY_STATUS, itinerary.planningStatus)
+          : '保存后已确认',
+        needsTimeCompletion: historicalAllDay || Boolean(itinerary && (!itinerary.startTime || !itinerary.endTime))
       });
     } catch (error) {
-      wx.showToast({ title: error.message || '行程加载失败', icon: 'none' });
+      this.setData({ metadataError: error.message || '行程类型信息加载失败' });
+    } finally {
+      this.setData({ loading: false });
     }
   },
 
+  retryMetadata() {
+    this.load(true);
+  },
+
+  applyFormValue(key, value) {
+    const form = { ...this.data.form, [key]: value };
+    this.setData({
+      form,
+      formView: buildFormViewModel(this.data.metadata, form.itineraryType, form)
+    });
+  },
+
   input(event) {
-    this.setData({ [`form.${event.currentTarget.dataset.key}`]: event.detail.value });
+    this.applyFormValue(event.currentTarget.dataset.key, event.detail.value);
   },
 
   pickFormValue(event) {
-    this.setData({ [`form.${event.currentTarget.dataset.key}`]: event.detail.value });
+    this.applyFormValue(event.currentTarget.dataset.key, event.detail.value);
   },
 
   pickType(event) {
-    const typeIndex = Number(event.detail.value);
+    const nextType = event.currentTarget.dataset.type;
+    if (!nextType || nextType === this.data.form.itineraryType) return;
+    const form = { ...this.data.form, itineraryType: nextType };
+    typeSpecificKeys(this.data.metadata).forEach((key) => {
+      form[key] = '';
+    });
     this.setData({
-      typeIndex,
-      'form.itineraryType': TYPES[typeIndex],
-      'form.transportMode': '',
-      'form.departureName': '',
-      'form.destinationName': '',
-      'form.routeDetail': '',
-      'form.mealType': '',
-      'form.restaurantName': '',
-      'form.activityContent': '',
-      'form.locationName': '',
-      'form.address': ''
+      form,
+      formView: buildFormViewModel(this.data.metadata, nextType, form),
+      typeCopy: TYPE_COPY[nextType] || ''
     });
   },
 
@@ -121,8 +177,7 @@ Page({
   removeOption(event) {
     const index = Number(event.currentTarget.dataset.index);
     if (this.data.poll.options.length <= 2) return;
-    const options = this.data.poll.options.filter((_, itemIndex) => itemIndex !== index);
-    this.setData({ 'poll.options': options });
+    this.setData({ 'poll.options': this.data.poll.options.filter((_, itemIndex) => itemIndex !== index) });
   },
 
   cancel() {
@@ -131,7 +186,7 @@ Page({
 
   validateForm() {
     const form = this.data.form;
-    if (!form.title.trim()) return '请填写行程标题';
+    if (!form || !form.title.trim()) return '请填写行程标题';
     if (!form.itineraryDate || !form.startTime || !form.endTime) {
       return this.data.needsTimeCompletion ? '历史全天行程请补充开始和结束时间' : '请选择开始和结束时间';
     }
@@ -146,6 +201,7 @@ Page({
   },
 
   async save() {
+    if (this.data.saving) return;
     const validationMessage = this.validateForm();
     if (validationMessage) {
       wx.showToast({ title: validationMessage, icon: 'none' });

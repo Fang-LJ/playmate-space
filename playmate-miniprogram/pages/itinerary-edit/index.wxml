@@ -1,100 +1,96 @@
 <view class="page p1-edit-page">
   <view class="page-title">{{itineraryId ? '编辑行程' : '新增行程'}}</view>
-  <view class="page-subtitle">先安排好时间和地点；还没决定时，可以发起投票。</view>
 
-  <view wx:if="{{needsTimeCompletion}}" class="time-completion-tip">这是一条历史全天行程，请补充开始和结束时间后再保存。</view>
+  <view wx:if="{{loading}}" class="section card">正在加载行程类型…</view>
+  <view wx:elif="{{metadataError}}" class="section card stack">
+    <view>{{metadataError}}</view>
+    <button class="pm-native-button primary" bindtap="retryMetadata">重新加载</button>
+  </view>
 
-  <view class="section card pm-form-card">
-    <view class="pm-field">
-      <view class="pm-label">行程标题</view>
-      <input class="pm-input" value="{{form.title}}" data-key="title" bindinput="input" placeholder="例如：周六晚上晚餐" />
+  <block wx:else>
+    <view class="page-subtitle">{{typeCopy}}</view>
+
+    <view class="type-strip">
+      <view
+        wx:for="{{types}}"
+        wx:key="value"
+        class="type-chip {{item.themeClass}} {{form.itineraryType === item.value ? 'active' : ''}}"
+        data-type="{{item.value}}"
+        bindtap="pickType"
+      >{{item.label}}</view>
     </view>
-    <view class="pm-field">
-      <view class="pm-label">行程类型</view>
-      <picker range="{{types}}" range-key="label" value="{{typeIndex}}" bindchange="pickType">
-        <view class="pm-picker">{{types[typeIndex].label}}</view>
-      </picker>
+
+    <view wx:if="{{needsTimeCompletion}}" class="time-completion-tip">这是一条历史全天行程，请补充开始和结束时间后再保存。</view>
+
+    <view class="section form-section-card">
+      <view class="field-grid">
+        <block wx:for="{{formView.commonFields}}" wx:key="key">
+          <view class="form-field {{item.layoutClass}}">
+            <view class="field-label">{{item.label}}</view>
+            <picker wx:if="{{item.control === 'date'}}" mode="date" value="{{item.value}}" data-key="{{item.key}}" bindchange="pickFormValue">
+              <view class="field-control {{item.value ? '' : 'placeholder'}}">{{item.value || '选择日期'}}</view>
+            </picker>
+            <picker wx:elif="{{item.control === 'time'}}" mode="time" value="{{item.value}}" data-key="{{item.key}}" bindchange="pickFormValue">
+              <view class="field-control {{item.value ? '' : 'placeholder'}}">{{item.value || '选择时间'}}</view>
+            </picker>
+            <input wx:else class="field-control" value="{{item.value}}" data-key="{{item.key}}" bindinput="input" placeholder="请输入{{item.label}}" />
+          </view>
+        </block>
+        <view class="form-field half status-field">
+          <view class="field-label">状态</view>
+          <view class="field-control static-value">{{statusText}}</view>
+        </view>
+      </view>
     </view>
-    <view class="pm-field">
-      <view class="pm-label">日期</view>
-      <picker mode="date" value="{{form.itineraryDate}}" data-key="itineraryDate" bindchange="pickFormValue">
-        <view class="pm-picker">{{form.itineraryDate}}</view>
-      </picker>
+
+    <view wx:if="{{formView.arrangementFields.length}}" class="section form-section-card">
+      <view class="form-section-title">{{formView.arrangementTitle}}</view>
+      <view class="field-grid">
+        <view wx:for="{{formView.arrangementFields}}" wx:key="key" class="form-field {{item.layoutClass}}">
+          <view class="field-label">{{item.label}}</view>
+          <input class="field-control {{index === 0 ? 'type-focus-control' : ''}}" value="{{item.value}}" data-key="{{item.key}}" bindinput="input" placeholder="请输入{{item.label}}" />
+        </view>
+      </view>
     </view>
-    <view class="time-row">
+
+    <view wx:if="{{formView.descriptionField}}" class="section form-section-card note-form-card">
+      <view class="form-section-title">备注说明</view>
+      <textarea
+        class="note-textarea"
+        value="{{formView.descriptionField.value}}"
+        data-key="description"
+        bindinput="input"
+        placeholder="补充集合要求、路线、预约或其他说明"
+      />
+    </view>
+
+    <view wx:if="{{!itineraryId}}" class="section poll-hint-card">
+      <view class="poll-hint-copy">
+        <view class="poll-hint-title">还没决定？</view>
+        <view class="poll-hint-desc">发起投票，让大家一起确定这项安排。</view>
+      </view>
+      <view class="poll-hint-action" bindtap="togglePoll">{{withPoll ? '直接填写' : '发起投票'}}</view>
+    </view>
+
+    <view wx:if="{{withPoll}}" class="section card pm-form-card">
+      <view class="section-title">投票内容</view>
       <view class="pm-field">
-        <view class="pm-label">开始时间</view>
-        <picker mode="time" value="{{form.startTime}}" data-key="startTime" bindchange="pickFormValue">
-          <view class="pm-picker {{form.startTime ? '' : 'placeholder'}}">{{form.startTime || '选择时间'}}</view>
-        </picker>
+        <view class="pm-label">投票问题</view>
+        <input class="pm-input" value="{{poll.title}}" data-key="title" bindinput="pollInput" placeholder="例如：晚餐吃什么？" />
       </view>
-      <view class="pm-field">
-        <view class="pm-label">结束时间</view>
-        <picker mode="time" value="{{form.endTime}}" data-key="endTime" bindchange="pickFormValue">
-          <view class="pm-picker {{form.endTime ? '' : 'placeholder'}}">{{form.endTime || '选择时间'}}</view>
-        </picker>
+      <view wx:for="{{poll.options}}" wx:key="index" class="poll-option-edit">
+        <view class="pm-label">选项 {{index + 1}}</view>
+        <view class="option-edit-row">
+          <input class="pm-input" value="{{item.optionText}}" data-index="{{index}}" bindinput="optionInput" placeholder="填写候选方案" />
+          <view wx:if="{{index >= 2}}" class="option-remove" data-index="{{index}}" bindtap="removeOption">删除</view>
+        </view>
       </view>
+      <view class="pm-link" bindtap="addOption">+ 添加选项</view>
     </view>
-    <view wx:if="{{form.itineraryType === 'TRANSPORT'}}" class="structured-fields">
-      <view class="structured-title">交通安排</view>
-      <view class="pm-field"><view class="pm-label">交通方式</view><input class="pm-input" value="{{form.transportMode}}" data-key="transportMode" bindinput="input" placeholder="例如：高铁、自驾" /></view>
-      <view class="time-row">
-        <view class="pm-field"><view class="pm-label">出发地</view><input class="pm-input" value="{{form.departureName}}" data-key="departureName" bindinput="input" placeholder="从哪里出发" /></view>
-        <view class="pm-field"><view class="pm-label">目的地</view><input class="pm-input" value="{{form.destinationName}}" data-key="destinationName" bindinput="input" placeholder="到哪里" /></view>
-      </view>
-      <view class="pm-field"><view class="pm-label">路线</view><input class="pm-input" value="{{form.routeDetail}}" data-key="routeDetail" bindinput="input" placeholder="车次、途经点或路线说明" /></view>
-    </view>
-    <view wx:elif="{{form.itineraryType === 'MEAL'}}" class="structured-fields">
-      <view class="structured-title">用餐安排</view>
-      <view class="time-row">
-        <view class="pm-field"><view class="pm-label">用餐类型</view><input class="pm-input" value="{{form.mealType}}" data-key="mealType" bindinput="input" placeholder="例如：火锅" /></view>
-        <view class="pm-field"><view class="pm-label">具体餐厅</view><input class="pm-input" value="{{form.restaurantName}}" data-key="restaurantName" bindinput="input" placeholder="餐厅名称" /></view>
-      </view>
-    </view>
-    <view wx:elif="{{form.itineraryType === 'ACTIVITY' || form.itineraryType === 'SIGHTSEEING'}}" class="structured-fields">
-      <view class="structured-title">活动安排</view>
-      <view class="pm-field"><view class="pm-label">活动内容</view><input class="pm-input" value="{{form.activityContent}}" data-key="activityContent" bindinput="input" placeholder="例如：桌游、徒步" /></view>
-    </view>
-    <view class="pm-field">
-      <view class="pm-label">地点</view>
-      <input class="pm-input" value="{{form.locationName}}" data-key="locationName" bindinput="input" placeholder="地点名称（可选）" />
-    </view>
-    <view class="pm-field">
-      <view class="pm-label">地址</view>
-      <input class="pm-input" value="{{form.address}}" data-key="address" bindinput="input" placeholder="详细地址（可选）" />
-    </view>
-    <view class="pm-field">
-      <view class="pm-label">备注</view>
-      <textarea class="pm-textarea" value="{{form.description}}" data-key="description" bindinput="input" placeholder="补充说明（可选）" />
-    </view>
-  </view>
 
-  <view wx:if="{{!itineraryId}}" class="section card poll-switch">
-    <view>
-      <view class="section-title">还没决定？</view>
-      <view class="section-desc">发起投票，让大家一起确定安排。</view>
+    <view class="p1-fixed-footer">
+      <button class="footer-action secondary" bindtap="cancel">取消</button>
+      <button class="footer-action primary" loading="{{saving}}" disabled="{{saving}}" bindtap="save">{{withPoll ? '保存并发起投票' : '保存行程'}}</button>
     </view>
-    <view class="pm-link" bindtap="togglePoll">{{withPoll ? '直接填写' : '发起投票'}}</view>
-  </view>
-
-  <view wx:if="{{withPoll}}" class="section card pm-form-card">
-    <view class="section-title">投票内容</view>
-    <view class="pm-field">
-      <view class="pm-label">投票问题</view>
-      <input class="pm-input" value="{{poll.title}}" data-key="title" bindinput="pollInput" placeholder="例如：晚餐吃什么？" />
-    </view>
-    <view wx:for="{{poll.options}}" wx:key="index" class="poll-option-edit">
-      <view class="pm-label">选项 {{index + 1}}</view>
-      <view class="option-edit-row">
-        <input class="pm-input" value="{{item.optionText}}" data-index="{{index}}" bindinput="optionInput" placeholder="填写候选方案" />
-        <view wx:if="{{index >= 2}}" class="option-remove" data-index="{{index}}" bindtap="removeOption">删除</view>
-      </view>
-    </view>
-    <view class="pm-link" bindtap="addOption">+ 添加选项</view>
-  </view>
-
-  <view class="p1-fixed-footer">
-    <button class="pm-native-button secondary footer-cancel" bindtap="cancel">取消</button>
-    <button class="pm-native-button primary footer-save" loading="{{saving}}" bindtap="save">{{withPoll ? '保存并发起投票' : '保存行程'}}</button>
-  </view>
+  </block>
 </view>

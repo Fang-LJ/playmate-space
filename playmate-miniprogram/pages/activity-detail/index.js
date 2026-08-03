@@ -2,7 +2,8 @@ const { cancelActivity, endActivity, getActivityDetail } = require('../../servic
 const { getItineraries } = require('../../services/itinerary');
 const { getPolls, getSummary } = require('../../services/poll');
 const { getActivityMembers } = require('../../services/member');
-const { ITINERARY_STATUS, ITINERARY_TYPE, POLL_RESULT_STATUS, POLL_STATUS, formatTimeRange, itinerarySummary, label } = require('../../utils/p1-display');
+const { POLL_RESULT_STATUS, POLL_STATUS, label } = require('../../utils/p1-display');
+const { buildCardViewModel } = require('../../utils/itinerary-ui');
 
 const STATUS = { PLANNING: '规划中', ONGOING: '进行中', ENDED: '已结束', CANCELED: '已取消' };
 const TYPE = { TRAVEL: '旅行', MEAL: '聚餐', TEAM_BUILDING: '团建', BIRTHDAY: '生日', CAMPING: '露营', DRIVE: '自驾', BOARD_GAME: '桌游', OTHER: '其他' };
@@ -31,13 +32,7 @@ Page({
       this.setData({
         activity: this.normalizeActivity(activity),
         summary,
-        itineraries: (itineraries || []).map((item) => ({
-          ...item,
-          timeText: formatTimeRange(item),
-          planningStatusText: label(ITINERARY_STATUS, item.planningStatus),
-          typeText: label(ITINERARY_TYPE, item.itineraryType),
-          summaryText: itinerarySummary(item)
-        })),
+        itineraries: (itineraries || []).map((item) => buildCardViewModel(item)),
         polls: (polls || []).map((item) => ({
           ...item,
           statusText: label(POLL_STATUS, item.status),
@@ -76,7 +71,10 @@ Page({
   goMembers() { wx.navigateTo({ url: `/pages/member-list/index?activityId=${this.data.activityId}` }); },
   goItineraries() { wx.navigateTo({ url: `/pages/itinerary-list/index?activityId=${this.data.activityId}` }); },
   goPolls() { wx.navigateTo({ url: `/pages/poll-list/index?activityId=${this.data.activityId}` }); },
-  goItinerary(event) { wx.navigateTo({ url: `/pages/itinerary-detail/index?activityId=${this.data.activityId}&itineraryId=${event.currentTarget.dataset.id}` }); },
+  goItinerary(event) {
+    const itineraryId = event.detail ? event.detail.itineraryId : event.currentTarget.dataset.id;
+    wx.navigateTo({ url: `/pages/itinerary-detail/index?activityId=${this.data.activityId}&itineraryId=${itineraryId}` });
+  },
   goPoll(event) { wx.navigateTo({ url: `/pages/poll-detail/index?activityId=${this.data.activityId}&pollId=${event.currentTarget.dataset.id}` }); },
   newItinerary() { wx.navigateTo({ url: `/pages/itinerary-edit/index?activityId=${this.data.activityId}` }); },
   newPoll() { wx.navigateTo({ url: `/pages/poll-create/index?activityId=${this.data.activityId}` }); },

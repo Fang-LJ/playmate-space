@@ -1,24 +1,30 @@
-const { getItineraryDetail, cancelItinerary, deleteItinerary, restoreItinerary } = require('../../services/itinerary');
-const { ITINERARY_STATUS, ITINERARY_TYPE, POLL_RESULT_STATUS, POLL_STATUS, formatTimeRange, itinerarySummary, label } = require('../../utils/p1-display');
+const {
+  getItineraryDetail,
+  getItineraryTypeMetadata,
+  cancelItinerary,
+  deleteItinerary,
+  restoreItinerary
+} = require('../../services/itinerary');
+const { POLL_RESULT_STATUS, POLL_STATUS, label } = require('../../utils/p1-display');
+const { buildDetailViewModel, normalizeMetadata } = require('../../utils/itinerary-ui');
 
 Page({
   data: { activityId: '', itineraryId: '', detail: null, loading: true, errorMessage: '', actionMenuVisible: false },
   onLoad(options) { this.setData({ activityId: options.activityId || '', itineraryId: options.itineraryId || '' }); },
   onShow() { if (this.data.itineraryId) this.load(); },
-  async load() {
+  async load(forceMetadata = false) {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      const detail = await getItineraryDetail(this.data.activityId, this.data.itineraryId);
+      const [detail, metadata] = await Promise.all([
+        getItineraryDetail(this.data.activityId, this.data.itineraryId),
+        getItineraryTypeMetadata(forceMetadata)
+      ]);
+      const itinerary = buildDetailViewModel(detail.itinerary, normalizeMetadata(metadata));
+      if (!itinerary) throw new Error('行程类型信息加载失败，请重试');
       this.setData({
         detail: {
           ...detail,
-          itinerary: {
-            ...detail.itinerary,
-            timeText: formatTimeRange(detail.itinerary),
-            planningStatusText: label(ITINERARY_STATUS, detail.itinerary.planningStatus),
-            typeText: label(ITINERARY_TYPE, detail.itinerary.itineraryType),
-            summaryText: itinerarySummary(detail.itinerary)
-          },
+          itinerary,
           relatedPolls: (detail.relatedPolls || []).map((item) => ({
             ...item, statusText: label(POLL_STATUS, item.status), resultText: label(POLL_RESULT_STATUS, item.resultApplyStatus)
           }))
@@ -27,6 +33,7 @@ Page({
     } catch (error) { this.setData({ errorMessage: error.message || '加载失败' }); }
     finally { this.setData({ loading: false }); }
   },
+  retry() { this.load(true); },
   edit() {
     this.closeActionMenu();
     wx.navigateTo({ url: `/pages/itinerary-edit/index?activityId=${this.data.activityId}&itineraryId=${this.data.itineraryId}` });

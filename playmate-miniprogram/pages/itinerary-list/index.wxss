@@ -1,1 +1,11 @@
-.date-head{display:flex;align-items:center;justify-content:space-between;margin:34rpx 2rpx 14rpx}.date-title{color:var(--pm-text);font-size:30rpx;font-weight:800}.date-weekday{margin-left:14rpx;color:var(--pm-text-muted);font-size:24rpx}.date-count{color:var(--pm-primary-dark);font-size:23rpx;font-weight:700}.itinerary-card{display:flex;align-items:flex-start;gap:18rpx;margin-top:14rpx;padding:24rpx;border:1rpx solid var(--pm-border);border-radius:28rpx;background:#fff;box-shadow:var(--pm-shadow-soft)}.itinerary-time{width:132rpx;color:var(--pm-text-muted);font-size:23rpx;line-height:1.45}.itinerary-main{flex:1;min-width:0}.itinerary-name{overflow:hidden;font-size:29rpx;font-weight:800;text-overflow:ellipsis;white-space:nowrap}.itinerary-meta{margin-top:8rpx;color:var(--pm-text-muted);font-size:23rpx;line-height:1.45}.itinerary-status{flex:none;padding:5rpx 10rpx;border-radius:999rpx;background:var(--pm-primary-light);color:var(--pm-primary-dark);font-size:21rpx}.empty-card{margin-top:32rpx}.empty-card .pm-native-button{margin-top:28rpx}.read-only-note{margin-top:22rpx;color:var(--pm-text-muted);font-size:24rpx}.p1-bottom{position:sticky;bottom:0;margin-top:30rpx;padding:20rpx 0 calc(20rpx + env(safe-area-inset-bottom));background:var(--pm-bg)}
+.p1-page { padding: 36rpx 40rpx 180rpx; }
+.p1-page .page-title { font-size: 56rpx; line-height: 82rpx; }
+.p1-page .page-subtitle { margin-top: 10rpx; font-size: 26rpx; line-height: 38rpx; }
+.date-head { display: flex; align-items: center; justify-content: space-between; margin: 44rpx 2rpx 18rpx; }
+.date-title { color: #16231b; font-size: 38rpx; font-weight: 800; line-height: 1.35; }
+.date-count { color: #66756c; font-size: 24rpx; line-height: 28rpx; text-align: center; }
+.date-itinerary-list { display: flex; flex-direction: column; gap: 20rpx; }
+.empty-card { margin-top: 32rpx; }
+.empty-card .pm-native-button { margin-top: 28rpx; }
+.read-only-note { margin-top: 22rpx; color: var(--pm-text-muted); font-size: 24rpx; }
+.p1-bottom { position: fixed; z-index: 8; right: 0; bottom: 0; left: 0; padding: 22rpx 40rpx calc(22rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #d6e4db; background: rgba(255, 255, 255, 0.96); }

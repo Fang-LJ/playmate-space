@@ -1,0 +1,128 @@
+:host {
+  display: block;
+}
+
+.itinerary-card {
+  --type-bg: #f1f4f2;
+  --type-border: #cdd8d1;
+  --type-text: #66756c;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 24rpx 28rpx;
+  border: 1rpx solid #d6e4db;
+  border-radius: 36rpx;
+  background: #ffffff;
+  box-shadow: 0 14rpx 18rpx rgba(22, 53, 38, 0.08);
+}
+
+.itinerary-card.transport { --type-bg: #eaf3ff; --type-border: #a8c8f0; --type-text: #3977b8; }
+.itinerary-card.meal { --type-bg: #fff3e7; --type-border: #e7bd8e; --type-text: #a85e20; }
+.itinerary-card.lodging { --type-bg: #f3eeff; --type-border: #cdbcf3; --type-text: #7658b6; }
+.itinerary-card.sightseeing { --type-bg: #e8f7f3; --type-border: #a5d9cb; --type-text: #2d8972; }
+.itinerary-card.activity { --type-bg: #fff0f4; --type-border: #e7b4c2; --type-text: #b15070; }
+
+.card-grid {
+  display: grid;
+  grid-template-columns: 176rpx minmax(0, 1fr) auto;
+  column-gap: 20rpx;
+  align-items: start;
+}
+
+.card-grid-primary {
+  min-height: 44rpx;
+}
+
+.card-grid-secondary {
+  margin-top: 12rpx;
+}
+
+.card-grid-description {
+  grid-template-columns: 176rpx minmax(0, 1fr);
+  margin-top: 10rpx;
+}
+
+.itinerary-time {
+  color: #66756c;
+  font-size: 24rpx;
+  line-height: 40rpx;
+  white-space: nowrap;
+}
+
+.itinerary-title {
+  overflow: hidden;
+  min-width: 0;
+  color: #16231b;
+  font-size: 30rpx;
+  font-weight: 700;
+  line-height: 40rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itinerary-status,
+.itinerary-type {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 999rpx;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.itinerary-status {
+  min-height: 44rpx;
+  padding: 0 18rpx;
+  border: 1rpx solid #55ae84;
+  background: #eaf6f0;
+  color: #3f9872;
+  font-size: 22rpx;
+}
+
+.itinerary-card.pending_decision .itinerary-status,
+.itinerary-card.draft .itinerary-status {
+  border-color: #e9c85b;
+  background: #fff6d9;
+  color: #866700;
+}
+
+.itinerary-card.canceled {
+  opacity: 0.72;
+}
+
+.itinerary-card.canceled .itinerary-status {
+  border-color: #cdd8d1;
+  background: #f1f4f2;
+  color: #66756c;
+}
+
+.itinerary-type {
+  align-self: start;
+  justify-self: start;
+  min-width: 88rpx;
+  min-height: 42rpx;
+  padding: 0 18rpx;
+  border: 1rpx solid var(--type-border);
+  background: var(--type-bg);
+  color: var(--type-text);
+  font-size: 22rpx;
+}
+
+.itinerary-summary,
+.itinerary-description {
+  grid-column: 2;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 25rpx;
+  line-height: 36rpx;
+}
+
+.itinerary-summary {
+  color: #16231b;
+  font-weight: 600;
+}
+
+.itinerary-description {
+  color: #66756c;
+  font-weight: 400;
+}
