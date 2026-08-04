@@ -209,6 +209,36 @@ class ItineraryTypePolicyTest {
     }
 
     @Test
+    void exposesCompleteFullPlanScopeForEveryTypeAndRejectsNarrowing() {
+        assertEquals(List.of(
+                        "title", "itineraryDate", "startTime", "endTime",
+                        "transportMode", "departureName", "destinationName", "description"),
+                policy.resolveDecisionScope("TRANSPORT", "FULL_PLAN", null));
+        assertEquals(List.of(
+                        "title", "itineraryDate", "startTime", "endTime",
+                        "mealType", "restaurantName", "address", "description"),
+                policy.resolveDecisionScope("MEAL", "FULL_PLAN", null));
+        assertEquals(List.of(
+                        "title", "itineraryDate", "startTime", "endTime",
+                        "locationName", "address", "description"),
+                policy.resolveDecisionScope("LODGING", "FULL_PLAN", null));
+        assertEquals(List.of(
+                        "title", "itineraryDate", "startTime", "endTime",
+                        "activityContent", "locationName", "address", "description"),
+                policy.resolveDecisionScope("SIGHTSEEING", "FULL_PLAN", null));
+        assertEquals(List.of(
+                        "title", "itineraryDate", "startTime", "endTime",
+                        "activityContent", "locationName", "address", "description"),
+                policy.resolveDecisionScope("ACTIVITY", "FULL_PLAN", null));
+        assertEquals(List.of(
+                        "title", "itineraryDate", "startTime", "endTime",
+                        "locationName", "address", "description"),
+                policy.resolveDecisionScope("OTHER", "FULL_PLAN", null));
+        assertThrows(BusinessException.class, () -> policy.resolveDecisionScope(
+                "TRANSPORT", "FULL_PLAN", List.of("title", "transportMode")));
+    }
+
+    @Test
     void validatesOrdinaryAndOvernightLodgingTimes() {
         assertThrows(BusinessException.class, () -> policy.validateTimes(
                 "ACTIVITY", LocalTime.of(21, 0), LocalTime.of(9, 0), 0));

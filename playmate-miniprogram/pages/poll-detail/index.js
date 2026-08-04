@@ -66,7 +66,8 @@ Page({
         changedFields: (history.changedFields || []).map((change) => ({
           ...change, beforeText: this.displayValue(change.beforeValue), afterText: this.displayValue(change.afterValue)
         })),
-        unchangedText: (history.unchangedFields || []).map((field) => field.label).join('、')
+        unchangedText: (history.unchangedFields || []).map((field) => field.label).join('、'),
+        keptCurrentPlan: !(history.changedFields || []).length
       })),
       options: (poll.options || []).map((item) => ({
         ...item,
@@ -82,6 +83,7 @@ Page({
     if (!preview) return null;
     return {
       ...preview,
+      keptCurrentPlan: !(preview.changedFields || []).length,
       changedFields: (preview.changedFields || []).map((change) => ({
         ...change,
         beforeText: this.displayValue(change.beforeValue),

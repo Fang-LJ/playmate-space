@@ -7,12 +7,19 @@
 .scope-chip { display: inline-block; margin: 0 10rpx 8rpx 0; padding: 4rpx 12rpx; border-radius: 999rpx; }
 .scope-chip.change { background: var(--pm-primary-light); color: var(--pm-primary-dark); font-weight: 700; }
 .scope-unchanged { color: var(--pm-text); }
+.full-plan-note { color: var(--pm-text); font-size: 25rpx; line-height: 1.7; }
 .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18rpx; }
 .placeholder { color: #9ca9a1; }
 .choice-row { display: flex; gap: 14rpx; }
 .allow-modify-row { display: flex; align-items: center; justify-content: space-between; margin-top: 18rpx; color: var(--pm-text-muted); font-size: 25rpx; }
 .short-textarea { height: 132rpx; }
 .poll-option-edit { display: flex; flex-direction: column; gap: 14rpx; padding: 22rpx; border: 1rpx solid var(--pm-border); border-radius: 22rpx; background: #fbfdfb; }
+.full-plan-option { gap: 20rpx; padding: 26rpx; }
+.plan-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 18rpx; }
+.plan-field { min-width: 0; }
+.plan-field.full { grid-column: 1 / -1; }
+.plan-description { min-height: 136rpx; }
+.error-card { color: var(--pm-danger); line-height: 1.6; }
 .option-card-title { display: flex; align-items: center; justify-content: space-between; }
 .option-secondary { min-height: 76rpx; font-size: 25rpx; }
 .option-remove { color: var(--pm-danger); font-size: 24rpx; }

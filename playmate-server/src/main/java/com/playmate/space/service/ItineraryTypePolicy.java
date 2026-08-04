@@ -55,7 +55,10 @@ public class ItineraryTypePolicy {
                 decisions(
                         "TRANSPORT", List.of("transportMode"),
                         "ROUTE", List.of("departureName", "destinationName"),
-                        "TIME", List.of("itineraryDate", "startTime", "endTime")));
+                        "TIME", List.of("itineraryDate", "startTime", "endTime"),
+                        "FULL_PLAN", List.of(
+                                "title", "itineraryDate", "startTime", "endTime",
+                                "transportMode", "departureName", "destinationName", "description")));
         add("MEAL", "用餐",
                 fields(
                         "mealType", "用餐类型",
@@ -69,7 +72,10 @@ public class ItineraryTypePolicy {
                         "description", "备注说明"),
                 decisions(
                         "RESTAURANT", List.of("mealType", "restaurantName", "address"),
-                        "TIME", List.of("itineraryDate", "startTime", "endTime")));
+                        "TIME", List.of("itineraryDate", "startTime", "endTime"),
+                        "FULL_PLAN", List.of(
+                                "title", "itineraryDate", "startTime", "endTime",
+                                "mealType", "restaurantName", "address", "description")));
         add("LODGING", "住宿",
                 fields(
                         "locationName", "酒店名称",
@@ -82,7 +88,10 @@ public class ItineraryTypePolicy {
                         "description", "备注说明"),
                 decisions(
                         "PLACE", List.of("locationName", "address"),
-                        "TIME", List.of("itineraryDate", "startTime", "endTime")));
+                        "TIME", List.of("itineraryDate", "startTime", "endTime"),
+                        "FULL_PLAN", List.of(
+                                "title", "itineraryDate", "startTime", "endTime",
+                                "locationName", "address", "description")));
         add("SIGHTSEEING", "景点",
                 fields(
                         "activityContent", "游玩内容",
@@ -97,7 +106,10 @@ public class ItineraryTypePolicy {
                 decisions(
                         "CONTENT", List.of("activityContent"),
                         "PLACE", List.of("locationName", "address"),
-                        "TIME", List.of("itineraryDate", "startTime", "endTime")));
+                        "TIME", List.of("itineraryDate", "startTime", "endTime"),
+                        "FULL_PLAN", List.of(
+                                "title", "itineraryDate", "startTime", "endTime",
+                                "activityContent", "locationName", "address", "description")));
         add("ACTIVITY", "活动",
                 fields(
                         "activityContent", "活动内容",
@@ -112,7 +124,10 @@ public class ItineraryTypePolicy {
                 decisions(
                         "CONTENT", List.of("activityContent"),
                         "PLACE", List.of("locationName", "address"),
-                        "TIME", List.of("itineraryDate", "startTime", "endTime")));
+                        "TIME", List.of("itineraryDate", "startTime", "endTime"),
+                        "FULL_PLAN", List.of(
+                                "title", "itineraryDate", "startTime", "endTime",
+                                "activityContent", "locationName", "address", "description")));
         add("OTHER", "其他",
                 fields("locationName", "地点"),
                 fields(
@@ -124,7 +139,10 @@ public class ItineraryTypePolicy {
                         "description", "备注说明"),
                 decisions(
                         "PLACE", List.of("locationName", "address"),
-                        "TIME", List.of("itineraryDate", "startTime", "endTime")));
+                        "TIME", List.of("itineraryDate", "startTime", "endTime"),
+                        "FULL_PLAN", List.of(
+                                "title", "itineraryDate", "startTime", "endTime",
+                                "locationName", "address", "description")));
     }
 
     public String normalizeType(String value) {
@@ -161,6 +179,13 @@ public class ItineraryTypePolicy {
             throw param(definition.label() + "行程不支持" + decisionLabel(normalizedDecision) + "决策");
         }
         if (requestedScope == null || requestedScope.isEmpty()) {
+            return maximum;
+        }
+        if ("FULL_PLAN".equals(normalizedDecision)) {
+            LinkedHashSet<String> requested = new LinkedHashSet<>(requestedScope);
+            if (requested.size() != maximum.size() || !requested.containsAll(maximum)) {
+                throw param("完整方案投票必须包含全部可编辑方案字段");
+            }
             return maximum;
         }
         LinkedHashSet<String> requested = new LinkedHashSet<>();
@@ -394,6 +419,7 @@ public class ItineraryTypePolicy {
             case "PLACE" -> "地点";
             case "CONTENT" -> "活动内容";
             case "ITINERARY_NAME" -> "行程名称";
+            case "FULL_PLAN" -> "完整方案";
             default -> "其他";
         };
     }

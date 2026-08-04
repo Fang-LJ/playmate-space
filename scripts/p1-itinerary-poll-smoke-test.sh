@@ -102,6 +102,46 @@ TRANSPORT_DETAIL=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$TRANS
 [[ $(printf '%s' "$TRANSPORT_CLOSED"|jq -r '.data.applicationHistory | length') == 1 ]] || fail "交通投票应用历史未保存"
 pass "交通投票只更新交通方式并保存应用历史"
 
+FULL_TARGET=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{"creationMode":"DIRECT","title":"周六早上自驾行程","itineraryType":"TRANSPORT","itineraryDate":"2026-07-19","startTime":"08:00","endTime":"11:00","allDay":false,"transportMode":"自驾","departureName":"杭州","destinationName":"上海","description":"走高速"}')
+FULL_TARGET_ID=$(printf '%s' "$FULL_TARGET" | jq -r '.data.itineraryId')
+INVALID_FULL_TYPE=$(api -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"title\":\"非法完整方案类型\",\"purpose\":\"UPDATE_ITINERARY\",\"decisionType\":\"FULL_PLAN\",\"targetItineraryId\":$FULL_TARGET_ID,\"voteType\":\"SINGLE\",\"options\":[{\"optionText\":\"A\",\"resultPayload\":{\"title\":\"方案 A\",\"itineraryDate\":\"2026-07-19\",\"startTime\":\"08:00\",\"endTime\":\"11:00\",\"transportMode\":\"自驾\",\"departureName\":\"杭州\",\"destinationName\":\"上海\",\"description\":\"走高速\",\"itineraryType\":\"MEAL\"}},{\"optionText\":\"B\",\"resultPayload\":{\"title\":\"方案 B\",\"itineraryDate\":\"2026-07-19\",\"startTime\":\"08:00\",\"endTime\":\"11:00\",\"transportMode\":\"高铁\",\"departureName\":\"杭州东站\",\"destinationName\":\"上海虹桥站\",\"description\":null}}]}")
+[[ "$INVALID_FULL_TYPE" == 400 ]] || fail "FULL_PLAN 不应允许 itineraryType"
+INVALID_FULL_TITLE=$(api -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"title\":\"非法空标题方案\",\"purpose\":\"UPDATE_ITINERARY\",\"decisionType\":\"FULL_PLAN\",\"targetItineraryId\":$FULL_TARGET_ID,\"voteType\":\"SINGLE\",\"options\":[{\"optionText\":\"A\",\"resultPayload\":{\"title\":\"\",\"itineraryDate\":\"2026-07-19\",\"startTime\":\"08:00\",\"endTime\":\"11:00\",\"transportMode\":\"自驾\",\"departureName\":\"杭州\",\"destinationName\":\"上海\",\"description\":\"走高速\"}},{\"optionText\":\"B\",\"resultPayload\":{\"title\":\"方案 B\",\"itineraryDate\":\"2026-07-19\",\"startTime\":\"08:00\",\"endTime\":\"11:00\",\"transportMode\":\"高铁\",\"departureName\":\"杭州东站\",\"destinationName\":\"上海虹桥站\",\"description\":null}}]}")
+[[ "$INVALID_FULL_TITLE" == 400 ]] || fail "FULL_PLAN 标题不能为空"
+INVALID_FULL_MISSING=$(api -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"title\":\"非法缺字段方案\",\"purpose\":\"UPDATE_ITINERARY\",\"decisionType\":\"FULL_PLAN\",\"targetItineraryId\":$FULL_TARGET_ID,\"voteType\":\"SINGLE\",\"options\":[{\"optionText\":\"A\",\"resultPayload\":{\"title\":\"方案 A\",\"itineraryDate\":\"2026-07-19\",\"startTime\":\"08:00\",\"endTime\":\"11:00\",\"transportMode\":\"自驾\",\"departureName\":\"杭州\",\"destinationName\":\"上海\"}},{\"optionText\":\"B\",\"resultPayload\":{\"title\":\"方案 B\",\"itineraryDate\":\"2026-07-19\",\"startTime\":\"08:00\",\"endTime\":\"11:00\",\"transportMode\":\"高铁\",\"departureName\":\"杭州东站\",\"destinationName\":\"上海虹桥站\",\"description\":null}}]}")
+[[ "$INVALID_FULL_MISSING" == 400 ]] || fail "FULL_PLAN 必须提交完整字段"
+pass "完整方案拒绝类型字段、空标题和漏字段"
+
+FULL_POLL=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"title\":\"返程完整方案\",\"purpose\":\"UPDATE_ITINERARY\",\"decisionType\":\"FULL_PLAN\",\"decisionScope\":[\"title\",\"itineraryDate\",\"startTime\",\"endTime\",\"transportMode\",\"departureName\",\"destinationName\",\"description\"],\"targetItineraryId\":$FULL_TARGET_ID,\"voteType\":\"SINGLE\",\"options\":[{\"optionText\":\"保持自驾\",\"resultPayload\":{\"title\":\"周六早上自驾行程\",\"itineraryDate\":\"2026-07-19\",\"startTime\":\"08:00\",\"endTime\":\"11:00\",\"transportMode\":\"自驾\",\"departureName\":\"杭州\",\"destinationName\":\"上海\",\"description\":\"走高速\"}},{\"optionText\":\"改乘高铁\",\"resultPayload\":{\"title\":\"周六早上高铁出发\",\"itineraryDate\":\"2026-07-19\",\"startTime\":\"08:30\",\"endTime\":\"10:30\",\"transportMode\":\"高铁\",\"departureName\":\"杭州东站\",\"destinationName\":\"上海虹桥站\",\"description\":null}}]}")
+FULL_POLL_ID=$(printf '%s' "$FULL_POLL" | jq -r '.data.pollId'); FULL_WINNER=$(printf '%s' "$FULL_POLL" | jq -r '.data.options[1].optionId')
+for T in "$TA" "$TB" "$TC"; do api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$FULL_POLL_ID/votes" -H "Authorization: Bearer $T" -H 'Content-Type: application/json' -d "{\"optionIds\":[$FULL_WINNER]}" >/dev/null; done
+FULL_CLOSED=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$FULL_POLL_ID/close" -H "Authorization: Bearer $TA")
+[[ $(printf '%s' "$FULL_CLOSED" | jq -r '.data.resultApplyStatus') == REVIEW_REQUIRED ]] || fail "FULL_PLAN 唯一胜出必须人工确认"
+[[ $(api "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$FULL_TARGET_ID" -H "Authorization: Bearer $TA" | jq -r '.data.itinerary.transportMode') == 自驾 ]] || fail "人工确认前不应自动修改行程"
+FULL_PREVIEW=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$FULL_POLL_ID/result-preview?optionId=$FULL_WINNER" -H "Authorization: Bearer $TA")
+[[ $(printf '%s' "$FULL_PREVIEW" | jq -r '[.data.changedFields[].field] | index("title") != null') == true ]] || fail "完整方案预览缺少标题变化"
+FULL_APPLIED=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$FULL_POLL_ID/apply-result" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"optionId\":$FULL_WINNER}")
+FULL_DETAIL=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/itineraries/$FULL_TARGET_ID" -H "Authorization: Bearer $TA")
+[[ $(printf '%s' "$FULL_APPLIED" | jq -r '.data.resultApplyStatus') == APPLIED
+  && $(printf '%s' "$FULL_DETAIL" | jq -r '.data.itinerary.title') == 周六早上高铁出发
+  && $(printf '%s' "$FULL_DETAIL" | jq -r '.data.itinerary.itineraryType') == TRANSPORT
+  && $(printf '%s' "$FULL_DETAIL" | jq -r '.data.itinerary.transportMode') == 高铁
+  && $(printf '%s' "$FULL_DETAIL" | jq -r '.data.itinerary.departureName') == 杭州东站
+  && $(printf '%s' "$FULL_DETAIL" | jq -r '.data.itinerary.description') == null ]] || fail "完整方案人工应用结果错误"
+pass "完整方案唯一胜出进入人工确认并应用标题、时间和执行字段"
+
+KEEP_POLL=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"title\":\"是否保持当前高铁方案\",\"purpose\":\"UPDATE_ITINERARY\",\"decisionType\":\"FULL_PLAN\",\"targetItineraryId\":$FULL_TARGET_ID,\"voteType\":\"SINGLE\",\"options\":[{\"optionText\":\"保持当前方案\",\"resultPayload\":{\"title\":\"周六早上高铁出发\",\"itineraryDate\":\"2026-07-19\",\"startTime\":\"08:30\",\"endTime\":\"10:30\",\"transportMode\":\"高铁\",\"departureName\":\"杭州东站\",\"destinationName\":\"上海虹桥站\",\"description\":null}},{\"optionText\":\"同样保持\",\"resultPayload\":{\"title\":\"周六早上高铁出发\",\"itineraryDate\":\"2026-07-19\",\"startTime\":\"08:30\",\"endTime\":\"10:30\",\"transportMode\":\"高铁\",\"departureName\":\"杭州东站\",\"destinationName\":\"上海虹桥站\",\"description\":null}}]}")
+KEEP_POLL_ID=$(printf '%s' "$KEEP_POLL" | jq -r '.data.pollId'); KEEP_OPTION=$(printf '%s' "$KEEP_POLL" | jq -r '.data.options[0].optionId')
+api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$KEEP_POLL_ID/votes" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"optionIds\":[$KEEP_OPTION]}" >/dev/null
+KEEP_CLOSED=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$KEEP_POLL_ID/close" -H "Authorization: Bearer $TA")
+[[ $(printf '%s' "$KEEP_CLOSED" | jq -r '.data.resultApplyStatus') == REVIEW_REQUIRED ]] || fail "保持当前方案也应人工确认"
+KEEP_PREVIEW=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$KEEP_POLL_ID/result-preview?optionId=$KEEP_OPTION" -H "Authorization: Bearer $TA")
+[[ $(printf '%s' "$KEEP_PREVIEW" | jq -r '.data.changedFields | length') == 0 && $(printf '%s' "$KEEP_PREVIEW" | jq -r '.data.canApply') == true ]] || fail "相同方案预览应允许确认"
+KEEP_APPLIED=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls/$KEEP_POLL_ID/apply-result" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"optionId\":$KEEP_OPTION}")
+[[ $(printf '%s' "$KEEP_APPLIED" | jq -r '.data.resultApplyStatus') == APPLIED
+  && $(printf '%s' "$KEEP_APPLIED" | jq -r '.data.applicationHistory[0].changedFields | length') == 0 ]] || fail "保持当前方案未保存空变更应用记录"
+pass "保持当前方案可确认并保存空 changedFields"
+
 INVALID_STATUS=$(api -o /dev/null -w '%{http_code}' -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/polls" -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d "{\"title\":\"非法字段测试\",\"purpose\":\"UPDATE_ITINERARY\",\"decisionType\":\"TRANSPORT\",\"decisionScope\":[\"transportMode\"],\"targetItineraryId\":$TRANSPORT_ID,\"voteType\":\"SINGLE\",\"options\":[{\"optionText\":\"A\",\"resultPayload\":{\"transportMode\":\"飞机\",\"title\":\"不应覆盖\"}},{\"optionText\":\"B\",\"resultPayload\":{\"transportMode\":\"高铁\"}}]}")
 [[ "$INVALID_STATUS" == 400 ]] || fail "未授权 resultPayload 字段应被拒绝"
 pass "投票选项字段白名单"

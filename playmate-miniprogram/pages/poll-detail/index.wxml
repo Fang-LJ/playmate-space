@@ -44,6 +44,7 @@
     <view wx:if="{{preview}}" class="section preview-card">
       <view class="preview-eyebrow">应用前预览</view>
       <view class="section-title">胜出方案：{{preview.optionText}}</view>
+      <view wx:if="{{preview.keptCurrentPlan}}" class="section-desc">该方案与当前行程一致，确认后将保持当前方案。</view>
       <view wx:for="{{preview.changedFields}}" wx:key="field" class="change-row">
         <view class="change-label">{{item.label}}</view>
         <view class="change-values"><text>{{item.beforeText}}</text><text class="change-arrow">→</text><text class="change-after">{{item.afterText}}</text></view>
@@ -59,6 +60,7 @@
       <view class="section-title">已应用记录</view>
       <view wx:for="{{poll.applicationHistory}}" wx:key="applicationId" class="card history-card">
         <view class="history-meta">{{item.appliedAtText}} · {{item.operatorText}}</view>
+        <view wx:if="{{item.keptCurrentPlan}}" class="history-change">已确认保持当前方案</view>
         <view wx:for="{{item.changedFields}}" wx:key="field" class="history-change">{{item.label}}：{{item.beforeText}} → {{item.afterText}}</view>
         <view class="history-unchanged">未修改：{{item.unchangedText || '无'}}</view>
         <view class="pm-link" bindtap="goItinerary">查看关联行程</view>

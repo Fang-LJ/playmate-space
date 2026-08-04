@@ -1,138 +1,142 @@
 const { createPoll } = require('../../services/poll');
-const { getItineraryDetail } = require('../../services/itinerary');
-const { DECISION_SCOPE, FIELD_LABEL, POLL_DECISION, POLL_PURPOSE, itinerarySummary } = require('../../utils/p1-display');
+const { getItineraryDetail, getItineraryTypeMetadata } = require('../../services/itinerary');
+const { POLL_DECISION, itinerarySummary } = require('../../utils/p1-display');
 
-const PURPOSES = ['GENERAL', 'UPDATE_ITINERARY', 'CREATE_ITINERARY'];
-const DECISIONS = Object.keys(POLL_DECISION);
-
-function localDate() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
+const GENERAL_DECISIONS = Object.keys(POLL_DECISION).filter((value) => value !== 'FULL_PLAN');
+const BASE_PLAN_FIELDS = ['title', 'itineraryDate', 'startTime', 'endTime'];
 
 function emptyOption() {
-  return {
-    optionText: '',
-    optionDescription: '',
-    transportMode: '',
-    departureName: '',
-    destinationName: '',
-    routeDetail: '',
-    itineraryDate: '',
-    startTime: '',
-    endTime: '',
-    mealType: '',
-    restaurantName: '',
-    address: '',
-    activityContent: '',
-    locationName: '',
-    title: ''
-  };
+  return { optionText: '', optionDescription: '' };
 }
 
-function defaultDecisionForType(type) {
-  if (type === 'TRANSPORT') return 'TRANSPORT';
-  if (type === 'MEAL') return 'RESTAURANT';
-  if (['ACTIVITY', 'SIGHTSEEING'].includes(type)) return 'CONTENT';
-  return 'PLACE';
+function uniqueFields(fields) {
+  const seen = new Set();
+  return fields.filter((field) => {
+    if (!field || !field.key || seen.has(field.key)) return false;
+    seen.add(field.key);
+    return true;
+  });
+}
+
+function buildFullPlanFields(metadata, itineraryType) {
+  const definition = (Array.isArray(metadata) ? metadata : [])
+    .find((item) => item.type === itineraryType);
+  if (!definition) return [];
+  const fields = uniqueFields([...(definition.focusFields || []), ...(definition.commonFields || [])]);
+  const byKey = fields.reduce((result, field) => {
+    result[field.key] = field;
+    return result;
+  }, {});
+  const ordered = [
+    ...BASE_PLAN_FIELDS.map((key) => byKey[key]).filter(Boolean),
+    ...fields.filter((field) => !BASE_PLAN_FIELDS.includes(field.key) && field.key !== 'description'),
+    byKey.description
+  ].filter(Boolean);
+  return uniqueFields(ordered).map((field) => ({
+    ...field,
+    control: field.key === 'itineraryDate'
+      ? 'date' : (['startTime', 'endTime'].includes(field.key)
+        ? 'time' : (field.key === 'description' ? 'textarea' : 'input')),
+    layoutClass: ['itineraryDate', 'startTime', 'endTime'].includes(field.key) ? 'half' : 'full'
+  }));
+}
+
+function fieldValue(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/^(\d{2}:\d{2})(?::\d{2})$/, '$1');
+}
+
+function copyCurrentPlan(target, scope, index) {
+  const option = { optionText: `方案 ${index + 1}`, optionDescription: '' };
+  scope.forEach((key) => {
+    option[key] = fieldValue(target[key]);
+  });
+  return option;
 }
 
 Page({
   data: {
     activityId: '',
     saving: false,
+    loadingTarget: false,
+    loadError: '',
+    isFullPlan: false,
     target: null,
-    purposeOptions: PURPOSES.map((value) => ({ value, label: POLL_PURPOSE[value] })),
-    decisionOptions: DECISIONS.map((value) => ({ value, label: POLL_DECISION[value] })),
-    purposeIndex: 0,
-    decisionIndex: DECISIONS.indexOf('OTHER'),
-    scopeLabels: [],
-    unchangedLabels: [],
-    unchangedText: '',
-    template: { title: '', itineraryDate: localDate(), startTime: '', endTime: '', itineraryType: 'OTHER' },
+    targetTypeLabel: '',
+    fullPlanFields: [],
+    fullPlanScope: [],
+    decisionOptions: GENERAL_DECISIONS.map((value) => ({ value, label: POLL_DECISION[value] })),
+    decisionIndex: Math.max(0, GENERAL_DECISIONS.indexOf('OTHER')),
     form: {
-      title: '',
-      description: '',
-      purpose: 'GENERAL',
-      decisionType: 'OTHER',
-      targetItineraryId: null,
-      voteType: 'SINGLE',
-      allowModify: true,
-      deadlineDate: '',
-      deadlineTime: '',
-      options: [emptyOption(), emptyOption()]
+      title: '', description: '', purpose: 'GENERAL', decisionType: 'OTHER',
+      targetItineraryId: null, voteType: 'SINGLE', allowModify: true,
+      deadlineDate: '', deadlineTime: '', options: [emptyOption(), emptyOption()]
     }
   },
 
-  async onLoad(options) {
-    const purpose = options.purpose || 'GENERAL';
+  onLoad(options) {
     const targetItineraryId = options.targetItineraryId ? Number(options.targetItineraryId) : null;
     this.setData({
       activityId: options.activityId || '',
-      purposeIndex: Math.max(0, PURPOSES.indexOf(purpose)),
-      'form.purpose': purpose,
-      'form.targetItineraryId': targetItineraryId
+      isFullPlan: Boolean(targetItineraryId),
+      'form.purpose': targetItineraryId ? 'UPDATE_ITINERARY' : 'GENERAL',
+      'form.decisionType': targetItineraryId ? 'FULL_PLAN' : 'OTHER',
+      'form.targetItineraryId': targetItineraryId,
+      'form.voteType': 'SINGLE'
     });
-    if (!targetItineraryId) {
-      this.updateDecisionMeta();
-      return;
-    }
+    if (targetItineraryId) this.loadTarget(targetItineraryId);
+  },
+
+  async loadTarget(targetItineraryId) {
+    this.setData({ loadingTarget: true, loadError: '' });
     try {
-      const detail = await getItineraryDetail(options.activityId, targetItineraryId);
+      const [detail, metadata] = await Promise.all([
+        getItineraryDetail(this.data.activityId, targetItineraryId),
+        getItineraryTypeMetadata()
+      ]);
       const itinerary = detail.itinerary || {};
-      const decisionType = defaultDecisionForType(itinerary.itineraryType);
+      const fields = buildFullPlanFields(metadata, itinerary.itineraryType);
+      const scope = fields.map((field) => field.key);
+      if (!fields.length || !scope.includes('title') || !scope.includes('itineraryDate')) {
+        throw new Error('行程类型元数据不完整，请稍后重试');
+      }
+      const typeDefinition = metadata.find((item) => item.type === itinerary.itineraryType);
       this.setData({
         target: { ...itinerary, summaryText: itinerarySummary(itinerary) },
-        decisionIndex: DECISIONS.indexOf(decisionType),
-        'form.decisionType': decisionType,
-        'form.title': `确定${itinerary.title || '这个行程'}的${POLL_DECISION[decisionType]}`,
-        'template.title': itinerary.title || '',
-        'template.itineraryDate': itinerary.itineraryDate || localDate(),
-        'template.startTime': itinerary.startTime || '',
-        'template.endTime': itinerary.endTime || '',
-        'template.itineraryType': itinerary.itineraryType || 'OTHER'
+        targetTypeLabel: typeDefinition ? typeDefinition.label : '',
+        fullPlanFields: fields,
+        fullPlanScope: scope,
+        'form.title': `确定${itinerary.title || '这个行程'}采用哪套方案`,
+        'form.options': [copyCurrentPlan(itinerary, scope, 0), copyCurrentPlan(itinerary, scope, 1)]
       });
-      this.updateDecisionMeta();
     } catch (error) {
-      wx.showToast({ title: error.message || '关联行程加载失败', icon: 'none' });
+      const message = error.message || '关联行程加载失败';
+      this.setData({ loadError: message });
+      wx.showToast({ title: message, icon: 'none' });
+    } finally {
+      this.setData({ loadingTarget: false });
     }
+  },
+
+  retryTarget() {
+    if (!this.data.form.targetItineraryId) return;
+    getItineraryTypeMetadata(true).catch(() => {});
+    this.loadTarget(this.data.form.targetItineraryId);
   },
 
   input(event) {
     this.setData({ [`form.${event.currentTarget.dataset.key}`]: event.detail.value });
   },
 
-  choosePurpose(event) {
-    const purposeIndex = Number(event.detail.value);
-    const purpose = PURPOSES[purposeIndex];
-    this.setData({
-      purposeIndex,
-      'form.purpose': purpose,
-      'form.voteType': purpose === 'GENERAL' ? this.data.form.voteType : 'SINGLE'
-    });
-    this.updateDecisionMeta();
-  },
-
   chooseDecision(event) {
     const decisionIndex = Number(event.detail.value);
-    this.setData({ decisionIndex, 'form.decisionType': DECISIONS[decisionIndex] });
-    this.updateDecisionMeta();
-  },
-
-  updateDecisionMeta() {
-    const scope = this.data.form.purpose === 'GENERAL'
-      ? []
-      : (DECISION_SCOPE[this.data.form.decisionType] || []);
-    const allFields = Object.keys(FIELD_LABEL);
-    this.setData({
-      scopeLabels: scope.map((field) => FIELD_LABEL[field]),
-      unchangedLabels: allFields.filter((field) => !scope.includes(field)).map((field) => FIELD_LABEL[field]),
-      unchangedText: allFields.filter((field) => !scope.includes(field)).map((field) => FIELD_LABEL[field]).join('、')
-    });
+    this.setData({ decisionIndex, 'form.decisionType': GENERAL_DECISIONS[decisionIndex] });
   },
 
   chooseVoteType(event) {
-    this.setData({ 'form.voteType': event.currentTarget.dataset.value });
+    if (!this.data.isFullPlan) {
+      this.setData({ 'form.voteType': event.currentTarget.dataset.value });
+    }
   },
 
   toggleAllowModify(event) {
@@ -143,17 +147,17 @@ Page({
     this.setData({ [`form.${event.currentTarget.dataset.key}`]: event.detail.value });
   },
 
-  templateInput(event) {
-    this.setData({ [`template.${event.currentTarget.dataset.key}`]: event.detail.value });
-  },
-
   optionInput(event) {
     const { index, key } = event.currentTarget.dataset;
     this.setData({ [`form.options[${index}].${key}`]: event.detail.value });
   },
 
   addOption() {
-    this.setData({ 'form.options': this.data.form.options.concat(emptyOption()) });
+    const index = this.data.form.options.length;
+    const option = this.data.isFullPlan
+      ? copyCurrentPlan(this.data.target || {}, this.data.fullPlanScope, index)
+      : emptyOption();
+    this.setData({ 'form.options': this.data.form.options.concat(option) });
   },
 
   removeOption(event) {
@@ -169,63 +173,71 @@ Page({
     return `${deadlineDate}T${deadlineTime}:00`;
   },
 
-  validate() {
-    const { form, template } = this.data;
-    if (!form.title.trim()) return '请填写投票问题';
-    const options = form.options.filter((item) => item.optionText.trim());
-    if (options.length < 2) return '请至少填写两个投票选项';
-    const deadline = this.buildDeadline();
-    if (deadline === '') return '请同时选择截止日期和时间';
-    if (form.purpose === 'CREATE_ITINERARY') {
-      if (!template.title.trim() || !template.itineraryDate || !template.startTime || !template.endTime) {
-        return '请填写生成行程的标题、日期和时间';
-      }
-      if (template.itineraryType !== 'LODGING' && template.endTime <= template.startTime) {
-        return '生成行程的结束时间必须晚于开始时间';
-      }
-    }
-    if (form.purpose !== 'GENERAL') {
-      const scope = DECISION_SCOPE[form.decisionType] || [];
-      const missingPayload = options.some((item) => !scope.some((field) => String(item[field] || '').trim()));
-      if (missingPayload) return '请为每个选项填写本次要决定的内容';
+  validateFullPlanOption(option, index) {
+    if (!String(option.optionText || '').trim()) return `请填写方案 ${index + 1} 的方案名称`;
+    if (!String(option.title || '').trim()) return `请填写方案 ${index + 1} 的行程标题`;
+    if (!String(option.itineraryDate || '').trim()) return `请选择方案 ${index + 1} 的日期`;
+    const start = String(option.startTime || '').trim();
+    const end = String(option.endTime || '').trim();
+    if (Boolean(start) !== Boolean(end)) return `方案 ${index + 1} 的开始和结束时间需要同时填写`;
+    if (!this.data.target.allDay && start && end
+      && this.data.target.itineraryType !== 'LODGING' && end <= start) {
+      return `方案 ${index + 1} 的结束时间必须晚于开始时间`;
     }
     return '';
   },
 
-  buildPayload(option) {
-    const scope = DECISION_SCOPE[this.data.form.decisionType] || [];
-    return scope.reduce((payload, field) => {
-      const value = String(option[field] || '').trim();
-      if (value) payload[field] = value;
+  validate() {
+    const { form } = this.data;
+    if (!form.title.trim()) return '请填写投票问题';
+    if (form.options.length < 2) return '请至少填写两个投票选项';
+    if (!this.data.isFullPlan && form.options.filter((item) => item.optionText.trim()).length < 2) {
+      return '请至少填写两个投票选项';
+    }
+    if (this.data.isFullPlan) {
+      if (this.data.loadError || !this.data.fullPlanScope.length) return '完整方案尚未加载完成';
+      for (let index = 0; index < form.options.length; index += 1) {
+        const message = this.validateFullPlanOption(form.options[index], index);
+        if (message) return message;
+      }
+    }
+    if (this.buildDeadline() === '') return '请同时选择截止日期和时间';
+    return '';
+  },
+
+  buildFullPlanPayload(option) {
+    return this.data.fullPlanScope.reduce((payload, field) => {
+      const value = String(option[field] == null ? '' : option[field]).trim();
+      payload[field] = value || null;
       return payload;
     }, {});
   },
 
   async save() {
+    if (this.data.saving) return;
     const message = this.validate();
     if (message) return wx.showToast({ title: message, icon: 'none' });
-    const { form, template } = this.data;
-    const options = form.options.filter((item) => item.optionText.trim()).map((item) => ({
+    const { form } = this.data;
+    const sourceOptions = this.data.isFullPlan
+      ? form.options : form.options.filter((item) => item.optionText.trim());
+    const options = sourceOptions.map((item) => ({
       optionText: item.optionText.trim(),
-      optionDescription: item.optionDescription.trim(),
-      resultPayload: form.purpose === 'GENERAL' ? {} : this.buildPayload(item)
+      optionDescription: String(item.optionDescription || '').trim(),
+      resultPayload: this.data.isFullPlan ? this.buildFullPlanPayload(item) : {}
     }));
-    const itineraryTemplate = form.purpose === 'CREATE_ITINERARY'
-      ? { ...template, allDay: false }
-      : {};
     this.setData({ saving: true });
     try {
       const response = await createPoll(this.data.activityId, {
         title: form.title.trim(),
         description: form.description.trim(),
-        purpose: form.purpose,
-        decisionType: form.decisionType,
-        decisionScope: form.purpose === 'GENERAL' ? [] : DECISION_SCOPE[form.decisionType],
-        targetItineraryId: form.targetItineraryId,
-        voteType: form.voteType,
+        purpose: this.data.isFullPlan ? 'UPDATE_ITINERARY' : 'GENERAL',
+        decisionType: this.data.isFullPlan ? 'FULL_PLAN' : form.decisionType,
+        decisionScope: this.data.isFullPlan ? this.data.fullPlanScope : [],
+        targetItineraryId: this.data.isFullPlan ? form.targetItineraryId : null,
+        voteType: this.data.isFullPlan ? 'SINGLE' : form.voteType,
         allowModify: form.allowModify,
         deadline: this.buildDeadline(),
-        itineraryTemplate,
+        itineraryTemplate: {},
         options
       });
       wx.showToast({ title: '投票已创建', icon: 'success' });

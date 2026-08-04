@@ -1,6 +1,7 @@
 package com.playmate.space.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,7 +29,8 @@ public class PollService {
     private static final Logger log = LoggerFactory.getLogger(PollService.class);
     private static final Set<String> PURPOSES = Set.of("GENERAL", "UPDATE_ITINERARY", "CREATE_ITINERARY");
     private static final Set<String> DECISIONS = Set.of(
-            "PLACE", "TIME", "TRANSPORT", "ROUTE", "CONTENT", "RESTAURANT", "ITINERARY_NAME", "OTHER");
+            "PLACE", "TIME", "TRANSPORT", "ROUTE", "CONTENT", "RESTAURANT",
+            "ITINERARY_NAME", "OTHER", "FULL_PLAN");
     private static final Set<String> VOTE_TYPES = Set.of("SINGLE", "MULTIPLE");
 
     private final ActivityCollaborationAccess access;
@@ -303,9 +305,10 @@ public class PollService {
         Long targetId = forcedTargetId != null ? forcedTargetId : request.targetItineraryId();
         Integer targetVersion = forcedVersion;
         String itineraryType = null;
+        ActivityItineraryEntity target = null;
         if ("UPDATE_ITINERARY".equals(purpose)) {
             if (targetId == null) throw param("关联已有行程时必须指定目标行程");
-            ActivityItineraryEntity target = itineraryMapper.selectById(targetId);
+            target = itineraryMapper.selectById(targetId);
             if (target == null || !activity.getId().equals(target.getActivityId())) {
                 throw param("关联行程不存在");
             }
@@ -326,12 +329,19 @@ public class PollService {
 
         List<String> decisionScope = fieldPolicy.normalizeNewScope(
                 purpose, itineraryType, decisionType, request.decisionScope());
+        if ("FULL_PLAN".equals(decisionType) && !"UPDATE_ITINERARY".equals(purpose)) {
+            throw param("完整方案投票只能关联已有行程");
+        }
         for (PollOptionRequest option : request.options()) {
             Map<String, Object> payload = option.resultPayload() == null
                     ? Map.of() : option.resultPayload();
             if (!"GENERAL".equals(purpose)) {
                 if (payload.isEmpty()) throw param("关联行程的投票选项必须包含结果字段");
-                fieldPolicy.validatePayload(payload, decisionScope);
+                if ("FULL_PLAN".equals(decisionType)) {
+                    fieldPolicy.validateFullPlanPayload(payload, itineraryType, target.getAllDay());
+                } else {
+                    fieldPolicy.validatePayload(payload, decisionScope);
+                }
             }
         }
 
@@ -347,7 +357,8 @@ public class PollService {
         poll.setAllowModify(Boolean.TRUE.equals(request.allowModify()) ? 1 : 0);
         poll.setDeadline(request.deadline());
         poll.setStatus("ACTIVE");
-        poll.setResultApplyMode("GENERAL".equals(purpose) ? "NONE" : "AUTO");
+        poll.setResultApplyMode("GENERAL".equals(purpose)
+                ? "NONE" : ("FULL_PLAN".equals(decisionType) ? "MANUAL" : "AUTO"));
         poll.setResultApplyStatus("GENERAL".equals(purpose) ? "NOT_REQUIRED" : "PENDING");
         poll.setTargetItineraryVersion(targetVersion);
         poll.setItineraryTemplate(jsonObject(itineraryTemplate));
@@ -408,6 +419,10 @@ public class PollService {
         }
         ActivityPollOptionEntity winner = requireOption(closed.getId(), winners.getFirst());
         closed.setWinnerOptionId(winner.getId());
+        if ("FULL_PLAN".equals(closed.getDecisionType())) {
+            review(closed, activity);
+            return;
+        }
         applyResultInternal(closed, activity, winner, false, closed.getCreatedBy());
     }
 
@@ -420,7 +435,8 @@ public class PollService {
     ) {
         try {
             List<String> scope = decisionScope(poll);
-            if (!manual && fieldPolicy.requiresManualReview(scope)) {
+            if (!manual && ("FULL_PLAN".equals(poll.getDecisionType())
+                    || fieldPolicy.requiresManualReview(scope))) {
                 review(poll, activity);
                 return;
             }
@@ -459,19 +475,71 @@ public class PollService {
 
         List<String> scope = decisionScope(poll);
         Map<String, Object> payload = jsonMap(winner.getResultPayload());
+        boolean normalizedDirtyFields = false;
+        if ("FULL_PLAN".equals(poll.getDecisionType())) {
+            fieldPolicy.validateFullPlanPayload(
+                    payload, typePolicy.normalizeType(target.getItineraryType()), target.getAllDay());
+            Map<String, Object> persisted = fieldPolicy.snapshot(target);
+            normalizeFullPlanTarget(target);
+            normalizedDirtyFields = !persisted.equals(fieldPolicy.snapshot(target));
+        }
         Map<String, Object> before = fieldPolicy.snapshot(target);
         fieldPolicy.apply(target, payload, scope);
         typePolicy.validatePersistedFields(target);
         Map<String, Object> after = fieldPolicy.snapshot(target);
         ItineraryFieldPolicy.ChangeSet changeSet = fieldPolicy.changes(before, after, scope);
-        if (changeSet.changedFields().isEmpty()) throw param("胜出方案没有产生可应用的字段变化");
-
-        target.setPlanningStatus("CONFIRMED");
-        target.setVersion(target.getVersion() + 1);
-        target.setUpdateTime(LocalDateTime.now());
-        itineraryMapper.updateById(target);
+        boolean statusChanged = !"CONFIRMED".equals(target.getPlanningStatus());
+        boolean businessFieldsChanged = !changeSet.changedFields().isEmpty();
+        if (businessFieldsChanged || statusChanged || normalizedDirtyFields) {
+            int previousVersion = target.getVersion();
+            if (businessFieldsChanged || statusChanged) {
+                target.setPlanningStatus("CONFIRMED");
+                target.setVersion(target.getVersion() + 1);
+            }
+            target.setUpdateTime(LocalDateTime.now());
+            if ("FULL_PLAN".equals(poll.getDecisionType())) {
+                updateFullPlanTarget(target, previousVersion);
+            } else {
+                itineraryMapper.updateById(target);
+            }
+        }
         saveApplication(poll, target, winner, before, after, changeSet, appliedBy);
         markApplied(poll);
+    }
+
+    private void updateFullPlanTarget(
+            ActivityItineraryEntity target,
+            Integer previousVersion
+    ) {
+        LambdaUpdateWrapper<ActivityItineraryEntity> update = new LambdaUpdateWrapper<>();
+        update.eq(ActivityItineraryEntity::getId, target.getId())
+                .eq(ActivityItineraryEntity::getVersion, previousVersion)
+                .set(ActivityItineraryEntity::getTitle, target.getTitle())
+                .set(ActivityItineraryEntity::getItineraryDate, target.getItineraryDate())
+                .set(ActivityItineraryEntity::getStartTime, target.getStartTime())
+                .set(ActivityItineraryEntity::getEndTime, target.getEndTime())
+                .set(ActivityItineraryEntity::getTransportMode, target.getTransportMode())
+                .set(ActivityItineraryEntity::getDepartureName, target.getDepartureName())
+                .set(ActivityItineraryEntity::getDestinationName, target.getDestinationName())
+                .set(ActivityItineraryEntity::getRouteDetail, target.getRouteDetail())
+                .set(ActivityItineraryEntity::getMealType, target.getMealType())
+                .set(ActivityItineraryEntity::getRestaurantName, target.getRestaurantName())
+                .set(ActivityItineraryEntity::getActivityContent, target.getActivityContent())
+                .set(ActivityItineraryEntity::getLocationName, target.getLocationName())
+                .set(ActivityItineraryEntity::getAddress, target.getAddress())
+                .set(ActivityItineraryEntity::getDescription, target.getDescription())
+                .set(ActivityItineraryEntity::getPlanningStatus, target.getPlanningStatus())
+                .set(ActivityItineraryEntity::getVersion, target.getVersion())
+                .set(ActivityItineraryEntity::getUpdateTime, target.getUpdateTime());
+        if (itineraryMapper.update(null, update) != 1) {
+            throw param("行程已被更新，请刷新后重新确认投票结果");
+        }
+    }
+
+    private void normalizeFullPlanTarget(ActivityItineraryEntity target) {
+        target.setDescription(typePolicy.mergeLegacyRouteDetail(
+                target.getDescription(), target.getRouteDetail()));
+        typePolicy.clearDisallowedFields(target, target.getItineraryType());
     }
 
     private void applyCreate(
@@ -505,7 +573,10 @@ public class PollService {
         if ("UPDATE_ITINERARY".equals(poll.getPurpose())) {
             ActivityItineraryEntity target = requireTarget(poll);
             candidate = fieldPolicy.copy(target);
-            before = fieldPolicy.snapshot(target);
+            if ("FULL_PLAN".equals(poll.getDecisionType())) {
+                normalizeFullPlanTarget(candidate);
+            }
+            before = fieldPolicy.snapshot(candidate);
         } else if ("CREATE_ITINERARY".equals(poll.getPurpose())) {
             ActivityEntity activity = access.requireActivity(poll.getActivityId());
             candidate = itineraryFromTemplate(activity, poll, jsonMap(poll.getItineraryTemplate()));
@@ -521,7 +592,7 @@ public class PollService {
                 poll.getId(), option.getId(), option.getOptionText(),
                 candidate.getId() != null ? candidate.getId() : poll.getTargetItineraryId(),
                 candidate.getTitle(), changes.changedFields(), changes.unchangedFields(),
-                !changes.changedFields().isEmpty());
+                "FULL_PLAN".equals(poll.getDecisionType()) || !changes.changedFields().isEmpty());
     }
 
     private ActivityItineraryEntity itineraryFromTemplate(
@@ -719,6 +790,7 @@ public class PollService {
     private String applicationSummary(ActivityPollApplicationEntity application) {
         List<PollFieldChangeResponse> changes = jsonList(
                 application.getChangedFields(), new TypeReference<>() {});
+        if (changes.isEmpty()) return "已确认保持当前方案";
         return changes.stream().map(change -> change.label() + "："
                         + displayValue(change.beforeValue()) + " → " + displayValue(change.afterValue()))
                 .collect(Collectors.joining("；"));
@@ -740,6 +812,11 @@ public class PollService {
 
     private List<String> decisionScope(ActivityPollEntity poll) {
         List<String> stored = jsonStringList(poll.getDecisionScope());
+        if ("FULL_PLAN".equals(poll.getDecisionType())) {
+            ActivityItineraryEntity target = requireTarget(poll);
+            return typePolicy.resolveDecisionScope(
+                    typePolicy.normalizeType(target.getItineraryType()), "FULL_PLAN", stored);
+        }
         return fieldPolicy.normalizeStoredScope(poll.getPurpose(), poll.getDecisionType(), stored);
     }
 

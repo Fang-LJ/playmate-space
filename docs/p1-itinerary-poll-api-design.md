@@ -38,12 +38,12 @@
 
 | 类型 | 重点字段 | 通用字段 | 可用决策 |
 | --- | --- | --- | --- |
-| `TRANSPORT` | `transportMode/departureName/destinationName` | `title/itineraryDate/startTime/endTime/description` | `TRANSPORT/ROUTE/TIME` |
-| `MEAL` | `mealType/restaurantName` | `title/itineraryDate/startTime/endTime/address/description` | `RESTAURANT/TIME` |
-| `LODGING` | `locationName/startTime/endTime` | `title/itineraryDate/address/description` | `PLACE/TIME` |
-| `SIGHTSEEING` | `activityContent/locationName` | `title/itineraryDate/startTime/endTime/address/description` | `CONTENT/PLACE/TIME` |
-| `ACTIVITY` | `activityContent/locationName` | `title/itineraryDate/startTime/endTime/address/description` | `CONTENT/PLACE/TIME` |
-| `OTHER` | `locationName` | `title/itineraryDate/startTime/endTime/address/description` | `PLACE/TIME` |
+| `TRANSPORT` | `transportMode/departureName/destinationName` | `title/itineraryDate/startTime/endTime/description` | `FULL_PLAN`，历史兼容 `TRANSPORT/ROUTE/TIME` |
+| `MEAL` | `mealType/restaurantName` | `title/itineraryDate/startTime/endTime/address/description` | `FULL_PLAN`，历史兼容 `RESTAURANT/TIME` |
+| `LODGING` | `locationName/startTime/endTime` | `title/itineraryDate/address/description` | `FULL_PLAN`，历史兼容 `PLACE/TIME` |
+| `SIGHTSEEING` | `activityContent/locationName` | `title/itineraryDate/startTime/endTime/address/description` | `FULL_PLAN`，历史兼容 `CONTENT/PLACE/TIME` |
+| `ACTIVITY` | `activityContent/locationName` | `title/itineraryDate/startTime/endTime/address/description` | `FULL_PLAN`，历史兼容 `CONTENT/PLACE/TIME` |
+| `OTHER` | `locationName` | `title/itineraryDate/startTime/endTime/address/description` | `FULL_PLAN`，历史兼容 `PLACE/TIME` |
 
 - 创建时，其他类型字段为空字符串会归一化为 `null`，包含真实内容则返回参数错误；重点字段可以为空，以支持 `PENDING_DECISION`。
 - 类型切换会清空全部类型重点字段和 `address`，保留标题、日期、时间和备注，再写入请求明确提供的新类型字段。同名的 `locationName` 也不会跨语义保留。
@@ -55,25 +55,26 @@
 
 ```json
 {
-  "creationMode": "WITH_POLL",
-  "title": "周六晚上晚餐",
-  "itineraryType": "MEAL",
-  "itineraryDate": "2026-07-18",
-  "startTime": "18:00:00",
-  "endTime": "20:00:00",
-  "allDay": false,
-  "poll": {
-    "title": "晚餐吃什么？",
-    "purpose": "UPDATE_ITINERARY",
-    "decisionType": "RESTAURANT",
-    "voteType": "SINGLE",
-    "decisionScope": ["mealType", "restaurantName", "address"],
-    "allowModify": true,
-    "options": [
-      {"optionText": "海底捞", "resultPayload": {"mealType": "火锅", "restaurantName": "海底捞湖滨店", "address": "湖滨路 88 号"}},
-      {"optionText": "烧烤", "resultPayload": {"mealType": "烧烤", "restaurantName": "湖滨烧烤店", "address": "湖滨路 18 号"}}
-    ]
-  }
+  "title": "晚餐完整方案投票",
+  "purpose": "UPDATE_ITINERARY",
+  "decisionType": "FULL_PLAN",
+  "voteType": "SINGLE",
+  "targetItineraryId": 100,
+  "options": [
+    {
+      "optionText": "火锅方案",
+      "resultPayload": {
+        "title": "周六晚上吃火锅",
+        "itineraryDate": "2026-07-18",
+        "startTime": "18:00",
+        "endTime": "20:00",
+        "mealType": "火锅",
+        "restaurantName": "海底捞湖滨店",
+        "address": "湖滨路 88 号",
+        "description": null
+      }
+    }
+  ]
 }
 ```
 
@@ -88,23 +89,23 @@
 ## 投票规则
 
 - `GENERAL` 支持单选/多选，不应用行程。
-- `UPDATE_ITINERARY`、`CREATE_ITINERARY` 必须单选。
-- `UPDATE_ITINERARY` 根据目标行程类型推导最大 `decisionScope`；`CREATE_ITINERARY` 根据模板中的 `itineraryType` 推导。前端可以不传，也只能传后端范围的非空子集，不能扩大范围。
-- 决策范围固定为：交通方式 `transportMode`；交通路线 `departureName/destinationName`；时间 `itineraryDate/startTime/endTime`；餐厅 `mealType/restaurantName/address`；地点 `locationName/address`；活动内容 `activityContent`。不适用于目标类型的组合直接拒绝。
-- 每个选项的 `resultPayload` 必须是 `decisionScope` 的子集；未授权字段在创建投票时直接返回参数错误。
-- 新关联投票不能使用 `ITINERARY_NAME/OTHER` 修改稳定标题，`title` 固定来自已有行程或 `itineraryTemplate`。
+- 第一版关联已有行程只开放 `purpose=UPDATE_ITINERARY`、`decisionType=FULL_PLAN`、`voteType=SINGLE`。普通投票继续支持单选/多选；`CREATE_ITINERARY` 和快速局部决策仅保留后端历史兼容。
+- `FULL_PLAN` 的 `decisionScope` 由目标行程类型完整推导，客户端不能缩小或扩大；每个选项必须提交范围内全部字段。字段缺失是参数错误，显式 `null` 或空字符串表示清空可选值。
+- 标题 `title` 属于完整方案字段并且必填；日期、时间和当前类型允许的执行字段、地址、备注可以修改。`itineraryType` 以及活动、创建人、版本、来源和排序等系统字段均不允许进入 `resultPayload`。
+- 正式预览和应用会重新读取目标行程，以数据库中的 `itineraryType` 校验方案并清理历史脏字段；交通方式改变不会改变行程类型。
+- 历史 `TRANSPORT/ROUTE/TIME/PLACE/RESTAURANT/CONTENT/ITINERARY_NAME/OTHER` 投票仍可查询、预览和按原规则应用，但小程序不再提供新建入口。
 - 单选限制、截止校验、选择替换均在事务中执行。
 - 过期投票会在列表、详情和投票操作前幂等关闭。
 
 ## 结果应用与人工确认
 
-- 唯一胜出、有效结果负载、活动可写且行程版本一致时自动应用。
+- `FULL_PLAN` 唯一胜出后也统一进入 `REVIEW_REQUIRED`，由有权限的人查看预览并调用 `apply-result`；普通投票和历史快速投票维持原行为。
 - 预览与正式应用使用同一套字段映射和白名单；正式应用不信任前端预览内容。
 - 应用成功后写入 `t_activity_poll_application`，详情响应返回 `applicationHistory`，包含前后快照、变化字段、未变化字段、操作人和应用时间。
 - 更新已有行程会确认状态并递增 `version`；生成行程会写入 `origin_type=POLL_RESULT`、`origin_poll_id` 和 `generated_itinerary_id`。
 - 预览和正式应用后都会再次执行目标类型的完整字段与时间校验，非法组合不会写入行程。
 - 无人投票、并列、版本冲突、结果负载为空，或普通成员试图自动覆盖他人行程时，设置 `REVIEW_REQUIRED`。
-- 历史 `decisionScope` 含 `title` 或 `routeDetail` 的投票仍可读取和预览，但不会自动覆盖行程，会进入 `REVIEW_REQUIRED`，由有权限用户明确确认。
+- 胜出方案与当前行程完全一致时仍可确认并写入应用历史，`changedFields` 保存空数组，页面显示“已确认保持当前方案”；没有必要时不递增行程版本。
 - 人工确认只允许投票创建者、目标行程创建者或活动创建者；覆盖他人行程仍须由行程创建者或活动创建者确认。
 
 ## 持久化待办
@@ -123,4 +124,4 @@
 
 ## 当前阶段边界
 
-本轮仅完成阶段 1 的后端类型策略与模型对齐。阶段 2 的行程页面 Figma 重构和阶段 3 的投票页面重构尚未执行；小程序仅做清除旧类型字段、住宿跨午夜校验和移除新路线投票 `routeDetail` 的必要兼容调整。
+第一版关联行程投票只开放完整方案投票；标题属于方案字段，可以修改；行程类型固定不可修改；快速投票留到第二版。普通投票和历史快速投票兼容逻辑继续保留，本轮不涉及费用、照片或 AA。

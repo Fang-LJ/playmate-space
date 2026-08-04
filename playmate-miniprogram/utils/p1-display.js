@@ -28,6 +28,7 @@ const POLL_DECISION = {
   CONTENT: '活动内容',
   RESTAURANT: '餐厅',
   ITINERARY_NAME: '行程名称',
+  FULL_PLAN: '完整方案',
   OTHER: '其他'
 };
 
@@ -43,7 +44,7 @@ const DECISION_SCOPE = {
 };
 
 const FIELD_LABEL = {
-  title: '行程名称',
+  title: '行程标题',
   itineraryDate: '日期',
   startTime: '开始时间',
   endTime: '结束时间',
@@ -55,7 +56,8 @@ const FIELD_LABEL = {
   restaurantName: '具体餐厅',
   address: '详细地址',
   activityContent: '活动内容',
-  locationName: '地点'
+  locationName: '地点',
+  description: '备注说明'
 };
 
 const POLL_STATUS = {

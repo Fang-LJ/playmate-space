@@ -23,7 +23,7 @@ public class ItineraryFieldPolicy {
     private static final List<String> SNAPSHOT_FIELDS = List.of(
             "title", "itineraryDate", "startTime", "endTime", "transportMode",
             "departureName", "destinationName", "routeDetail", "mealType",
-            "restaurantName", "address", "activityContent", "locationName"
+            "restaurantName", "address", "activityContent", "locationName", "description"
     );
     private final ItineraryTypePolicy typePolicy;
 
@@ -71,6 +71,33 @@ public class ItineraryFieldPolicy {
         }
     }
 
+    public void validateFullPlanPayload(
+            Map<String, Object> payload,
+            String itineraryType,
+            Integer allDay
+    ) {
+        List<String> scope = typePolicy.resolveDecisionScope(
+                itineraryType, "FULL_PLAN", null);
+        if (payload == null) throw param("完整方案不能为空");
+        validatePayload(payload, scope);
+        List<String> missing = scope.stream().filter(field -> !payload.containsKey(field)).toList();
+        if (!missing.isEmpty()) {
+            throw param("完整方案缺少字段：" + labels(missing).stream().collect(java.util.stream.Collectors.joining("、")));
+        }
+        requiredString(payload.get("title"), "title");
+        date(payload.get("itineraryDate"), "itineraryDate");
+        LocalTime start = time(payload.get("startTime"), "startTime");
+        LocalTime end = time(payload.get("endTime"), "endTime");
+        if (Integer.valueOf(1).equals(allDay)) {
+            if (start != null || end != null) throw param("全天行程不能设置开始时间或结束时间");
+            return;
+        }
+        if ((start == null) != (end == null)) {
+            throw param("开始时间和结束时间必须同时填写或同时清空");
+        }
+        typePolicy.validateTimes(itineraryType, start, end, allDay);
+    }
+
     public void validateTemplate(Map<String, Object> template) {
         if (template == null) return;
         Set<String> allowed = new java.util.LinkedHashSet<>(SNAPSHOT_FIELDS);
@@ -96,6 +123,7 @@ public class ItineraryFieldPolicy {
         values.put("address", itinerary.getAddress());
         values.put("activityContent", itinerary.getActivityContent());
         values.put("locationName", itinerary.getLocationName());
+        values.put("description", itinerary.getDescription());
         return values;
     }
 
@@ -146,6 +174,7 @@ public class ItineraryFieldPolicy {
                 case "address" -> itinerary.setAddress(string(value));
                 case "activityContent" -> itinerary.setActivityContent(string(value));
                 case "locationName" -> itinerary.setLocationName(string(value));
+                case "description" -> itinerary.setDescription(string(value));
                 default -> throw param("不支持修改行程字段：" + field);
             }
         }
@@ -197,6 +226,7 @@ public class ItineraryFieldPolicy {
             case "title", "departureName", "destinationName", "restaurantName", "activityContent", "locationName" -> 128;
             case "transportMode", "mealType" -> 64;
             case "routeDetail" -> 512;
+            case "description" -> 2000;
             case "address" -> 255;
             default -> 32;
         };
