@@ -21,6 +21,9 @@
     "pages/poll-list/index",
     "pages/poll-create/index",
     "pages/poll-detail/index",
+    "pages/expense-detail/index",
+    "pages/expense-edit/index",
+    "pages/expense-item-detail/index",
     "pages/mine/index",
     "pages/login/index"
   ],

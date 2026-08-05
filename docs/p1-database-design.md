@@ -108,11 +108,17 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 
 - 建表 SQL：[p1_001_activity_collaboration.sql](sql/p1_001_activity_collaboration.sql)、[p1_002_activity_todo.sql](sql/p1_002_activity_todo.sql)、[p1_003_itinerary_poll_field_linkage.sql](sql/p1_003_itinerary_poll_field_linkage.sql)。
 - 新环境：Docker MySQL 初始化顺序增加 `004-p1_itinerary_poll_field_linkage.sql`。
-- 已存在的本地开发库：执行 `p1_003_itinerary_poll_field_linkage.sql`。脚本检查列是否存在并使用 `CREATE TABLE IF NOT EXISTS`，可重复执行且不清空已有数据。
+- 已存在的本地开发库：执行 `p1_003_itinerary_poll_field_linkage.sql` 和 `p1_004_expense_settlement.sql`。后者为费用表补齐 `split_mode`、账单作废审计和结算撤销审计字段；脚本可重复执行且不清空已有数据。
 - 历史数据回填为显式、一次性操作：完成迁移后可设置 `PLAYMATE_TODO_BACKFILL_ON_STARTUP=true` 启动后端。它只处理进行中投票和 `REVIEW_REQUIRED` 结果，执行幂等。
 - 行程类型策略调整不修改表结构，也不新增迁移 SQL；现有 `route_detail`、`all_day` 和历史投票 JSON 全部保留。
 
+## 费用结算实现规则
+
+- 第一版账单只支持单付款人、`EQUAL` 和 `CUSTOM` 两种分摊方式。均摊按分计算余数，按成员 ID 稳定分配，金额始终为 `DECIMAL(12,2)` / `BigDecimal`。
+- AA 余额为“实际付款 - 应承担 + 已转出 - 已收到”。建议转账是实时结果，不落库；用户确认完成的线下转账才写入 `t_activity_settlement`，撤销后立即重新参与计算。
+- 账单作废保留账单与分摊历史，但不再参与结算。已结束活动允许补记、编辑和结算；已取消活动只读。
+- 移除成员前必须保证其当前净额为零，历史已移除成员仍在账单和结算历史中保留展示。
+
 ## 后续范围
 
-- 账单分摊校验、AA 计算与账单变化后的结算刷新策略。
 - 费用、照片、已结束或已取消活动的可编辑和只读规则。

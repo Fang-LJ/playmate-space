@@ -3,14 +3,16 @@ const { getItineraries, deleteItinerary: removeItinerary } = require('../../serv
 const { getPolls, getSummary } = require('../../services/poll');
 const { getActivityMembers } = require('../../services/member');
 const { getCurrentUser } = require('../../services/user');
+const { getExpenseSummary, completeSettlement } = require('../../services/expense');
 const { POLL_RESULT_STATUS, POLL_STATUS, label } = require('../../utils/p1-display');
 const { buildCardViewModel } = require('../../utils/itinerary-ui');
 
 const STATUS = { PLANNING: '规划中', ONGOING: '进行中', ENDED: '已结束', CANCELED: '已取消' };
 const TYPE = { TRAVEL: '旅行', MEAL: '聚餐', TEAM_BUILDING: '团建', BIRTHDAY: '生日', CAMPING: '露营', DRIVE: '自驾', BOARD_GAME: '桌游', OTHER: '其他' };
+const EXPENSE_CATEGORY = { TRANSPORT: '交通', LODGING: '住宿', TICKET: '门票', FOOD: '餐饮', ENTERTAINMENT: '娱乐', SHOPPING: '购物', OTHER: '其他' };
 
 Page({
-  data: { loading: true, activityId: '', activity: null, summary: null, itineraries: [], polls: [], members: [], activeTab: 'ITINERARIES', errorMessage: '', actionMenuVisible: false, openItineraryId: null },
+  data: { loading: true, activityId: '', activity: null, summary: null, itineraries: [], polls: [], members: [], activeTab: 'ITINERARIES', expenseSummary: null, expenseLoading: false, errorMessage: '', actionMenuVisible: false, openItineraryId: null },
 
   onLoad(options) {
     this.setData({ activityId: options.activityId || '' });
@@ -78,7 +80,13 @@ Page({
     };
   },
 
-  tab(event) { this.setData({ activeTab: event.currentTarget.dataset.tab }); },
+  tab(event) { const activeTab = event.currentTarget.dataset.tab; this.setData({ activeTab }); if (activeTab === 'COSTS') this.loadExpenseSummary(); },
+  async loadExpenseSummary() {
+    this.setData({ expenseLoading: true });
+    try { const summary = await getExpenseSummary(this.data.activityId); this.setData({ expenseSummary: { ...summary, recentExpenses: (summary.recentExpenses || []).map(item => ({ ...item, categoryText: EXPENSE_CATEGORY[item.category] || item.category })), mySuggestions: (summary.mySuggestions || []).map(item => ({ ...item, isPayer: item.currentUserCanComplete })) } }); }
+    catch (error) { wx.showToast({ title: error.message || '费用摘要加载失败', icon: 'none' }); }
+    finally { this.setData({ expenseLoading: false }); }
+  },
   goMembers() { wx.navigateTo({ url: `/pages/member-list/index?activityId=${this.data.activityId}` }); },
   goItineraries() { wx.navigateTo({ url: `/pages/itinerary-list/index?activityId=${this.data.activityId}` }); },
   goPolls() { wx.navigateTo({ url: `/pages/poll-list/index?activityId=${this.data.activityId}` }); },
@@ -107,6 +115,10 @@ Page({
   goPoll(event) { wx.navigateTo({ url: `/pages/poll-detail/index?activityId=${this.data.activityId}&pollId=${event.currentTarget.dataset.id}` }); },
   newItinerary() { wx.navigateTo({ url: `/pages/itinerary-edit/index?activityId=${this.data.activityId}` }); },
   newPoll() { wx.navigateTo({ url: `/pages/poll-create/index?activityId=${this.data.activityId}` }); },
+  goExpenses() { wx.navigateTo({ url: `/pages/expense-detail/index?activityId=${this.data.activityId}` }); },
+  newExpense() { wx.navigateTo({ url: `/pages/expense-edit/index?activityId=${this.data.activityId}` }); },
+  goExpenseItem(event) { wx.navigateTo({ url: `/pages/expense-item-detail/index?activityId=${this.data.activityId}&expenseId=${event.currentTarget.dataset.id}` }); },
+  async completeExpenseSettlement(event) { const item = event.currentTarget.dataset.item; try { await completeSettlement(this.data.activityId, { fromUserId: item.fromUserId, toUserId: item.toUserId, amount: item.amount }); wx.showToast({ title: '已记录转账', icon: 'success' }); this.loadExpenseSummary(); } catch (error) { wx.showToast({ title: error.message || '操作失败', icon: 'none' }); } },
   todo(event) {
     const target = event.currentTarget.dataset;
     if (target.targetType === 'POLL') this.goPoll({ currentTarget: { dataset: { id: target.targetId } } });

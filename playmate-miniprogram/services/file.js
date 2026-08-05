@@ -88,9 +88,13 @@ function uploadActivityCover(filePath) {
 function uploadUserAvatar(filePath) {
   return uploadImage(filePath, 'USER_AVATAR');
 }
+function uploadExpenseReceipt(filePath) {
+  return uploadImage(filePath, 'EXPENSE_RECEIPT');
+}
 
 module.exports = {
   chooseImage,
   uploadActivityCover,
-  uploadUserAvatar
+  uploadUserAvatar,
+  uploadExpenseReceipt
 };

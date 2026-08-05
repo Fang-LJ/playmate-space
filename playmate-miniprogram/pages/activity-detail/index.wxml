@@ -85,6 +85,23 @@
       <view wx:for="{{polls}}" wx:key="pollId" class="card compact-row" data-id="{{item.pollId}}" bindtap="goPoll"><view class="row-main"><view class="row-title">{{item.title}}</view><view class="muted">{{item.statusText}} · {{item.participantCount}} 人参与</view></view><view wx:if="{{item.resultApplyStatus==='REVIEW_REQUIRED'}}" class="review">{{item.resultApplyText}}</view></view>
     </view>
 
-    <view wx:if="{{activeTab==='COSTS'||activeTab==='PHOTOS'}}" class="section card empty-card"><view class="section-title">{{activeTab==='COSTS'?'费用管理':'照片墙'}}将在后续阶段开放</view><view class="section-desc">当前不展示伪造数据，活动协作会在后续模块继续完善。</view></view>
+    <view wx:if="{{activeTab==='COSTS'}}" class="section cost-overview">
+      <view wx:if="{{expenseLoading}}" class="card empty-card">正在计算费用…</view>
+      <view wx:elif="{{expenseSummary}}">
+        <view class="section-head"><view class="section-title">费用结算</view><view class="link-text" bindtap="goExpenses">查看详情 ›</view></view>
+        <view class="cost-summary-card card"><view class="cost-summary-title">我的结算</view><view class="cost-net {{expenseSummary.netSettlement>=0?'receive':'pay'}}">{{expenseSummary.settlementText}}</view><view class="muted">待支付与待收款抵扣后的剩余金额</view><view class="cost-stat-row"><view class="cost-stat"><view class="muted">待支付</view><view>¥{{expenseSummary.pendingPayAmount}}</view></view><view class="cost-stat"><view class="muted">待收款</view><view>¥{{expenseSummary.pendingReceiveAmount}}</view></view><view class="cost-stat"><view class="muted">净结算</view><view>¥{{expenseSummary.netSettlement}}</view></view></view></view>
+        <view class="section-head"><view class="section-title">我的待处理</view><view class="muted">{{expenseSummary.mySuggestions.length}} 笔</view></view>
+        <view wx:if="{{expenseSummary.mySuggestions.length}}"><view class="card settlement-preview" wx:for="{{expenseSummary.mySuggestions}}" wx:key="fromUserId"><view><view>{{item.fromNickname}} → {{item.toNickname}}</view><view class="muted">{{item.isPayer?'等待我转账':'等待对方转账'}}</view></view><view class="settlement-right"><view class="settlement-amount">¥{{item.amount}}</view><view wx:if="{{item.isPayer}}" class="settlement-done" data-item="{{item}}" bindtap="completeExpenseSettlement">我已转账</view></view></view></view>
+        <view wx:else class="card empty-card">当前没有需要处理的结算</view>
+        <view class="cost-progress card"><view><view>全员结算进度</view><view class="muted">还有 {{expenseSummary.pendingSettlementCount}} 笔待结算，{{expenseSummary.completedSettlementCount}} 笔已完成</view></view><view class="link-text" bindtap="goExpenses">查看全部 ›</view></view>
+        <view class="section-head"><view class="section-title">最近消费</view><view class="link-text" bindtap="goExpenses">查看全部 ›</view></view>
+        <view wx:if="{{expenseSummary.recentExpenses.length}}">
+          <view wx:for="{{expenseSummary.recentExpenses}}" wx:key="expenseId" class="card expense-preview" data-id="{{item.expenseId}}" bindtap="goExpenseItem"><view><view class="row-title">{{item.title}}</view><view class="muted">{{item.payerNickname}} 支付 · {{item.shareCount}} 人均摊</view></view><view class="expense-right"><view class="expense-amount">¥{{item.amount}}</view><view wx:if="{{item.currentUserShareAmount!==null}}" class="my-share">我承担 ¥{{item.currentUserShareAmount}}</view></view></view>
+        </view>
+        <view wx:else class="card empty-card">还没有费用记录，先记下第一笔消费吧。</view>
+        <view wx:if="{{!activity.isReadonly}}" class="cost-actions"><view class="pm-button-like secondary cost-action" bindtap="newExpense">记一笔</view><view class="pm-button-like primary cost-action" bindtap="goExpenses">进入费用详情</view></view>
+      </view>
+    </view>
+    <view wx:if="{{activeTab==='PHOTOS'}}" class="section card empty-card"><view class="section-title">照片墙将在后续阶段开放</view></view>
   </view>
 </view>

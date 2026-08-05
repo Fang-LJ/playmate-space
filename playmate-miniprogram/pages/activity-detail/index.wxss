@@ -58,3 +58,10 @@
 .row-title { font-weight: 800; }
 .review { color: #8a6500; font-size: 23rpx; }
 .empty-card { margin-top: 16rpx; }
+.cost-summary-card { position: relative; padding: 30rpx; background: linear-gradient(135deg, #e9f5ef, #fff 72%); }
+.cost-summary-title { color: var(--pm-text-muted); font-size: 25rpx; }
+.cost-total { margin-top: 10rpx; font-size: 48rpx; font-weight: 900; }
+.cost-net { margin-top: 16rpx; font-size: 28rpx; font-weight: 800; }.cost-net.receive { color: var(--pm-primary-dark); }.cost-net.pay { color: #b16a2c; }
+.settlement-preview,.expense-preview { display:flex; align-items:center; justify-content:space-between; margin-top:16rpx; padding:24rpx 26rpx; }.settlement-amount,.expense-amount { color:var(--pm-primary-dark); font-size:28rpx; font-weight:900; }
+.cost-add { width: 310rpx; margin: 30rpx auto 0; }
+.cost-stat-row { display:flex; gap:12rpx; margin-top:18rpx; }.cost-stat { flex:1; min-width:0; padding:14rpx; border-radius:16rpx; background:rgba(255,255,255,.78); color:var(--pm-text); font-size:24rpx; font-weight:800; }.settlement-right,.expense-right { text-align:right; }.settlement-done { display:inline-block; margin-top:8rpx; padding:7rpx 16rpx; border-radius:18rpx; background:var(--pm-primary); color:#fff; font-size:22rpx; }.my-share { margin-top:6rpx; color:var(--pm-primary-dark); font-size:21rpx; }.cost-progress { display:flex; align-items:center; justify-content:space-between; margin-top:16rpx; padding:22rpx 24rpx; background:#f1faf5; color:var(--pm-primary-dark); }.cost-actions { display:flex; gap:18rpx; margin:28rpx 0 12rpx; }.cost-action { flex:1; text-align:center; }

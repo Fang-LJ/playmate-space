@@ -26,6 +26,7 @@ public class FileService {
 
     private static final String FILE_TYPE_ACTIVITY_COVER = "ACTIVITY_COVER";
     private static final String FILE_TYPE_USER_AVATAR = "USER_AVATAR";
+    private static final String FILE_TYPE_EXPENSE_RECEIPT = "EXPENSE_RECEIPT";
     private static final String FILE_STATUS_NORMAL = "NORMAL";
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
@@ -76,8 +77,9 @@ public class FileService {
     }
 
     private void validateFileType(String fileType) {
-        if (!FILE_TYPE_ACTIVITY_COVER.equals(fileType) && !FILE_TYPE_USER_AVATAR.equals(fileType)) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "fileType 只支持 ACTIVITY_COVER 或 USER_AVATAR");
+        if (!FILE_TYPE_ACTIVITY_COVER.equals(fileType) && !FILE_TYPE_USER_AVATAR.equals(fileType)
+                && !FILE_TYPE_EXPENSE_RECEIPT.equals(fileType)) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "fileType 只支持 ACTIVITY_COVER、USER_AVATAR 或 EXPENSE_RECEIPT");
         }
     }
 

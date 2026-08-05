@@ -40,17 +40,20 @@ public class ActivityMemberService {
     private final ActivityMemberMapper activityMemberMapper;
     private final UserMapper userMapper;
     private final ActivityTodoLifecycleService todoLifecycleService;
+    private final SettlementService settlementService;
 
     public ActivityMemberService(
             ActivityMapper activityMapper,
             ActivityMemberMapper activityMemberMapper,
             UserMapper userMapper,
-            ActivityTodoLifecycleService todoLifecycleService
+            ActivityTodoLifecycleService todoLifecycleService,
+            SettlementService settlementService
     ) {
         this.activityMapper = activityMapper;
         this.activityMemberMapper = activityMemberMapper;
         this.userMapper = userMapper;
         this.todoLifecycleService = todoLifecycleService;
+        this.settlementService = settlementService;
     }
 
     public List<ActivityMemberResponse> listMembers(Long activityId) {
@@ -120,6 +123,9 @@ public class ActivityMemberService {
         }
         if (!MEMBER_STATUS_ACTIVE.equals(target.getMemberStatus())) {
             throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "当前成员状态不可移除");
+        }
+        if (settlementService.remainingNet(activityId, target.getUserId()).compareTo(java.math.BigDecimal.ZERO) != 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR.code(), "该成员仍有未结清费用，不能移除");
         }
 
         LocalDateTime now = LocalDateTime.now();
