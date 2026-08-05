@@ -1,7 +1,8 @@
 const { cancelActivity, endActivity, getActivityDetail } = require('../../services/activity');
-const { getItineraries } = require('../../services/itinerary');
+const { getItineraries, deleteItinerary: removeItinerary } = require('../../services/itinerary');
 const { getPolls, getSummary } = require('../../services/poll');
 const { getActivityMembers } = require('../../services/member');
+const { getCurrentUser } = require('../../services/user');
 const { POLL_RESULT_STATUS, POLL_STATUS, label } = require('../../utils/p1-display');
 const { buildCardViewModel } = require('../../utils/itinerary-ui');
 
@@ -9,7 +10,7 @@ const STATUS = { PLANNING: '规划中', ONGOING: '进行中', ENDED: '已结束'
 const TYPE = { TRAVEL: '旅行', MEAL: '聚餐', TEAM_BUILDING: '团建', BIRTHDAY: '生日', CAMPING: '露营', DRIVE: '自驾', BOARD_GAME: '桌游', OTHER: '其他' };
 
 Page({
-  data: { loading: true, activityId: '', activity: null, summary: null, itineraries: [], polls: [], members: [], activeTab: 'ITINERARIES', errorMessage: '', actionMenuVisible: false },
+  data: { loading: true, activityId: '', activity: null, summary: null, itineraries: [], polls: [], members: [], activeTab: 'ITINERARIES', errorMessage: '', actionMenuVisible: false, openItineraryId: null },
 
   onLoad(options) {
     this.setData({ activityId: options.activityId || '' });
@@ -22,17 +23,26 @@ Page({
   async load() {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      const [activity, summary, itineraries, polls, members] = await Promise.all([
+      const [activity, summary, itineraries, polls, members, currentUser] = await Promise.all([
         getActivityDetail(this.data.activityId),
         getSummary(this.data.activityId),
         getItineraries(this.data.activityId),
         getPolls(this.data.activityId),
-        getActivityMembers(this.data.activityId).catch(() => [])
+        getActivityMembers(this.data.activityId).catch(() => []),
+        getCurrentUser()
       ]);
+      const normalizedActivity = this.normalizeActivity(activity);
+      const currentUserId = String(currentUser.userId);
       this.setData({
-        activity: this.normalizeActivity(activity),
+        activity: normalizedActivity,
         summary,
-        itineraries: (itineraries || []).map((item) => buildCardViewModel(item)),
+        itineraries: (itineraries || []).map((item) => ({
+          ...buildCardViewModel(item),
+          canEdit: !normalizedActivity.isReadonly && item.planningStatus !== 'CANCELED'
+            && (normalizedActivity.isCreator || String(item.createdBy) === currentUserId),
+          canDelete: !normalizedActivity.isReadonly
+            && (normalizedActivity.isCreator || String(item.createdBy) === currentUserId)
+        })),
         polls: (polls || []).map((item) => ({
           ...item,
           statusText: label(POLL_STATUS, item.status),
@@ -42,7 +52,8 @@ Page({
           ...member,
           avatarText: (member.nickname || '玩').slice(0, 1)
         })),
-        activeTab: this.data.activeTab || summary.defaultTab
+        activeTab: this.data.activeTab || summary.defaultTab,
+        openItineraryId: null
       });
     } catch (error) {
       this.setData({ errorMessage: error.message || '活动详情加载失败' });
@@ -74,6 +85,24 @@ Page({
   goItinerary(event) {
     const itineraryId = event.detail ? event.detail.itineraryId : event.currentTarget.dataset.id;
     wx.navigateTo({ url: `/pages/itinerary-detail/index?activityId=${this.data.activityId}&itineraryId=${itineraryId}` });
+  },
+  openItineraryActions(event) { this.setData({ openItineraryId: event.detail.itineraryId }); },
+  closeItineraryActions() { this.setData({ openItineraryId: null }); },
+  editItinerary(event) {
+    this.closeItineraryActions();
+    wx.navigateTo({ url: `/pages/itinerary-edit/index?activityId=${this.data.activityId}&itineraryId=${event.detail.itineraryId}` });
+  },
+  deleteItinerary(event) {
+    const itineraryId = event.detail.itineraryId;
+    this.closeItineraryActions();
+    wx.showModal({ title: '删除行程', content: '删除后无法恢复，是否继续？', confirmColor: '#D94C4C', success: async (result) => {
+      if (!result.confirm) return;
+      try {
+        await removeItinerary(this.data.activityId, itineraryId);
+        wx.showToast({ title: '已删除', icon: 'success' });
+        this.load();
+      } catch (error) { wx.showToast({ title: error.message || '删除失败', icon: 'none' }); }
+    }});
   },
   goPoll(event) { wx.navigateTo({ url: `/pages/poll-detail/index?activityId=${this.data.activityId}&pollId=${event.currentTarget.dataset.id}` }); },
   newItinerary() { wx.navigateTo({ url: `/pages/itinerary-edit/index?activityId=${this.data.activityId}` }); },

@@ -1,9 +1,10 @@
 const { createPoll } = require('../../services/poll');
-const { getItineraryDetail, getItineraryTypeMetadata } = require('../../services/itinerary');
+const { getItineraries, getItineraryDetail, getItineraryTypeMetadata } = require('../../services/itinerary');
 const { POLL_DECISION, itinerarySummary } = require('../../utils/p1-display');
 
 const GENERAL_DECISIONS = Object.keys(POLL_DECISION).filter((value) => value !== 'FULL_PLAN');
 const BASE_PLAN_FIELDS = ['title', 'itineraryDate', 'startTime', 'endTime'];
+const PLAN_NUMBER_TEXT = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
 
 function emptyOption() {
   return { optionText: '', optionDescription: '' };
@@ -47,11 +48,43 @@ function fieldValue(value) {
 }
 
 function copyCurrentPlan(target, scope, index) {
-  const option = { optionText: `方案 ${index + 1}`, optionDescription: '' };
+  const option = { optionText: planLabel(index), optionDescription: '' };
   scope.forEach((key) => {
     option[key] = fieldValue(target[key]);
   });
   return option;
+}
+
+function copyOriginalPlan(target, scope) {
+  const option = copyCurrentPlan(target, scope, 0);
+  option.optionText = '原方案';
+  return option;
+}
+
+function planLabel(index) {
+  const number = index + 1;
+  return `方案${PLAN_NUMBER_TEXT[index] || number}`;
+}
+
+function pad(value) {
+  return String(value).padStart(2, '0');
+}
+
+function defaultDeadline() {
+  const date = new Date(Date.now() + 30 * 60 * 1000);
+  return {
+    deadlineDate: `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    deadlineTime: `${pad(date.getHours())}:${pad(date.getMinutes())}`
+  };
+}
+
+function itineraryOption(itinerary) {
+  const summary = itinerarySummary(itinerary);
+  return {
+    itineraryId: Number(itinerary.itineraryId),
+    label: itinerary.title || '未命名行程',
+    description: [itinerary.itineraryDate, summary].filter(Boolean).join(' · ')
+  };
 }
 
 Page({
@@ -61,10 +94,24 @@ Page({
     loadingTarget: false,
     loadError: '',
     isFullPlan: false,
+    isGeneral: false,
+    allowTargetSelection: false,
+    targetOptions: [],
+    targetIndex: 0,
+    targetSelected: false,
+    selectedTargetOption: null,
+    typeMetadata: [],
     target: null,
     targetTypeLabel: '',
     fullPlanFields: [],
     fullPlanScope: [],
+    planBaseFields: [],
+    planArrangementFields: [],
+    planDescriptionField: null,
+    planEditorVisible: false,
+    planEditorIndex: -1,
+    planEditorTitle: '',
+    planDraft: null,
     decisionOptions: GENERAL_DECISIONS.map((value) => ({ value, label: POLL_DECISION[value] })),
     decisionIndex: Math.max(0, GENERAL_DECISIONS.indexOf('OTHER')),
     form: {
@@ -76,38 +123,96 @@ Page({
 
   onLoad(options) {
     const targetItineraryId = options.targetItineraryId ? Number(options.targetItineraryId) : null;
+    const isGeneral = options.mode === 'general';
+    const deadline = defaultDeadline();
     this.setData({
       activityId: options.activityId || '',
       isFullPlan: Boolean(targetItineraryId),
-      'form.purpose': targetItineraryId ? 'UPDATE_ITINERARY' : 'GENERAL',
-      'form.decisionType': targetItineraryId ? 'FULL_PLAN' : 'OTHER',
+      isGeneral,
+      allowTargetSelection: !targetItineraryId && !isGeneral,
+      'form.purpose': targetItineraryId || !isGeneral ? 'UPDATE_ITINERARY' : 'GENERAL',
+      'form.decisionType': targetItineraryId || !isGeneral ? 'FULL_PLAN' : 'OTHER',
       'form.targetItineraryId': targetItineraryId,
-      'form.voteType': 'SINGLE'
+      'form.voteType': 'SINGLE',
+      'form.deadlineDate': deadline.deadlineDate,
+      'form.deadlineTime': deadline.deadlineTime
     });
-    if (targetItineraryId) this.loadTarget(targetItineraryId);
+    if (targetItineraryId) {
+      this.loadTarget(targetItineraryId);
+    } else if (!isGeneral) {
+      this.loadItineraryOptions();
+    }
   },
 
-  async loadTarget(targetItineraryId) {
+  async loadItineraryOptions() {
+    this.setData({ loadingTarget: true, loadError: '' });
+    try {
+      const [itineraries, metadata] = await Promise.all([
+        getItineraries(this.data.activityId),
+        getItineraryTypeMetadata()
+      ]);
+      const targetOptions = (itineraries || []).map(itineraryOption);
+      this.setData({ targetOptions, typeMetadata: metadata || [] });
+    } catch (error) {
+      const message = error.message || '行程列表加载失败';
+      this.setData({ loadError: message });
+      wx.showToast({ title: message, icon: 'none' });
+    } finally {
+      this.setData({ loadingTarget: false });
+    }
+  },
+
+  chooseTarget(event) {
+    const targetIndex = Number(event.detail.value);
+    const selected = this.data.targetOptions[targetIndex];
+    if (!selected) return;
+    this.setData({
+      targetIndex,
+      targetSelected: true,
+      selectedTargetOption: selected,
+      isFullPlan: true,
+      target: null,
+      'form.purpose': 'UPDATE_ITINERARY',
+      'form.decisionType': 'FULL_PLAN',
+      'form.targetItineraryId': selected.itineraryId,
+      'form.voteType': 'SINGLE'
+    });
+    this.loadTarget(selected.itineraryId, this.data.typeMetadata);
+  },
+
+  async loadTarget(targetItineraryId, cachedMetadata) {
     this.setData({ loadingTarget: true, loadError: '' });
     try {
       const [detail, metadata] = await Promise.all([
         getItineraryDetail(this.data.activityId, targetItineraryId),
-        getItineraryTypeMetadata()
+        cachedMetadata && cachedMetadata.length ? cachedMetadata : getItineraryTypeMetadata()
       ]);
       const itinerary = detail.itinerary || {};
       const fields = buildFullPlanFields(metadata, itinerary.itineraryType);
       const scope = fields.map((field) => field.key);
+      const planBaseFields = fields.filter((field) => BASE_PLAN_FIELDS.includes(field.key));
+      const planArrangementFields = fields.filter((field) => !BASE_PLAN_FIELDS.includes(field.key) && field.key !== 'description');
+      const planDescriptionField = fields.find((field) => field.key === 'description') || null;
       if (!fields.length || !scope.includes('title') || !scope.includes('itineraryDate')) {
         throw new Error('行程类型元数据不完整，请稍后重试');
       }
       const typeDefinition = metadata.find((item) => item.type === itinerary.itineraryType);
       this.setData({
         target: { ...itinerary, summaryText: itinerarySummary(itinerary) },
+        isFullPlan: true,
+        typeMetadata: metadata,
         targetTypeLabel: typeDefinition ? typeDefinition.label : '',
         fullPlanFields: fields,
         fullPlanScope: scope,
+        planBaseFields,
+        planArrangementFields,
+        planDescriptionField,
+        planEditorVisible: false,
+        planEditorIndex: -1,
+        planEditorTitle: '',
+        planDraft: null,
         'form.title': `确定${itinerary.title || '这个行程'}采用哪套方案`,
-        'form.options': [copyCurrentPlan(itinerary, scope, 0), copyCurrentPlan(itinerary, scope, 1)]
+        'form.options': []
       });
     } catch (error) {
       const message = error.message || '关联行程加载失败';
@@ -119,9 +224,12 @@ Page({
   },
 
   retryTarget() {
-    if (!this.data.form.targetItineraryId) return;
     getItineraryTypeMetadata(true).catch(() => {});
-    this.loadTarget(this.data.form.targetItineraryId);
+    if (this.data.form.targetItineraryId) {
+      this.loadTarget(this.data.form.targetItineraryId);
+    } else {
+      this.loadItineraryOptions();
+    }
   },
 
   input(event) {
@@ -154,15 +262,74 @@ Page({
 
   addOption() {
     const index = this.data.form.options.length;
-    const option = this.data.isFullPlan
-      ? copyCurrentPlan(this.data.target || {}, this.data.fullPlanScope, index)
-      : emptyOption();
-    this.setData({ 'form.options': this.data.form.options.concat(option) });
+    if (this.data.isFullPlan) {
+      this.setData({
+        planEditorVisible: true,
+        planEditorIndex: -1,
+        planEditorTitle: planLabel(index),
+        planDraft: copyCurrentPlan(this.data.target || {}, this.data.fullPlanScope, index)
+      });
+      return;
+    }
+    this.setData({ 'form.options': this.data.form.options.concat(emptyOption()) });
+  },
+
+  editPlanOption(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    const option = this.data.form.options[index];
+    if (!option) return;
+    this.setData({
+      planEditorVisible: true,
+      planEditorIndex: index,
+      planEditorTitle: planLabel(index),
+      planDraft: { ...option }
+    });
+  },
+
+  planDraftInput(event) {
+    const { key } = event.currentTarget.dataset;
+    this.setData({ [`planDraft.${key}`]: event.detail.value });
+  },
+
+  savePlanOption() {
+    const draft = this.data.planDraft;
+    if (!draft) return;
+    const index = this.data.planEditorIndex >= 0
+      ? this.data.planEditorIndex : this.data.form.options.length;
+    const message = this.validateFullPlanOption(draft, index);
+    if (message) {
+      wx.showToast({ title: message, icon: 'none' });
+      return;
+    }
+    const options = this.data.form.options.slice();
+    if (this.data.planEditorIndex >= 0) {
+      options[this.data.planEditorIndex] = { ...draft };
+    } else {
+      options.push({ ...draft });
+    }
+    this.setData({
+      'form.options': options,
+      planEditorVisible: false,
+      planEditorIndex: -1,
+      planEditorTitle: '',
+      planDraft: null
+    });
+  },
+
+  closePlanEditor() {
+    this.setData({
+      planEditorVisible: false,
+      planEditorIndex: -1,
+      planEditorTitle: '',
+      planDraft: null
+    });
+  },
+
+  noop() {
   },
 
   removeOption(event) {
     const index = Number(event.currentTarget.dataset.index);
-    if (this.data.form.options.length <= 2) return;
     this.setData({ 'form.options': this.data.form.options.filter((_, itemIndex) => itemIndex !== index) });
   },
 
@@ -190,7 +357,8 @@ Page({
   validate() {
     const { form } = this.data;
     if (!form.title.trim()) return '请填写投票问题';
-    if (form.options.length < 2) return '请至少填写两个投票选项';
+    if (this.data.isFullPlan && form.options.length < 1) return '请至少添加一个候选方案';
+    if (!this.data.isFullPlan && form.options.length < 2) return '请至少填写两个投票选项';
     if (!this.data.isFullPlan && form.options.filter((item) => item.optionText.trim()).length < 2) {
       return '请至少填写两个投票选项';
     }
@@ -219,7 +387,8 @@ Page({
     if (message) return wx.showToast({ title: message, icon: 'none' });
     const { form } = this.data;
     const sourceOptions = this.data.isFullPlan
-      ? form.options : form.options.filter((item) => item.optionText.trim());
+      ? [copyOriginalPlan(this.data.target || {}, this.data.fullPlanScope), ...form.options]
+      : form.options.filter((item) => item.optionText.trim());
     const options = sourceOptions.map((item) => ({
       optionText: item.optionText.trim(),
       optionDescription: String(item.optionDescription || '').trim(),

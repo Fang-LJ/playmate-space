@@ -1,20 +1,35 @@
 <view class="page p1-edit-page">
   <view class="page-title">创建投票</view>
-  <view class="page-subtitle">{{isFullPlan ? '邀请成员从完整方案中选出最终安排。' : '邀请成员一起做出这次活动的选择。'}}</view>
+  <view class="page-subtitle">{{isGeneral ? '邀请成员一起做出这次活动的选择。' : '选择一个行程，邀请成员从完整方案中选出最终安排。'}}</view>
 
   <view wx:if="{{loadingTarget}}" class="section card">正在加载关联行程…</view>
   <view wx:elif="{{loadError}}" class="section card error-card"><view>{{loadError}}</view><view class="pm-link" bindtap="retryTarget">重新加载</view></view>
 
-  <block wx:if="{{!isFullPlan || target}}">
+  <view wx:elif="{{allowTargetSelection && targetOptions.length}}" class="section card target-selector-card">
+    <view class="pm-label">选择关联行程</view>
+    <picker range="{{targetOptions}}" range-key="label" value="{{targetIndex}}" bindchange="chooseTarget">
+      <view class="target-picker {{targetSelected ? '' : 'placeholder'}}">
+        <view class="target-picker-main">{{targetSelected ? selectedTargetOption.label : '请选择要创建投票的行程'}}</view>
+        <view wx:if="{{targetSelected}}" class="target-picker-desc">{{selectedTargetOption.description}}</view>
+        <view class="target-picker-arrow">⌄</view>
+      </view>
+    </picker>
+  </view>
+
+  <view wx:elif="{{allowTargetSelection}}" class="section card empty-card">
+    <view class="section-title">还没有可选择的行程</view>
+    <view class="section-desc">请先创建行程，再为它发起完整方案投票。</view>
+  </view>
+
+  <block wx:if="{{isGeneral || target}}">
     <view wx:if="{{target}}" class="section p1-context-card">
       <view class="context-eyebrow">为这个行程选择完整方案</view>
       <view class="section-title">{{target.title}}</view>
       <view class="section-desc">{{targetTypeLabel}} · {{target.itineraryDate}} · {{target.summaryText}}</view>
     </view>
-    <view wx:if="{{isFullPlan}}" class="section scope-card full-plan-note">本次投票将决定该行程采用哪套完整方案，结果确认后会更新行程标题、时间和具体安排，行程类型保持不变。</view>
 
     <view class="section card pm-form-card">
-      <view class="pm-field"><view class="pm-label">投票问题</view><input class="pm-input" value="{{form.title}}" data-key="title" bindinput="input" placeholder="例如：这次行程采用哪套方案？" /></view>
+      <view wx:if="{{!isFullPlan}}" class="pm-field"><view class="pm-label">投票问题</view><input class="pm-input" value="{{form.title}}" data-key="title" bindinput="input" placeholder="例如：这次行程采用哪套方案？" /></view>
       <view wx:if="{{!isFullPlan}}" class="pm-field"><view class="pm-label">决定内容</view><picker range="{{decisionOptions}}" range-key="label" value="{{decisionIndex}}" bindchange="chooseDecision"><view class="pm-picker">{{decisionOptions[decisionIndex].label}}</view></picker></view>
       <view class="pm-field">
         <view class="pm-label">投票规则</view>
@@ -30,22 +45,83 @@
 
     <view class="section card pm-form-card">
       <view class="section-title">{{isFullPlan ? '候选方案' : '投票选项'}}</view>
-      <view wx:for="{{form.options}}" wx:key="index" wx:for-index="optionIndex" class="poll-option-edit {{isFullPlan ? 'full-plan-option' : ''}}">
-        <view class="option-card-title"><view class="pm-label">{{isFullPlan ? '候选方案' : '选项'}} {{optionIndex + 1}}</view><view wx:if="{{optionIndex >= 2}}" class="option-remove" data-index="{{optionIndex}}" bindtap="removeOption">删除</view></view>
-        <view class="pm-field"><view class="pm-label">{{isFullPlan ? '方案名称' : '选项名称'}}</view><input class="pm-input" value="{{item.optionText}}" data-index="{{optionIndex}}" data-key="optionText" bindinput="optionInput" placeholder="填写候选方案" /></view>
-        <view wx:if="{{isFullPlan}}" class="plan-fields">
-          <view wx:for="{{fullPlanFields}}" wx:key="key" wx:for-item="field" class="pm-field plan-field {{field.layoutClass}}">
-            <view class="pm-label">{{field.label}}</view>
-            <picker wx:if="{{field.control === 'date'}}" mode="date" value="{{item[field.key]}}" data-index="{{optionIndex}}" data-key="{{field.key}}" bindchange="optionInput"><view class="pm-picker {{item[field.key] ? '' : 'placeholder'}}">{{item[field.key] || '选择日期'}}</view></picker>
-            <picker wx:elif="{{field.control === 'time'}}" mode="time" value="{{item[field.key]}}" data-index="{{optionIndex}}" data-key="{{field.key}}" bindchange="optionInput"><view class="pm-picker {{item[field.key] ? '' : 'placeholder'}}">{{item[field.key] || '选择时间'}}</view></picker>
-            <textarea wx:elif="{{field.control === 'textarea'}}" class="pm-textarea plan-description" value="{{item[field.key]}}" data-index="{{optionIndex}}" data-key="{{field.key}}" bindinput="optionInput" placeholder="可留空以清除原备注" />
-            <input wx:else class="pm-input" value="{{item[field.key]}}" data-index="{{optionIndex}}" data-key="{{field.key}}" bindinput="optionInput" placeholder="请输入{{field.label}}" />
+      <view wx:if="{{!form.options.length}}" class="poll-options-empty">暂无候选方案，请点击下方“添加方案”</view>
+      <block wx:if="{{isFullPlan}}">
+        <view wx:for="{{form.options}}" wx:key="index" wx:for-index="optionIndex" class="plan-summary-card" data-index="{{optionIndex}}" bindtap="editPlanOption">
+          <view class="plan-summary-content">
+            <view class="plan-summary-name">{{item.optionText}}</view>
+            <view class="plan-summary-title">{{item.title}}</view>
+            <view class="plan-summary-meta">{{item.itineraryDate}} · {{item.startTime || '时间待定'}}<text wx:if="{{item.endTime}}"> - {{item.endTime}}</text></view>
+          </view>
+          <view class="plan-summary-actions">
+            <view class="plan-summary-edit">编辑</view>
+            <view class="option-remove" data-index="{{optionIndex}}" catchtap="removeOption">删除</view>
           </view>
         </view>
-        <view class="pm-field"><view class="pm-label">方案说明</view><input class="pm-input option-secondary" value="{{item.optionDescription}}" data-index="{{optionIndex}}" data-key="optionDescription" bindinput="optionInput" placeholder="补充方案特点（可选）" /></view>
-      </view>
-      <view class="pm-link" bindtap="addOption">+ 添加方案</view>
+      </block>
+      <block wx:else>
+        <view wx:for="{{form.options}}" wx:key="index" wx:for-index="optionIndex" class="poll-option-edit">
+          <view class="option-card-title"><view class="pm-label">选项 {{optionIndex + 1}}</view><view class="option-remove" data-index="{{optionIndex}}" bindtap="removeOption">删除</view></view>
+          <view class="pm-field"><view class="pm-label">选项名称</view><input class="pm-input" value="{{item.optionText}}" data-index="{{optionIndex}}" data-key="optionText" bindinput="optionInput" placeholder="填写候选选项" /></view>
+          <view class="pm-field"><view class="pm-label">选项说明</view><input class="pm-input option-secondary" value="{{item.optionDescription}}" data-index="{{optionIndex}}" data-key="optionDescription" bindinput="optionInput" placeholder="补充说明（可选）" /></view>
+        </view>
+      </block>
     </view>
-    <view class="p1-fixed-footer"><button class="pm-native-button primary" loading="{{saving}}" bindtap="save">创建投票</button></view>
+    <view wx:if="{{!planEditorVisible}}" class="p1-fixed-footer poll-create-actions">
+      <view class="poll-create-action poll-create-action-first">
+        <button class="pm-native-button secondary" disabled="{{saving}}" bindtap="addOption">{{isFullPlan ? '添加方案' : '添加选项'}}</button>
+      </view>
+      <view class="poll-create-action">
+        <button class="pm-native-button primary" disabled="{{saving || (isFullPlan && form.options.length < 1) || (!isFullPlan && form.options.length < 2)}}" loading="{{saving}}" bindtap="save">创建投票</button>
+      </view>
+    </view>
   </block>
+
+  <view wx:if="{{planEditorVisible && planDraft}}" class="plan-editor-mask">
+    <view class="plan-editor-backdrop" bindtap="closePlanEditor"></view>
+    <view class="plan-editor-sheet" catchtap="noop">
+      <view class="plan-editor-header">
+        <view>
+          <view class="plan-editor-title">{{planEditorTitle}}</view>
+        </view>
+        <view class="plan-editor-close" bindtap="closePlanEditor">×</view>
+      </view>
+
+      <scroll-view scroll-y class="plan-editor-scroll">
+        <view class="plan-editor-content">
+          <view class="plan-form-card">
+            <view class="plan-form-title">行程安排</view>
+            <view class="plan-field-grid">
+              <view wx:for="{{planBaseFields}}" wx:key="key" wx:for-item="field" class="plan-form-field {{field.layoutClass}}">
+                <view class="plan-field-label">{{field.label}}</view>
+                <picker wx:if="{{field.control === 'date'}}" mode="date" value="{{planDraft[field.key]}}" data-key="{{field.key}}" bindchange="planDraftInput"><view class="plan-field-control {{planDraft[field.key] ? '' : 'placeholder'}}">{{planDraft[field.key] || '选择日期'}}</view></picker>
+                <picker wx:elif="{{field.control === 'time'}}" mode="time" value="{{planDraft[field.key]}}" data-key="{{field.key}}" bindchange="planDraftInput"><view class="plan-field-control {{planDraft[field.key] ? '' : 'placeholder'}}">{{planDraft[field.key] || '选择时间'}}</view></picker>
+                <input wx:else class="plan-field-control" value="{{planDraft[field.key]}}" data-key="{{field.key}}" bindinput="planDraftInput" placeholder="请输入{{field.label}}" />
+              </view>
+            </view>
+          </view>
+
+          <view wx:if="{{planArrangementFields.length}}" class="plan-form-card">
+            <view class="plan-form-title">{{targetTypeLabel}}安排</view>
+            <view class="plan-field-grid">
+              <view wx:for="{{planArrangementFields}}" wx:key="key" wx:for-item="field" class="plan-form-field {{field.layoutClass}}">
+                <view class="plan-field-label">{{field.label}}</view>
+                <input class="plan-field-control" value="{{planDraft[field.key]}}" data-key="{{field.key}}" bindinput="planDraftInput" placeholder="请输入{{field.label}}" />
+              </view>
+            </view>
+          </view>
+
+          <view wx:if="{{planDescriptionField}}" class="plan-form-card">
+            <view class="plan-form-title">备注说明</view>
+            <textarea class="plan-note-textarea" value="{{planDraft.description}}" data-key="description" bindinput="planDraftInput" placeholder="补充路线、预约或其他说明" />
+          </view>
+        </view>
+      </scroll-view>
+
+      <view class="plan-editor-footer">
+        <button class="plan-editor-action secondary" bindtap="closePlanEditor">退出</button>
+        <button class="plan-editor-action primary" bindtap="savePlanOption">保存方案</button>
+      </view>
+    </view>
+  </view>
 </view>

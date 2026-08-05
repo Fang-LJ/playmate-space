@@ -55,7 +55,7 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 - 普通投票：`purpose=GENERAL`，不关联行程。
 - 修改已有行程：投票写入 `target_itinerary_id` 和发起时的 `target_itinerary_version`；关闭后根据 `winner_option_id`、`result_payload` 生成预览。版本不一致时，将 `result_apply_status` 置为 `REVIEW_REQUIRED`，由人工确认。
 - `decision_scope` 是结果应用的持久化字段白名单。第一版新建关联投票固定使用 `FULL_PLAN`，由后端按目标行程类型推导完整范围，客户端不能缩小或扩大；选项 `result_payload` 必须包含范围内全部字段，后端预览和正式应用均再次校验。
-- `FULL_PLAN` 包含 `title`、日期时间、当前类型执行字段、地址和备注，但不包含 `itineraryType` 或其他系统字段。胜出方案可修改标题，行程类型保持不变；结果统一进入人工确认。
+- `FULL_PLAN` 包含 `title`、日期时间、当前类型执行字段、地址和备注，但不包含 `itineraryType` 或其他系统字段。胜出方案可修改标题，行程类型保持不变；第一版由创建者结束投票时明确选定方案并同步应用，历史异常结果才进入人工确认。
 - 历史快速投票的 `decision_scope`、`result_payload` 和应用记录继续保留并兼容，不修改历史数据，也不新增数据库字段。
 - 生成新行程：投票的 `purpose=CREATE_ITINERARY`，固定字段存入 JSON `itinerary_template`；结果应用后写入 `generated_itinerary_id`，新行程记录 `origin_type=POLL_RESULT` 和 `origin_poll_id`。
 - 一个行程可被多次历史投票引用，因为多个投票可以使用同一个 `target_itinerary_id`；“同一行程同时只允许一个进行中修改投票”留给阶段 C 的事务校验，不用复杂生成列或触发器实现。

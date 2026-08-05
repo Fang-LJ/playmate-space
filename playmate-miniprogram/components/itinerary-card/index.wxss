@@ -2,6 +2,34 @@
   display: block;
 }
 
+.swipe-shell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 36rpx;
+}
+
+.swipe-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  width: 300rpx;
+}
+
+.swipe-action {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+
+.swipe-action.edit { background: #5aae87; }
+.swipe-action.delete { background: #d94c4c; }
+
 .itinerary-card {
   --type-bg: #f1f4f2;
   --type-border: #cdd8d1;
@@ -13,6 +41,8 @@
   border-radius: 36rpx;
   background: #ffffff;
   box-shadow: 0 14rpx 18rpx rgba(22, 53, 38, 0.08);
+  transition: transform 180ms ease;
+  will-change: transform;
 }
 
 .itinerary-card.transport { --type-bg: #eaf3ff; --type-border: #a8c8f0; --type-text: #3977b8; }

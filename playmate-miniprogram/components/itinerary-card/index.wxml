@@ -1,15 +1,21 @@
-<view class="itinerary-card {{item.themeClass}} {{item.statusClass}}" bindtap="select">
-  <view class="card-grid card-grid-primary">
-    <view class="itinerary-time">{{item.timeText}}</view>
-    <view class="itinerary-title">{{item.title}}</view>
-    <view class="itinerary-status">{{item.statusText}}</view>
+<view class="swipe-shell" bindtouchstart="touchStart" bindtouchmove="touchMove" bindtouchend="touchEnd" bindtouchcancel="touchEnd">
+  <view wx:if="{{canEdit || canDelete}}" class="swipe-actions">
+    <view wx:if="{{canEdit}}" class="swipe-action edit" catchtap="edit">编辑</view>
+    <view wx:if="{{canDelete}}" class="swipe-action delete" catchtap="remove">删除</view>
   </view>
-  <view class="card-grid card-grid-secondary">
-    <view class="itinerary-type">{{item.typeText}}</view>
-    <view class="itinerary-summary">{{item.summaryText}}</view>
-  </view>
-  <view wx:if="{{item.descriptionText}}" class="card-grid card-grid-description">
-    <view></view>
-    <view class="itinerary-description">{{item.descriptionText}}</view>
+  <view class="itinerary-card {{item.themeClass}} {{item.statusClass}}" style="transform: translateX({{swipeOffset}}rpx);" bindtap="select">
+    <view class="card-grid card-grid-primary">
+      <view class="itinerary-time">{{item.timeText}}</view>
+      <view class="itinerary-title">{{item.title}}</view>
+      <view class="itinerary-status">{{item.statusText}}</view>
+    </view>
+    <view class="card-grid card-grid-secondary">
+      <view class="itinerary-type">{{item.typeText}}</view>
+      <view class="itinerary-summary">{{item.summaryText}}</view>
+    </view>
+    <view wx:if="{{item.descriptionText}}" class="card-grid card-grid-description">
+      <view></view>
+      <view class="itinerary-description">{{item.descriptionText}}</view>
+    </view>
   </view>
 </view>

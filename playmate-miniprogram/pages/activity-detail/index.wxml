@@ -69,15 +69,20 @@
       </view>
       <view wx:if="{{!itineraries.length}}" class="card empty-card"><view>还没有行程安排</view><view class="section-desc">从集合、交通或第一站开始添加。</view></view>
       <view class="itinerary-card-list">
-        <itinerary-card wx:for="{{itineraries}}" wx:key="itineraryId" item="{{item}}" bindselect="goItinerary" />
+        <itinerary-card wx:for="{{itineraries}}" wx:key="itineraryId" item="{{item}}" can-edit="{{item.canEdit}}" can-delete="{{item.canDelete}}" opened="{{openItineraryId === item.itineraryId}}" bindselect="goItinerary" bindswipeopen="openItineraryActions" bindswipeclose="closeItineraryActions" bindedit="editItinerary" binddelete="deleteItinerary" />
       </view>
     </view>
 
     <view wx:if="{{activeTab==='POLLS'}}" class="section">
-      <view class="section-head"><view class="section-title">投票决策</view><view class="pm-link" bindtap="goPolls">查看全部</view></view>
+      <view class="section-head">
+        <view class="section-title">投票决策</view>
+        <view class="section-icon-actions">
+          <view wx:if="{{!activity.isReadonly}}" class="section-icon-button" bindtap="newPoll" aria-label="创建投票"><text class="section-add-icon">+</text></view>
+          <view class="section-icon-button" bindtap="goPolls" aria-label="查看全部投票"><text class="section-list-icon">☰</text></view>
+        </view>
+      </view>
       <view wx:if="{{!polls.length}}" class="card empty-card">还没有投票，去创建一个吧。</view>
       <view wx:for="{{polls}}" wx:key="pollId" class="card compact-row" data-id="{{item.pollId}}" bindtap="goPoll"><view class="row-main"><view class="row-title">{{item.title}}</view><view class="muted">{{item.statusText}} · {{item.participantCount}} 人参与</view></view><view wx:if="{{item.resultApplyStatus==='REVIEW_REQUIRED'}}" class="review">{{item.resultApplyText}}</view></view>
-      <button wx:if="{{!activity.isReadonly}}" class="pm-native-button primary section" bindtap="newPoll">创建投票</button>
     </view>
 
     <view wx:if="{{activeTab==='COSTS'||activeTab==='PHOTOS'}}" class="section card empty-card"><view class="section-title">{{activeTab==='COSTS'?'费用管理':'照片墙'}}将在后续阶段开放</view><view class="section-desc">当前不展示伪造数据，活动协作会在后续模块继续完善。</view></view>

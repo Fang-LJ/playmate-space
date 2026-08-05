@@ -192,14 +192,23 @@ public class PollService {
     }
 
     @Transactional
-    public PollDetailResponse close(Long activityId, Long pollId) {
+    public PollDetailResponse close(Long activityId, Long pollId, ClosePollRequest request) {
         Long userId = access.requireUserId();
         ActivityEntity activity = access.requireActivity(activityId);
         ActivityMemberEntity member = access.requireActiveMember(activityId, userId);
         access.requireWritableActivity(activity);
         ActivityPollEntity poll = requirePoll(activityId, pollId);
         requirePollManager(activity, member, userId, poll);
-        closeAndFinalize(poll, activity);
+        Long selectedOptionId = request == null ? null : request.optionId();
+        if (selectedOptionId != null && !"FULL_PLAN".equals(poll.getDecisionType())) {
+            throw param("只有完整方案投票可以在结束时指定方案");
+        }
+        if ("ACTIVE".equals(poll.getStatus()) && "FULL_PLAN".equals(poll.getDecisionType())
+                && selectedOptionId == null) {
+            throw param("结束完整方案投票前请先选择一个方案");
+        }
+        if (selectedOptionId != null) requireResultApplyPermission(activity, member, userId, poll);
+        closeAndFinalize(poll, activity, selectedOptionId, userId);
         return detailInternal(activityId, pollId, userId);
     }
 
@@ -246,14 +255,7 @@ public class PollService {
         if ("APPLIED".equals(poll.getResultApplyStatus())) return detailInternal(activityId, pollId, userId);
         if ("GENERAL".equals(poll.getPurpose())) throw param("普通投票不需要应用结果");
         ActivityPollOptionEntity option = requireOption(pollId, request.optionId());
-        if ("UPDATE_ITINERARY".equals(poll.getPurpose())) {
-            ActivityItineraryEntity target = requireTarget(poll);
-            if (!userId.equals(target.getCreatedBy()) && !access.isActivityCreator(activity, member, userId)) {
-                throw new ForbiddenException("只有行程创建者或活动创建者可以确认应用结果");
-            }
-        } else if (!userId.equals(poll.getCreatedBy()) && !access.isActivityCreator(activity, member, userId)) {
-            throw new ForbiddenException("无权确认投票结果");
-        }
+        requireResultApplyPermission(activity, member, userId, poll);
         poll.setWinnerOptionId(option.getId());
         applyResultInternal(poll, activity, option, true, userId);
         return detailInternal(activityId, pollId, userId);
@@ -274,7 +276,7 @@ public class PollService {
         if (poll == null || !"ACTIVE".equals(poll.getStatus()) || poll.getDeadline() == null
                 || poll.getDeadline().isAfter(LocalDateTime.now())) return;
         ActivityEntity activity = access.requireActivity(poll.getActivityId());
-        closeAndFinalize(poll, activity);
+        closeAndFinalize(poll, activity, null, null);
     }
 
     private void finalizeExpiredByActivity(Long activityId) {
@@ -386,13 +388,29 @@ public class PollService {
         return poll;
     }
 
-    private void closeAndFinalize(ActivityPollEntity poll, ActivityEntity activity) {
+    private void closeAndFinalize(
+            ActivityPollEntity poll,
+            ActivityEntity activity,
+            Long selectedOptionId,
+            Long appliedBy
+    ) {
         if (!"ACTIVE".equals(poll.getStatus())) return;
         LocalDateTime now = LocalDateTime.now();
         if (pollMapper.closeActivePoll(poll.getId(), now) != 1) return;
         ActivityPollEntity closed = pollMapper.selectById(poll.getId());
         todoLifecycleService.closePollVoteTodos(
                 closed, closed.getDeadline() != null && !closed.getDeadline().isAfter(now));
+
+        // The creator's explicit choice is the final decision for a complete-plan poll.
+        // It is applied in this same transaction, so no result-confirmation todo is created.
+        if (selectedOptionId != null) {
+            ActivityPollOptionEntity selected = requireOption(closed.getId(), selectedOptionId);
+            closed.setWinnerOptionId(selected.getId());
+            closed.setUpdateTime(now);
+            pollMapper.updateById(closed);
+            applyResultInternal(closed, activity, selected, true, appliedBy);
+            return;
+        }
 
         List<ActivityPollVoteEntity> votes = voteMapper.selectList(
                 new LambdaQueryWrapper<ActivityPollVoteEntity>()
@@ -896,6 +914,24 @@ public class PollService {
     ) {
         if (!userId.equals(poll.getCreatedBy()) && !access.isActivityCreator(activity, member, userId)) {
             throw new ForbiddenException("只能管理自己创建的投票");
+        }
+    }
+
+    private void requireResultApplyPermission(
+            ActivityEntity activity,
+            ActivityMemberEntity member,
+            Long userId,
+            ActivityPollEntity poll
+    ) {
+        if ("UPDATE_ITINERARY".equals(poll.getPurpose())) {
+            ActivityItineraryEntity target = requireTarget(poll);
+            if (!userId.equals(target.getCreatedBy()) && !access.isActivityCreator(activity, member, userId)) {
+                throw new ForbiddenException("只有行程创建者或活动创建者可以确认应用结果");
+            }
+            return;
+        }
+        if (!userId.equals(poll.getCreatedBy()) && !access.isActivityCreator(activity, member, userId)) {
+            throw new ForbiddenException("无权确认投票结果");
         }
     }
 

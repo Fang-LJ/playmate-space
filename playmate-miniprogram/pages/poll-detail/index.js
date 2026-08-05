@@ -6,7 +6,8 @@ const { POLL_DECISION, POLL_PURPOSE, POLL_RESULT_STATUS, POLL_STATUS, formatDate
 Page({
   data: {
     activityId: '', pollId: '', poll: null, loading: true, errorMessage: '',
-    selected: [], submitting: false, canManage: false, canApply: false, preview: null, previewing: false
+    selected: [], submitting: false, applying: false, canManage: false, canApply: false,
+    reviewOptionId: null, preview: null, previewing: false
   },
 
   onLoad(options) {
@@ -25,7 +26,9 @@ Page({
         getActivityDetail(this.data.activityId),
         getCurrentUser()
       ]);
-      const decorated = this.decoratePoll(poll);
+      const reviewOptionId = poll.status === 'CLOSED' && poll.resultApplyStatus === 'REVIEW_REQUIRED'
+        && poll.winnerOptionId ? Number(poll.winnerOptionId) : null;
+      const decorated = this.decoratePoll(poll, reviewOptionId);
       const currentUserId = String(currentUser.userId);
       const isActivityCreator = activity.currentUserRole === 'CREATOR';
       const isPollCreator = currentUserId === String(poll.createdBy);
@@ -36,6 +39,7 @@ Page({
         selected: decorated.currentUserOptionIds,
         canManage: isActivityCreator || isPollCreator,
         canApply: isActivityCreator || isPollCreator || isTargetItineraryCreator,
+        reviewOptionId,
         preview: this.decoratePreview(poll.resultPreview)
       });
     } catch (error) {
@@ -45,7 +49,7 @@ Page({
     }
   },
 
-  decoratePoll(poll) {
+  decoratePoll(poll, reviewOptionId = null) {
     const all = Array.isArray(poll.currentUserOptionIds) ? poll.currentUserOptionIds : [];
     const selected = [...new Set(all.map((value) => Number(value)).filter((value) => Number.isFinite(value)))];
     const singleSelected = poll.voteType === 'SINGLE' && selected.length > 1 ? [selected[selected.length - 1]] : selected;
@@ -57,8 +61,6 @@ Page({
       statusText: label(POLL_STATUS, poll.status),
       resultApplyText: label(POLL_RESULT_STATUS, poll.resultApplyStatus),
       deadlineText: formatDateTime(poll.deadline) || '未设置截止时间',
-      scopeText: (poll.decisionScopeLabels || []).join('、') || '不修改行程',
-      unchangedText: (poll.unchangedFieldLabels || []).join('、') || '无',
       applicationHistory: (poll.applicationHistory || []).map((history) => ({
         ...history,
         appliedAtText: formatDateTime(history.appliedAt),
@@ -69,13 +71,20 @@ Page({
         unchangedText: (history.unchangedFields || []).map((field) => field.label).join('、'),
         keptCurrentPlan: !(history.changedFields || []).length
       })),
-      options: (poll.options || []).map((item) => ({
-        ...item,
-        optionId: Number(item.optionId),
-        selected: singleSelected.includes(Number(item.optionId)),
-        hasDescription: hasVisibleText(item.optionDescription),
-        voteText: `${item.voteCount || 0} 票`
-      }))
+      options: (poll.options || []).map((item) => {
+        const optionId = Number(item.optionId);
+        const selected = singleSelected.includes(optionId);
+        const reviewSelected = optionId === Number(reviewOptionId);
+        return {
+          ...item,
+          optionId,
+          selected,
+          reviewSelected,
+          isChecked: selected || reviewSelected,
+          hasDescription: hasVisibleText(item.optionDescription),
+          voteText: `${item.voteCount || 0} 票`
+        };
+      })
     };
   },
 
@@ -98,8 +107,22 @@ Page({
   },
 
   select(event) {
-    if (!this.data.poll || this.data.poll.status !== 'ACTIVE') return;
+    if (!this.data.poll) return;
     const id = Number(event.currentTarget.dataset.id);
+    if (this.data.poll.status === 'CLOSED'
+      && this.data.poll.resultApplyStatus === 'REVIEW_REQUIRED'
+      && this.data.canApply) {
+      this.setData({
+        reviewOptionId: id,
+        'poll.options': this.data.poll.options.map((item) => ({
+          ...item,
+          reviewSelected: Number(item.optionId) === id,
+          isChecked: Number(item.optionId) === id
+        }))
+      });
+      return;
+    }
+    if (this.data.poll.status !== 'ACTIVE') return;
     let selected = this.data.selected || [];
     if (this.data.poll.voteType === 'SINGLE') {
       selected = [id];
@@ -108,7 +131,11 @@ Page({
     }
     this.setData({
       selected,
-      'poll.options': this.data.poll.options.map((item) => ({ ...item, selected: selected.includes(Number(item.optionId)) }))
+      'poll.options': this.data.poll.options.map((item) => ({
+        ...item,
+        selected: selected.includes(Number(item.optionId)),
+        isChecked: selected.includes(Number(item.optionId))
+      }))
     });
   },
 
@@ -127,14 +154,36 @@ Page({
   },
 
   close() {
+    const poll = this.data.poll;
+    if (!poll) return;
+    if (poll.decisionType === 'FULL_PLAN') {
+      const options = poll.options || [];
+      const selectedOptionId = Number((this.data.selected || [])[0]);
+      const selectedOption = options.find((item) => Number(item.optionId) === selectedOptionId);
+      const originalOption = options.find((item) => item.optionText === '原方案') || options[0];
+      if (!originalOption) return wx.showToast({ title: '没有可应用的方案', icon: 'none' });
+      this.confirmCloseWithOption(selectedOption || originalOption, !selectedOption);
+      return;
+    }
+    this.confirmCloseWithOption(null, false);
+  },
+
+  confirmCloseWithOption(option, useOriginal) {
+    const optionId = option ? Number(option.optionId) : null;
+    const content = useOriginal
+      ? '你还没有选择投票选项。确认后将应用原方案，行程不会发生修改，是否继续？'
+      : option
+      ? `将采用“${option.optionText}”并立即更新关联行程。结束后不能再修改投票，是否继续？`
+      : '结束后成员不能再修改投票，是否继续？';
     wx.showModal({
-      title: '结束投票', content: '结束后成员不能再修改投票，是否继续？',
+      title: '结束投票', content, confirmText: '结束投票',
       success: async (result) => {
         if (!result.confirm) return;
         try {
-          const poll = this.decoratePoll(await closePoll(this.data.activityId, this.data.pollId));
-          this.setData({ poll, selected: poll.currentUserOptionIds });
-          wx.showToast({ title: '投票已结束', icon: 'success' });
+          const response = await closePoll(this.data.activityId, this.data.pollId, optionId);
+          const poll = this.decoratePoll(response);
+          this.setData({ poll, selected: poll.currentUserOptionIds, reviewOptionId: null, preview: null });
+          wx.showToast({ title: option ? '已结束并应用方案' : '投票已结束', icon: 'success' });
         } catch (error) {
           wx.showToast({ title: error.message || '结束失败', icon: 'none' });
         }
@@ -144,13 +193,38 @@ Page({
 
   async apply(event) {
     const optionId = Number(event.currentTarget.dataset.id || (this.data.preview && this.data.preview.optionId));
+    if (!optionId || this.data.applying) return;
+    this.setData({ applying: true });
     try {
       const poll = this.decoratePoll(await applyPollResult(this.data.activityId, this.data.pollId, optionId));
-      this.setData({ poll, selected: poll.currentUserOptionIds, preview: null });
+      this.setData({ poll, selected: poll.currentUserOptionIds, reviewOptionId: null, preview: null });
       wx.showToast({ title: '结果已应用', icon: 'success' });
     } catch (error) {
       wx.showToast({ title: error.message || '应用失败', icon: 'none' });
+    } finally { this.setData({ applying: false }); }
+  },
+
+  previewSelectedResult() {
+    if (!this.data.reviewOptionId) return;
+    this.previewResult({ currentTarget: { dataset: { id: this.data.reviewOptionId } } });
+  },
+
+  confirmApplyResult() {
+    const optionId = Number(this.data.reviewOptionId);
+    const option = (this.data.poll && this.data.poll.options || [])
+      .find((item) => Number(item.optionId) === optionId);
+    if (!option) {
+      wx.showToast({ title: '请先选择一个方案', icon: 'none' });
+      return;
     }
+    wx.showModal({
+      title: '确认应用方案',
+      content: `将采用“${option.optionText}”并更新关联行程，待办将自动完成。`,
+      confirmText: '确认应用',
+      success: (result) => {
+        if (result.confirm) this.apply({ currentTarget: { dataset: { id: optionId } } });
+      }
+    });
   },
 
   async previewResult(event) {

@@ -5,7 +5,11 @@ const getPollDetail = (activityId, pollId) => request({ url: `${base(activityId)
 const createPoll = (activityId, data) => request({ url: base(activityId), method: 'POST', data });
 const updatePoll = (activityId, pollId, data) => request({ url: `${base(activityId)}/${pollId}`, method: 'PUT', data });
 const submitVote = (activityId, pollId, optionIds) => request({ url: `${base(activityId)}/${pollId}/votes`, method: 'POST', data: { optionIds } });
-const closePoll = (activityId, pollId) => request({ url: `${base(activityId)}/${pollId}/close`, method: 'POST' });
+const closePoll = (activityId, pollId, optionId) => request({
+  url: `${base(activityId)}/${pollId}/close`,
+  method: 'POST',
+  data: optionId ? { optionId } : undefined
+});
 const cancelPoll = (activityId, pollId) => request({ url: `${base(activityId)}/${pollId}/cancel`, method: 'POST' });
 const applyPollResult = (activityId, pollId, optionId) => request({ url: `${base(activityId)}/${pollId}/apply-result`, method: 'POST', data: { optionId } });
 const previewPollResult = (activityId, pollId, optionId) => request({ url: `${base(activityId)}/${pollId}/result-preview`, data: { optionId } });

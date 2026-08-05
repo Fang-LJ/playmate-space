@@ -19,7 +19,7 @@
         <view class="date-count"><view>共 {{item.count}}</view><view>项</view></view>
       </view>
       <view class="date-itinerary-list">
-        <itinerary-card wx:for="{{item.items}}" wx:key="itineraryId" item="{{item}}" bindselect="goDetail" />
+        <itinerary-card wx:for="{{item.items}}" wx:key="itineraryId" item="{{item}}" can-edit="{{item.canEdit}}" can-delete="{{item.canDelete}}" opened="{{openItineraryId === item.itineraryId}}" bindselect="goDetail" bindswipeopen="openItineraryActions" bindswipeclose="closeItineraryActions" bindedit="editItinerary" binddelete="deleteItinerary" />
       </view>
     </block>
     <view wx:if="{{!readOnly}}" class="p1-bottom"><button class="pm-native-button primary" bindtap="goCreate">新增行程</button></view>

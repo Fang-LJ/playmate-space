@@ -21,7 +21,7 @@
 | `GET /api/activities/{activityId}/polls/{pollId}` | 查询投票、选项、票数、当前用户选择和结果状态。 |
 | `PUT /api/activities/{activityId}/polls/{pollId}` | 修改投票标题、说明、截止时间或允许修改标记。 |
 | `POST /api/activities/{activityId}/polls/{pollId}/votes` | 提交或替换当前用户选择。 |
-| `POST /api/activities/{activityId}/polls/{pollId}/close` | 创建者或活动创建者主动结束投票。 |
+| `POST /api/activities/{activityId}/polls/{pollId}/close` | 创建者或活动创建者主动结束投票；`FULL_PLAN` 必须在请求体传入 `{ "optionId": 选定方案 }`，并在同一事务内应用。 |
 | `POST /api/activities/{activityId}/polls/{pollId}/cancel` | 取消投票。 |
 | `GET /api/activities/{activityId}/polls/{pollId}/result-preview?optionId={optionId}` | 服务端计算指定选项的结果应用预览，不修改数据。 |
 | `POST /api/activities/{activityId}/polls/{pollId}/apply-result` | 人工确认并应用指定胜出选项。 |
@@ -99,7 +99,8 @@
 
 ## 结果应用与人工确认
 
-- `FULL_PLAN` 唯一胜出后也统一进入 `REVIEW_REQUIRED`，由有权限的人查看预览并调用 `apply-result`；普通投票和历史快速投票维持原行为。
+- 第一版新建 `FULL_PLAN` 投票由有权限的创建者在结束动作中使用页面已勾选的方案；未勾选时前端会明确提示并以“原方案”结束，行程不发生业务字段修改。无论哪种情况，服务端均在同一事务内关闭投票、应用传入方案、写入应用历史并关闭投票待办，不生成结果确认待办。
+- `apply-result` 与 `REVIEW_REQUIRED` 保留给历史快速投票、并列、无人投票、过期和其他无法自动决策的兼容场景；普通投票维持原行为。
 - 预览与正式应用使用同一套字段映射和白名单；正式应用不信任前端预览内容。
 - 应用成功后写入 `t_activity_poll_application`，详情响应返回 `applicationHistory`，包含前后快照、变化字段、未变化字段、操作人和应用时间。
 - 更新已有行程会确认状态并递增 `version`；生成行程会写入 `origin_type=POLL_RESULT`、`origin_poll_id` 和 `generated_itinerary_id`。
