@@ -11,6 +11,7 @@ pass() { echo "[PASS] $1"; }
 fail() { echo "[FAIL] $1"; exit 1; }
 api() { curl -sS "$@"; }
 assert_code() { [[ $(jq -r '.code' <<<"$1") == "SUCCESS" ]] || { echo "$1"; fail "$2"; }; }
+assert_error() { [[ $(jq -r '.code' <<<"$1") != "SUCCESS" ]] || { echo "$1"; fail "$2"; }; }
 login() {
   api -X POST "$BASE_URL/api/auth/wx-login" -H 'Content-Type: application/json' \
     -d "{\"mockOpenid\":\"p2_expense_$1_$stamp\",\"nickname\":\"P2 $1\"}"
@@ -32,46 +33,64 @@ JOIN=$(api -X POST "$BASE_URL/api/activity-invites/$SHARE_CODE/join" -H "Authori
 assert_code "$JOIN" '用户 B 加入活动'
 pass '用户 B 加入活动'
 
+ILLEGAL_PAYER=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/expenses" -H "Authorization: Bearer $TOKEN_B" -H 'Content-Type: application/json' \
+  -d "{\"title\":\"越权代记\",\"category\":\"FOOD\",\"amount\":\"10.00\",\"payerUserId\":$USER_A,\"expenseTime\":\"2026-08-05T17:00:00\",\"splitMode\":\"EQUAL\",\"shares\":[{\"userId\":$USER_A},{\"userId\":$USER_B}]}")
+assert_error "$ILLEGAL_PAYER" '普通成员被错误允许代他人记账'
+pass '普通成员只能记录自己付款'
+
 EXPENSE=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/expenses" -H "Authorization: Bearer $TOKEN_A" -H 'Content-Type: application/json' \
-  -d "{\"title\":\"P2 测试晚餐\",\"category\":\"FOOD\",\"amount\":\"99.01\",\"payerUserId\":$USER_A,\"expenseTime\":\"2026-08-05T18:00:00\",\"splitMode\":\"EQUAL\",\"shares\":[{\"userId\":$USER_A},{\"userId\":$USER_B}]}")
-assert_code "$EXPENSE" '创建均摊账单'
+  -d "{\"title\":\"P2 测试晚餐\",\"category\":\"FOOD\",\"amount\":\"99.01\",\"payerUserId\":$USER_B,\"expenseTime\":\"2026-08-05T18:00:00\",\"splitMode\":\"EQUAL\",\"shares\":[{\"userId\":$USER_A},{\"userId\":$USER_B}]}")
+assert_code "$EXPENSE" '创建者代成员创建均摊账单'
 EXPENSE_ID=$(jq -r '.data.expenseId' <<<"$EXPENSE")
+VERSION=$(jq -r '.data.version' <<<"$EXPENSE")
 [[ $(jq -r '[.data.shares[].shareAmount | (. * 100 | round)] | add' <<<"$EXPENSE") == "9901" ]] || fail '均摊金额没有精确汇总到总额'
-pass '创建两人均摊账单并校验分摊金额'
+pass '创建者代记账与均摊尾差正确'
 
-SUMMARY_A=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/settlements/summary" -H "Authorization: Bearer $TOKEN_A")
-assert_code "$SUMMARY_A" '创建者查看结算摘要'
-FROM_ID=$(jq -r '.data.suggestions[0].fromUserId' <<<"$SUMMARY_A")
-TO_ID=$(jq -r '.data.suggestions[0].toUserId' <<<"$SUMMARY_A")
-AMOUNT=$(jq -r '.data.suggestions[0].amount' <<<"$SUMMARY_A")
-[[ "$FROM_ID" == "$USER_B" && "$TO_ID" == "$USER_A" && "$AMOUNT" == "49.50" ]] || { echo "$SUMMARY_A"; fail '结算建议不符合两人均摊结果'; }
-pass '结算建议正确生成'
+DASHBOARD=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/expenses/dashboard" -H "Authorization: Bearer $TOKEN_A")
+assert_code "$DASHBOARD" '获取费用 dashboard'
+[[ $(jq -r '.data.summary.totalExpenseAmount' <<<"$DASHBOARD") == "99.01" ]] || fail 'dashboard 总金额错误'
+[[ $(jq -r '.data.summary.expenseCount' <<<"$DASHBOARD") == "1" ]] || fail 'dashboard 账单数错误'
+[[ $(jq -r '.data.summary.participantCount' <<<"$DASHBOARD") == "2" ]] || fail 'dashboard 参与人数错误'
+[[ $(jq -r '.data.suggestions | length' <<<"$DASHBOARD") == "1" ]] || fail 'dashboard 转账建议数量错误'
+[[ $(jq -r '[.data.members[].netAmount] | map(tonumber) | add' <<<"$DASHBOARD") == "0" ]] || fail '成员净额合计不为零'
+pass 'dashboard、成员净额和建议正确'
 
-COMPLETE=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/settlements/complete" -H "Authorization: Bearer $TOKEN_B" -H 'Content-Type: application/json' \
-  -d "{\"fromUserId\":$FROM_ID,\"toUserId\":$TO_ID,\"amount\":\"$AMOUNT\"}")
-assert_code "$COMPLETE" '用户 B 标记已转账'
-SETTLEMENT_ID=$(jq -r '.data.settlementId' <<<"$COMPLETE")
-pass '用户 B 标记已转账'
+SUMMARY=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/expenses/summary" -H "Authorization: Bearer $TOKEN_A")
+assert_code "$SUMMARY" '获取轻量费用摘要'
+[[ $(jq -r '.data.expenseCount' <<<"$SUMMARY") == "1" ]] || fail '轻量摘要账单数错误'
+[[ $(jq -r '.data.suggestionCount' <<<"$SUMMARY") == "1" ]] || fail '轻量摘要建议数错误'
+[[ $(jq -r '.data.recentExpenses | length' <<<"$SUMMARY") == "1" ]] || fail '轻量摘要最近账单错误'
+pass '活动详情轻量摘要正确'
 
-AFTER_COMPLETE=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/settlements/summary" -H "Authorization: Bearer $TOKEN_A")
-assert_code "$AFTER_COMPLETE" '完成后刷新结算'
-[[ $(jq -r '.data.suggestions | length' <<<"$AFTER_COMPLETE") == "0" ]] || fail '已完成转账仍出现在结算建议'
-pass '完成记录已纳入实时结算'
+LIST=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/expenses" -H "Authorization: Bearer $TOKEN_A")
+assert_code "$LIST" '查询有效账单列表'
+[[ $(jq -r '.data | length' <<<"$LIST") == "1" ]] || fail '有效账单列表数量错误'
 
-CANCEL=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/settlements/$SETTLEMENT_ID/cancel" -H "Authorization: Bearer $TOKEN_B" -H 'Content-Type: application/json' -d '{"reason":"P2 联调撤销"}')
-assert_code "$CANCEL" '撤销转账记录'
-AFTER_CANCEL=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/settlements/summary" -H "Authorization: Bearer $TOKEN_A")
-[[ $(jq -r '.data.suggestions | length' <<<"$AFTER_CANCEL") == "1" ]] || fail '撤销后未重新生成结算建议'
-pass '撤销后重新参与动态结算'
+UPDATE=$(api -X PUT "$BASE_URL/api/activities/$ACTIVITY_ID/expenses/$EXPENSE_ID" -H "Authorization: Bearer $TOKEN_A" -H 'Content-Type: application/json' \
+  -d "{\"title\":\"P2 更新晚餐\",\"category\":\"FOOD\",\"amount\":\"100.00\",\"payerUserId\":$USER_B,\"expenseTime\":\"2026-08-05T18:30:00\",\"splitMode\":\"CUSTOM\",\"shares\":[{\"userId\":$USER_A,\"shareAmount\":\"40.00\"},{\"userId\":$USER_B,\"shareAmount\":\"60.00\"}],\"version\":$VERSION}")
+assert_code "$UPDATE" '按当前版本编辑账单'
+NEW_VERSION=$(jq -r '.data.version' <<<"$UPDATE")
+[[ "$NEW_VERSION" == "$((VERSION + 1))" ]] || fail '账单版本未递增'
+pass '账单编辑与版本递增正确'
 
-REMOVE=$(api -X DELETE "$BASE_URL/api/activities/$ACTIVITY_ID/members/$(api "$BASE_URL/api/activities/$ACTIVITY_ID/members" -H "Authorization: Bearer $TOKEN_A" | jq -r ".data[] | select(.userId == $USER_B) | .memberId")" -H "Authorization: Bearer $TOKEN_A")
-[[ $(jq -r '.code' <<<"$REMOVE") != "SUCCESS" ]] || fail '未结清成员被错误移除'
-pass '未结清成员不可移除'
+STALE=$(api -X PUT "$BASE_URL/api/activities/$ACTIVITY_ID/expenses/$EXPENSE_ID" -H "Authorization: Bearer $TOKEN_A" -H 'Content-Type: application/json' \
+  -d "{\"title\":\"旧版本覆盖\",\"category\":\"FOOD\",\"amount\":\"100.00\",\"payerUserId\":$USER_B,\"expenseTime\":\"2026-08-05T18:30:00\",\"splitMode\":\"EQUAL\",\"shares\":[{\"userId\":$USER_A},{\"userId\":$USER_B}],\"version\":$VERSION}")
+assert_error "$STALE" '旧版本编辑被错误接受'
+[[ $(jq -r '.message' <<<"$STALE") == *"账单已被其他成员修改"* ]] || { echo "$STALE"; fail '旧版本冲突提示不明确'; }
+pass '数据库原子乐观锁拒绝旧版本'
+
+BAD_CUSTOM=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/expenses" -H "Authorization: Bearer $TOKEN_A" -H 'Content-Type: application/json' \
+  -d "{\"title\":\"错误分摊\",\"category\":\"OTHER\",\"amount\":\"20.00\",\"payerUserId\":$USER_A,\"expenseTime\":\"2026-08-05T19:00:00\",\"splitMode\":\"CUSTOM\",\"shares\":[{\"userId\":$USER_A,\"shareAmount\":\"9.00\"},{\"userId\":$USER_B,\"shareAmount\":\"9.00\"}]}")
+assert_error "$BAD_CUSTOM" '错误自定义分摊被接受'
+pass '自定义分摊合计校验正确'
 
 VOID=$(api -X POST "$BASE_URL/api/activities/$ACTIVITY_ID/expenses/$EXPENSE_ID/void" -H "Authorization: Bearer $TOKEN_A" -H 'Content-Type: application/json' -d '{"reason":"P2 联调作废"}')
 assert_code "$VOID" '作废账单'
-VOID_SUMMARY=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/expenses/summary" -H "Authorization: Bearer $TOKEN_A")
-[[ $(jq -r '.data.totalExpenseAmount' <<<"$VOID_SUMMARY") == "0.00" ]] || fail '作废账单仍计入总支出'
-pass '作废账单不再参与费用计算'
+AFTER_VOID_LIST=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/expenses" -H "Authorization: Bearer $TOKEN_A")
+[[ $(jq -r '.data | length' <<<"$AFTER_VOID_LIST") == "0" ]] || fail '作废账单仍出现在默认列表'
+AFTER_VOID=$(api "$BASE_URL/api/activities/$ACTIVITY_ID/expenses/dashboard" -H "Authorization: Bearer $TOKEN_A")
+[[ $(jq -r '.data.summary.totalExpenseAmount' <<<"$AFTER_VOID") == "0.00" ]] || fail '作废账单仍计入 dashboard'
+[[ $(jq -r '.data.suggestions | length' <<<"$AFTER_VOID") == "0" ]] || fail '作废账单仍影响结算建议'
+pass 'VOID 账单不进入列表、总额与结算'
 
-echo "[PASS] P2 expense smoke complete activityId=$ACTIVITY_ID expenseId=$EXPENSE_ID settlementId=$SETTLEMENT_ID userA=$USER_A userB=$USER_B"
+echo "[PASS] P2 expense smoke complete activityId=$ACTIVITY_ID expenseId=$EXPENSE_ID userA=$USER_A userB=$USER_B"

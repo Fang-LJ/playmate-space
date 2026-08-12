@@ -3,7 +3,7 @@ const { getItineraries, deleteItinerary: removeItinerary } = require('../../serv
 const { getPolls, getSummary } = require('../../services/poll');
 const { getActivityMembers } = require('../../services/member');
 const { getCurrentUser } = require('../../services/user');
-const { getExpenseSummary, completeSettlement } = require('../../services/expense');
+const { getExpenseSummary } = require('../../services/expense');
 const { POLL_RESULT_STATUS, POLL_STATUS, label } = require('../../utils/p1-display');
 const { buildCardViewModel } = require('../../utils/itinerary-ui');
 
@@ -83,7 +83,7 @@ Page({
   tab(event) { const activeTab = event.currentTarget.dataset.tab; this.setData({ activeTab }); if (activeTab === 'COSTS') this.loadExpenseSummary(); },
   async loadExpenseSummary() {
     this.setData({ expenseLoading: true });
-    try { const summary = await getExpenseSummary(this.data.activityId); this.setData({ expenseSummary: { ...summary, recentExpenses: (summary.recentExpenses || []).map(item => ({ ...item, categoryText: EXPENSE_CATEGORY[item.category] || item.category })), mySuggestions: (summary.mySuggestions || []).map(item => ({ ...item, isPayer: item.currentUserCanComplete })) } }); }
+    try { const summary = await getExpenseSummary(this.data.activityId); this.setData({ expenseSummary: { ...summary, recentExpenses: (summary.recentExpenses || []).map(item => ({ ...item, categoryText: EXPENSE_CATEGORY[item.category] || item.category })), mySuggestions: summary.mySuggestions || [] } }); }
     catch (error) { wx.showToast({ title: error.message || '费用摘要加载失败', icon: 'none' }); }
     finally { this.setData({ expenseLoading: false }); }
   },
@@ -118,7 +118,6 @@ Page({
   goExpenses() { wx.navigateTo({ url: `/pages/expense-detail/index?activityId=${this.data.activityId}` }); },
   newExpense() { wx.navigateTo({ url: `/pages/expense-edit/index?activityId=${this.data.activityId}` }); },
   goExpenseItem(event) { wx.navigateTo({ url: `/pages/expense-item-detail/index?activityId=${this.data.activityId}&expenseId=${event.currentTarget.dataset.id}` }); },
-  async completeExpenseSettlement(event) { const item = event.currentTarget.dataset.item; try { await completeSettlement(this.data.activityId, { fromUserId: item.fromUserId, toUserId: item.toUserId, amount: item.amount }); wx.showToast({ title: '已记录转账', icon: 'success' }); this.loadExpenseSummary(); } catch (error) { wx.showToast({ title: error.message || '操作失败', icon: 'none' }); } },
   todo(event) {
     const target = event.currentTarget.dataset;
     if (target.targetType === 'POLL') this.goPoll({ currentTarget: { dataset: { id: target.targetId } } });

@@ -16,6 +16,7 @@ public class ActivityExpenseController {
     private final SettlementService settlementService;
     public ActivityExpenseController(ExpenseService expenseService, SettlementService settlementService) { this.expenseService = expenseService; this.settlementService = settlementService; }
     @GetMapping("/summary") public ApiResponse<ExpenseSummaryResponse> summary(@PathVariable Long activityId) { return ApiResponse.success(settlementService.expenseSummary(activityId)); }
+    @GetMapping("/dashboard") public ApiResponse<ExpenseDashboardResponse> dashboard(@PathVariable Long activityId) { return ApiResponse.success(settlementService.dashboard(activityId)); }
     @GetMapping public ApiResponse<List<ExpenseListItemResponse>> list(@PathVariable Long activityId, @RequestParam(required = false) String category,
                                                                          @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer pageSize,
                                                                          @RequestParam(required = false) String sort) { return ApiResponse.success(expenseService.list(activityId, category, page, pageSize, sort)); }

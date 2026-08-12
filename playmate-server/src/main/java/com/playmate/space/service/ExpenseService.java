@@ -38,6 +38,7 @@ public class ExpenseService {
     public List<ExpenseListItemResponse> list(Long activityId, String category, Integer page, Integer pageSize, String sort) {
         Long userId = access.requireUserId(); access.requireActivity(activityId); access.requireActiveMember(activityId, userId);
         LambdaQueryWrapper<ActivityExpenseEntity> query = new LambdaQueryWrapper<ActivityExpenseEntity>().eq(ActivityExpenseEntity::getActivityId, activityId)
+                .eq(ActivityExpenseEntity::getStatus, "ACTIVE")
                 .orderByDesc(ActivityExpenseEntity::getExpenseTime).orderByDesc(ActivityExpenseEntity::getId);
         if (category != null && !category.isBlank()) query.eq(ActivityExpenseEntity::getCategory, category.trim().toUpperCase());
         if (sort != null && !sort.isBlank() && !"expenseTimeDesc".equals(sort)) throw param("仅支持 expenseTimeDesc 排序");
@@ -66,9 +67,18 @@ public class ExpenseService {
     public ExpenseDetailResponse update(Long activityId, Long expenseId, SaveExpenseRequest request) {
         Long userId = access.requireUserId(); ActivityEntity activity = access.requireActivity(activityId); ActivityMemberEntity operator = access.requireActiveMember(activityId, userId);
         requireNotCanceled(activity); ActivityExpenseEntity expense = find(activityId, expenseId); requireEditable(expense, activity, operator, userId);
-        if (request.version() == null || !request.version().equals(expense.getVersion())) throw param("账单已被其他成员修改，请刷新后重试");
-        validateRequest(activityId, request, userId, access.isActivityCreator(activity, operator, userId)); apply(expense, request); expense.setVersion(expense.getVersion() + 1); expense.setUpdateTime(LocalDateTime.now()); expenseMapper.updateById(expense);
-        replaceShares(expenseId, request, expense.getUpdateTime()); return toDetail(expense);
+        if (request.version() == null) throw param("编辑账单时必须提供版本号");
+        validateRequest(activityId, request, userId, access.isActivityCreator(activity, operator, userId));
+        apply(expense, request);
+        LocalDateTime updateTime = LocalDateTime.now();
+        int affectedRows = expenseMapper.updateActiveByVersion(expense, request.version(), updateTime);
+        if (affectedRows != 1) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR.code(), "账单已被其他成员修改，请刷新后重试");
+        }
+        expense.setVersion(request.version() + 1);
+        expense.setUpdateTime(updateTime);
+        replaceShares(expenseId, request, updateTime);
+        return toDetail(expense);
     }
 
     @Transactional

@@ -45,7 +45,7 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 | `t_activity_budget_item` | 预算明细 | 类别、计算方式、单价、数量、最终预算金额、可选关联行程；预算总额动态汇总。 |
 | `t_activity_expense` | 实际账单 | 金额、付款人、消费时间、主凭证文件、状态和版本；已参与结算的账单通过 `VOID` 作废。 |
 | `t_activity_expense_share` | 每位成员最终承担金额 | `expense_id`、`user_id`、`share_amount`；支持均摊、部分成员和后续自定义金额分摊。 |
-| `t_activity_settlement` | 实际线下转账状态 | 转出人、收款人、金额、状态、完成时间；待支付建议仍可根据账单动态计算。 |
+| `t_activity_settlement` | 第二版真实转账状态预留 | 保留转出人、收款人、金额和状态历史；第一版不读取该表参与余额计算。 |
 | `t_activity_photo` | 活动照片墙关联 | `activity_id`、`file_id`、上传人、拍摄时间、说明和排序；照片二进制继续保存在对象存储。 |
 | `t_activity_todo` | 待办任务生命周期 | `todo_type`、来源、幂等 `source_key`、截止时间、任务状态和创建人；自动投票待办按 `activity_id + source_key` 唯一。 |
 | `t_activity_todo_user` | 每位成员的待办处理状态 | `todo_id`、`user_id`、待处理/完成/取消、完成时间和原因；按 `todo_id + user_id` 唯一。 |
@@ -65,7 +65,7 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 
 - 预算总额为 `t_activity_budget_item.estimated_amount` 的动态汇总，不写回 `t_activity`。
 - 每笔 `t_activity_expense` 有一个付款人，可有多条 `t_activity_expense_share`，保存最终分摊金额。
-- AA 建议依据有效账单、付款人和分摊记录实时计算；`t_activity_settlement` 只持久化实际转账建议的状态变化，不代表账单快照。
+- AA 建议依据有效账单、付款人和分摊记录实时计算。第一版不保存建议，也不追踪线下转账完成状态；`t_activity_settlement` 仅作为第二版兼容数据保留。
 - MySQL 8 支持 `CHECK`，但 P0 现有 SQL 未使用数据库检查约束；P1 保持一致，由阶段 C 校验金额大于零、转出人不等于收款人及活动成员归属。
 
 ## 关键枚举
@@ -74,7 +74,7 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 - 投票：用途 `GENERAL/UPDATE_ITINERARY/CREATE_ITINERARY`；类型 `SINGLE/MULTIPLE`；状态 `DRAFT/ACTIVE/CLOSED/CANCELED`；应用状态 `NOT_REQUIRED/PENDING/APPLIED/REVIEW_REQUIRED/FAILED`。
 - 费用分类：`TRANSPORT/LODGING/TICKET/FOOD/ENTERTAINMENT/SHOPPING/OTHER`。
 - 预算计算方式：`UNIT_X_QUANTITY/DIRECT_AMOUNT`；预算状态 `ACTIVE/VOID`。
-- 账单状态：`ACTIVE/VOID`；结算状态 `PENDING/COMPLETED/CANCELED`；照片状态 `ACTIVE/DELETED`。
+- 账单状态：`ACTIVE/VOID`；`t_activity_settlement` 的 `PENDING/COMPLETED/CANCELED` 为第二版预留；照片状态 `ACTIVE/DELETED`。
 
 ## 行程类型字段矩阵
 
@@ -115,9 +115,11 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 ## 费用结算实现规则
 
 - 第一版账单只支持单付款人、`EQUAL` 和 `CUSTOM` 两种分摊方式。均摊按分计算余数，按成员 ID 稳定分配，金额始终为 `DECIMAL(12,2)` / `BigDecimal`。
-- AA 余额为“实际付款 - 应承担 + 已转出 - 已收到”。建议转账是实时结果，不落库；用户确认完成的线下转账才写入 `t_activity_settlement`，撤销后立即重新参与计算。
+- 第一版 AA 余额固定为“实际付款 - 应承担”。建议转账实时计算且不落库；历史 `t_activity_settlement` 记录不影响第一版余额、成员状态和建议。
 - 账单作废保留账单与分摊历史，但不再参与结算。已结束活动允许补记、编辑和结算；已取消活动只读。
 - 移除成员前必须保证其当前净额为零，历史已移除成员仍在账单和结算历史中保留展示。
+
+下一批再设计 `t_activity_finance_state`、`finance_version`、活动级数据库锁、写入幂等和 Redis 结算快照；本次不新增相关表或迁移。
 
 ## 后续范围
 

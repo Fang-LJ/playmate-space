@@ -1,28 +1,86 @@
 # P2 费用与 AA 结算接口
 
-所有接口均需要当前用户是活动 `ACTIVE` 成员。活动已结束仍允许补记费用和结算；活动已取消只读。
+所有接口均要求当前用户是活动 `ACTIVE` 成员。已结束活动允许补记和核对费用；已取消活动只读。
 
-## 费用
+## 第一版边界
 
-- `GET /api/activities/{activityId}/expenses/summary`：当前用户费用摘要、本人建议转账和最近账单。
-- `GET /api/activities/{activityId}/expenses?category=FOOD`：活动账单列表。
-- `POST /api/activities/{activityId}/expenses`：新增账单。字段为 `title`、`category`、`amount`、`payerUserId`、`expenseTime`、`splitMode`、`shares`、可选 `receiptFileId`、`description`。
+第一版只负责：记账、分摊、统计实际付款和应承担、实时计算谁应给谁多少钱。结算净额固定为：
+
+```text
+netAmount = paidAmount - shareAmount
+```
+
+- `netAmount > 0`：应收。
+- `netAmount < 0`：应付。
+- `netAmount = 0`：无需结算。
+- 转账建议不持久化，不追踪线下转账是否真正发生。
+- 账单继续使用 `ACTIVE / VOID`；作废不是物理删除。
+
+## 第一版费用接口
+
+- `GET /api/activities/{activityId}/expenses/summary`：活动详情费用 Tab 的轻量摘要。返回 `myNetAmount`、`mySettlementText`、当前用户直接相关的 `mySuggestions`、`suggestionCount`、`expenseCount` 和最近两笔有效账单。
+- `GET /api/activities/{activityId}/expenses/dashboard`：独立费用详情聚合接口，一次计算返回总额/账单数/参与人数、成员付款/承担/净额及全员建议。
+- `GET /api/activities/{activityId}/expenses?category=FOOD`：有效账单列表，只返回 `status=ACTIVE`，支持分类筛选和分页。
+- `POST /api/activities/{activityId}/expenses`：新增账单。字段为 `title`、`category`、`amount`、`payerUserId`、`expenseTime`、`splitMode`、`shares`，以及可选 `receiptFileId`、`description`。
 - `GET /api/activities/{activityId}/expenses/{expenseId}`：账单及分摊详情。
-- `PUT /api/activities/{activityId}/expenses/{expenseId}`：编辑账单，必须传当前 `version`。
-- `POST /api/activities/{activityId}/expenses/{expenseId}/void`：作废账单，保留历史但不再参与结算。
-- `GET /api/activities/{activityId}/expenses/members`：成员付款、分摊、转账和剩余净额。
+- `PUT /api/activities/{activityId}/expenses/{expenseId}`：编辑账单，必须传当前 `version`。数据库使用 `WHERE id/activity_id/version/status/delete_flag` 原子更新；冲突返回“账单已被其他成员修改，请刷新后重试”。
+- `POST /api/activities/{activityId}/expenses/{expenseId}/void`：将账单置为 `VOID`，保留历史但不再进入列表、总额和 AA。
+- `GET /api/activities/{activityId}/expenses/members`：旧成员明细兼容接口。第一版新页面使用 dashboard 中的干净成员 DTO。
 
-普通成员仅能作为自己的付款人；活动创建者可代记。付款人、分摊人和凭证上传人均在写入时校验活动有效成员和文件归属。`EQUAL` 分摊按分处理余数，`CUSTOM` 的分摊总和必须等于账单金额。
+普通成员只能记录自己付款；活动创建者可以代活动成员记账。付款人、分摊人和凭证上传人均在写入时校验成员状态及文件归属。`EQUAL` 按分计算尾差并按成员 ID 稳定分配；`CUSTOM` 分摊总和必须严格等于账单金额。
 
-## 结算
+## Dashboard 响应
 
-- `GET /api/activities/{activityId}/settlements/summary`：全员余额、稳定贪心撮合出的最少建议和历史转账。
-- `POST /api/activities/{activityId}/settlements/complete`：保存一笔真实线下转账。请求为 `fromUserId`、`toUserId`、`amount`、可选 `remark`，必须与当前建议完全匹配。
-- `POST /api/activities/{activityId}/settlements/{settlementId}/cancel`：撤销已完成转账。付款操作人或活动创建者可撤销。
-- `GET /api/activities/{activityId}/settlements/history`：查询完成/撤销的实际转账历史。
+```json
+{
+  "summary": {
+    "totalExpenseAmount": "558.00",
+    "expenseCount": 2,
+    "participantCount": 3
+  },
+  "members": [
+    {
+      "userId": 1,
+      "nickname": "微信用户A",
+      "avatarUrl": null,
+      "paidAmount": "40.00",
+      "shareAmount": "232.67",
+      "netAmount": "-192.67",
+      "settlementText": "应付 ¥192.67"
+    }
+  ],
+  "suggestions": [
+    {
+      "fromUserId": 1,
+      "fromNickname": "微信用户A",
+      "toUserId": 3,
+      "toNickname": "微信用户C",
+      "amount": "192.67"
+    }
+  ],
+  "calculationRule": "结算净额 = 实际付款 - 应承担"
+}
+```
 
-建议转账不持久化。账单、分摊或已完成转账变更后，下一次摘要查询会立即按事实数据重算。
+费用详情初始只并发请求 dashboard 与账单列表；切换成员/结算 Tab 不重新计算，切换账单分类只刷新账单列表。
+
+## 第二版兼容接口
+
+以下接口及 `t_activity_settlement` 历史数据暂时保留，供后续微信转账/真实转账状态使用，但小程序第一版没有入口，且这些记录不参与第一版 `netAmount`：
+
+- `GET /api/activities/{activityId}/settlements/summary`
+- `POST /api/activities/{activityId}/settlements/complete`
+- `POST /api/activities/{activityId}/settlements/{settlementId}/cancel`
+- `GET /api/activities/{activityId}/settlements/history`
 
 ## 文件
 
-`POST /api/files/upload` 额外支持 `fileType=EXPENSE_RECEIPT`，仅接受 jpg/jpeg/png/webp，单文件不超过 5MB。
+`POST /api/files/upload` 支持 `fileType=EXPENSE_RECEIPT`，仅接受 jpg/jpeg/png/webp，单文件不超过 5MB。
+
+## 后续 TODO（未实现）
+
+- `t_activity_finance_state` 与 `finance_version`。
+- 活动级 `SELECT ... FOR UPDATE` 财务锁。
+- 新增账单 `clientRequestId` 幂等。
+- Redis `SettlementSnapshot`，Key 为 `playmate:finance:snapshot:{activityId}:{financeVersion}`。
+- Redis 故障回源 MySQL。

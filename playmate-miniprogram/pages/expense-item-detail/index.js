@@ -6,6 +6,6 @@ Page({
   onShow() { if (this.data.expenseId) this.load(); },
   async load() { this.setData({ loading: true }); try { const detail = await expense.getExpense(this.data.activityId, this.data.expenseId); this.setData({ detail: { ...detail, categoryText: EXPENSE_CATEGORY[detail.category] || detail.category }, errorMessage: '' }); } catch (error) { this.setData({ errorMessage: error.message || '账单加载失败' }); } finally { this.setData({ loading: false }); } },
   edit() { wx.navigateTo({ url: `/pages/expense-edit/index?activityId=${this.data.activityId}&expenseId=${this.data.expenseId}` }); },
-  voidExpense() { wx.showModal({ title: '作废账单', content: '作废后将不再参与 AA 计算，但会保留历史记录。', confirmColor: '#d94c4c', success: async result => { if (!result.confirm) return; try { await expense.voidExpense(this.data.activityId, this.data.expenseId, ''); wx.showToast({ title: '已作废', icon: 'success' }); this.load(); } catch (error) { wx.showToast({ title: error.message || '作废失败', icon: 'none' }); } } }); },
+  voidExpense() { wx.showModal({ title: '删除账单', content: '删除后该账单将不再参与 AA 计算。', confirmColor: '#d94c4c', success: async result => { if (!result.confirm) return; try { await expense.voidExpense(this.data.activityId, this.data.expenseId, ''); wx.showToast({ title: '已删除', icon: 'success' }); wx.navigateBack(); } catch (error) { wx.showToast({ title: error.message || '删除失败', icon: 'none' }); } } }); },
   back() { wx.navigateBack(); }
 });
