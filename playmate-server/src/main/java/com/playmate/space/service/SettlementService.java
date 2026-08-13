@@ -205,11 +205,15 @@ public class SettlementService {
     private ExpenseSummaryResponse toExpenseSummary(Calculation calculation, Long currentUserId) {
         Account account = calculation.accounts.get(currentUserId);
         BigDecimal net = account == null ? ZERO : account.net;
+        BigDecimal paid = account == null ? ZERO : account.paid;
+        BigDecimal shareAmount = account == null ? ZERO : account.share;
         List<ExpenseSuggestionResponse> mine = calculation.suggestions.stream()
                 .filter(item -> item.fromUserId().equals(currentUserId) || item.toUserId().equals(currentUserId))
                 .toList();
         return new ExpenseSummaryResponse(
                 net,
+                paid,
+                shareAmount,
                 settlementText(net),
                 mine,
                 calculation.suggestions.size(),
@@ -224,6 +228,8 @@ public class SettlementService {
         SettlementSnapshot.Account account = snapshot.accounts().stream()
                 .filter(item -> item.userId().equals(currentUserId)).findFirst().orElse(null);
         BigDecimal net = account == null ? ZERO : account.netAmount();
+        BigDecimal paid = account == null ? ZERO : account.paidAmount();
+        BigDecimal shareAmount = account == null ? ZERO : account.shareAmount();
         Set<Long> userIds = new HashSet<>();
         snapshot.suggestions().forEach(item -> { userIds.add(item.fromUserId()); userIds.add(item.toUserId()); });
         snapshot.recentExpenses().forEach(item -> userIds.add(item.payerUserId()));
@@ -231,6 +237,8 @@ public class SettlementService {
         List<ExpenseSuggestionResponse> suggestions = suggestions(snapshot, users);
         return new ExpenseSummaryResponse(
                 net,
+                paid,
+                shareAmount,
                 settlementText(net),
                 suggestions.stream().filter(item -> item.fromUserId().equals(currentUserId)
                         || item.toUserId().equals(currentUserId)).toList(),
@@ -259,8 +267,9 @@ public class SettlementService {
 
     private List<ExpenseSuggestionResponse> suggestions(SettlementSnapshot snapshot, Map<Long, UserEntity> users) {
         return snapshot.suggestions().stream().map(item -> new ExpenseSuggestionResponse(
-                item.fromUserId(), nickname(users.get(item.fromUserId())), item.toUserId(),
-                nickname(users.get(item.toUserId())), item.amount())).toList();
+                item.fromUserId(), nickname(users.get(item.fromUserId())), avatarUrl(users.get(item.fromUserId())),
+                item.toUserId(), nickname(users.get(item.toUserId())), avatarUrl(users.get(item.toUserId())),
+                item.amount())).toList();
     }
 
     private List<ExpenseSuggestionResponse> suggestions(Map<Long, Account> accounts, Map<Long, UserEntity> users) {
@@ -283,7 +292,8 @@ public class SettlementService {
             BigDecimal amount = debtor.net.abs().min(creditor.net);
             if (amount.compareTo(ZERO) > 0) {
                 result.add(new ExpenseSuggestionResponse(debtor.userId, nickname(users.get(debtor.userId)),
-                        creditor.userId, nickname(users.get(creditor.userId)), normalize(amount)));
+                        avatarUrl(users.get(debtor.userId)), creditor.userId, nickname(users.get(creditor.userId)),
+                        avatarUrl(users.get(creditor.userId)), normalize(amount)));
             }
             debtor.net = normalize(debtor.net.add(amount));
             creditor.net = normalize(creditor.net.subtract(amount));
@@ -291,6 +301,10 @@ public class SettlementService {
             if (creditor.net.compareTo(ZERO) == 0) creditorIndex++;
         }
         return result;
+    }
+
+    private String avatarUrl(UserEntity user) {
+        return user == null ? null : user.getAvatarUrl();
     }
 
     private List<ExpenseMemberResponse> legacyMembers(Calculation calculation,
