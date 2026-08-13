@@ -123,7 +123,9 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 - 账单作废保留账单与分摊历史，但不再参与结算。已结束活动允许补记、编辑和结算；已取消活动只读。
 - 移除成员前必须保证其当前净额为零，历史已移除成员仍在账单和结算历史中保留展示。
 
-财务一致性基础已落地：`t_activity_finance_state` 提供活动级数据库行锁和 `finance_version`，`t_activity_expense.client_request_id` 提供新增账单幂等。Redis 结算快照仍为后续可选能力，本阶段未引入缓存。
+财务一致性基础已落地：`t_activity_finance_state` 提供活动级数据库行锁和 `finance_version`，`t_activity_expense.client_request_id` 提供新增账单幂等。
+
+Redis 不增加任何事实表或迁移。它只缓存可从 MySQL 重建的 `SettlementSnapshot`，key 为 `playmate:finance:snapshot:v1:{activityId}:{financeVersion}`。快照不保存昵称、头像等用户展示信息；费用写事务不操作 Redis，旧版本 key 由 15 分钟 TTL 自然清理。
 
 ## 后续范围
 

@@ -8,6 +8,8 @@ import com.playmate.space.common.exception.NotFoundException;
 import com.playmate.space.dto.expense.*;
 import com.playmate.space.entity.*;
 import com.playmate.space.mapper.*;
+import com.playmate.space.service.finance.SettlementSnapshot;
+import com.playmate.space.service.finance.SettlementSnapshotProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,11 +32,13 @@ public class SettlementService {
     private final ActivityMemberMapper memberMapper;
     private final UserMapper userMapper;
     private final ActivityFinanceStateService financeStateService;
+    private final SettlementSnapshotProvider snapshotProvider;
 
     public SettlementService(ActivityCollaborationAccess access, ActivityExpenseMapper expenseMapper,
                              ActivityExpenseShareMapper shareMapper, ActivitySettlementMapper settlementMapper,
                              ActivityMemberMapper memberMapper, UserMapper userMapper,
-                             ActivityFinanceStateService financeStateService) {
+                             ActivityFinanceStateService financeStateService,
+                             SettlementSnapshotProvider snapshotProvider) {
         this.access = access;
         this.expenseMapper = expenseMapper;
         this.shareMapper = shareMapper;
@@ -42,27 +46,28 @@ public class SettlementService {
         this.memberMapper = memberMapper;
         this.userMapper = userMapper;
         this.financeStateService = financeStateService;
+        this.snapshotProvider = snapshotProvider;
     }
 
-    @Transactional(readOnly = true)
     public ExpenseSummaryResponse expenseSummary(Long activityId) {
         Long userId = requireExpenseAccess(activityId);
-        return toExpenseSummary(calculate(activityId), userId);
+        return toExpenseSummary(snapshotProvider.getSnapshot(activityId), userId);
     }
 
-    @Transactional(readOnly = true)
     public ExpenseDashboardResponse dashboard(Long activityId) {
         requireExpenseAccess(activityId);
-        Calculation calculation = calculate(activityId);
-        List<ExpenseDashboardMemberResponse> members = calculation.accounts.values().stream()
-                .map(account -> dashboardMember(account, calculation.users.get(account.userId)))
+        SettlementSnapshot snapshot = snapshotProvider.getSnapshot(activityId);
+        Map<Long, UserEntity> users = userMap(snapshot.accounts().stream()
+                .map(SettlementSnapshot.Account::userId).collect(Collectors.toSet()));
+        List<ExpenseDashboardMemberResponse> members = snapshot.accounts().stream()
+                .map(account -> dashboardMember(account, users.get(account.userId())))
                 .toList();
         return new ExpenseDashboardResponse(
-                new ExpenseDashboardSummaryResponse(calculation.totalExpense, calculation.expenses.size(), calculation.accounts.size()),
+                new ExpenseDashboardSummaryResponse(snapshot.totalExpenseAmount(), snapshot.expenseCount(), snapshot.participantCount()),
                 members,
-                calculation.suggestions,
+                suggestions(snapshot, users),
                 CALCULATION_RULE,
-                calculation.financeVersion
+                snapshot.financeVersion()
         );
     }
 
@@ -97,8 +102,9 @@ public class SettlementService {
 
     /** Used before removing a member. Historical transfer records intentionally do not affect this value. */
     public BigDecimal remainingNet(Long activityId, Long userId) {
-        Account account = calculate(activityId).accounts.get(userId);
-        return account == null ? ZERO : account.net;
+        SettlementSnapshot.Account account = snapshotProvider.getSnapshot(activityId).accounts().stream()
+                .filter(item -> item.userId().equals(userId)).findFirst().orElse(null);
+        return account == null ? ZERO : account.netAmount();
     }
 
     /** Legacy V2-compatible endpoint. It does not alter V1 real-time balances. */
@@ -214,10 +220,47 @@ public class SettlementService {
         );
     }
 
+    private ExpenseSummaryResponse toExpenseSummary(SettlementSnapshot snapshot, Long currentUserId) {
+        SettlementSnapshot.Account account = snapshot.accounts().stream()
+                .filter(item -> item.userId().equals(currentUserId)).findFirst().orElse(null);
+        BigDecimal net = account == null ? ZERO : account.netAmount();
+        Set<Long> userIds = new HashSet<>();
+        snapshot.suggestions().forEach(item -> { userIds.add(item.fromUserId()); userIds.add(item.toUserId()); });
+        snapshot.recentExpenses().forEach(item -> userIds.add(item.payerUserId()));
+        Map<Long, UserEntity> users = userMap(userIds);
+        List<ExpenseSuggestionResponse> suggestions = suggestions(snapshot, users);
+        return new ExpenseSummaryResponse(
+                net,
+                settlementText(net),
+                suggestions.stream().filter(item -> item.fromUserId().equals(currentUserId)
+                        || item.toUserId().equals(currentUserId)).toList(),
+                suggestions.size(),
+                snapshot.expenseCount(),
+                snapshot.recentExpenses().stream().map(item -> new ExpenseListItemResponse(
+                        item.expenseId(), item.title(), item.category(), item.amount(),
+                        nickname(users.get(item.payerUserId())), item.payerUserId(), item.expenseTime(),
+                        item.shares().size(), item.shares().stream().filter(share -> share.userId().equals(currentUserId))
+                                .map(SettlementSnapshot.Share::shareAmount).findFirst().orElse(null),
+                        "ACTIVE", item.version())).toList(),
+                snapshot.financeVersion()
+        );
+    }
+
     private ExpenseDashboardMemberResponse dashboardMember(Account account, UserEntity user) {
         return new ExpenseDashboardMemberResponse(account.userId, nickname(user),
                 user == null ? null : user.getAvatarUrl(), account.paid, account.share,
                 account.net, settlementText(account.net));
+    }
+
+    private ExpenseDashboardMemberResponse dashboardMember(SettlementSnapshot.Account account, UserEntity user) {
+        return new ExpenseDashboardMemberResponse(account.userId(), nickname(user), user == null ? null : user.getAvatarUrl(),
+                account.paidAmount(), account.shareAmount(), account.netAmount(), settlementText(account.netAmount()));
+    }
+
+    private List<ExpenseSuggestionResponse> suggestions(SettlementSnapshot snapshot, Map<Long, UserEntity> users) {
+        return snapshot.suggestions().stream().map(item -> new ExpenseSuggestionResponse(
+                item.fromUserId(), nickname(users.get(item.fromUserId())), item.toUserId(),
+                nickname(users.get(item.toUserId())), item.amount())).toList();
     }
 
     private List<ExpenseSuggestionResponse> suggestions(Map<Long, Account> accounts, Map<Long, UserEntity> users) {

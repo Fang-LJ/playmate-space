@@ -7,6 +7,13 @@ spring:
     multipart:
       max-file-size: 5MB
       max-request-size: 5MB
+  data:
+    redis:
+      host: ${PLAYMATE_REDIS_HOST:127.0.0.1}
+      port: ${PLAYMATE_REDIS_PORT:16379}
+      password: ${PLAYMATE_REDIS_PASSWORD:playmate_redis_dev_password}
+      connect-timeout: ${PLAYMATE_REDIS_CONNECT_TIMEOUT:300ms}
+      timeout: ${PLAYMATE_REDIS_TIMEOUT:300ms}
 
 server:
   port: ${SERVER_PORT:8080}
@@ -28,3 +35,8 @@ playmate:
     secret-key: ${PLAYMATE_MINIO_SECRET_KEY:playmate_minio_dev_password}
     bucket: ${PLAYMATE_MINIO_BUCKET:playmate-files}
     public-base-url: ${PLAYMATE_MINIO_PUBLIC_BASE_URL:http://127.0.0.1:19000}
+  finance:
+    cache:
+      # Redis is only a cache-aside enhancement. MySQL remains the source of truth.
+      enabled: ${PLAYMATE_FINANCE_CACHE_ENABLED:false}
+      ttl: ${PLAYMATE_FINANCE_CACHE_TTL:15m}

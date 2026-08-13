@@ -13,7 +13,7 @@
 | MinIO Console | `playmate-minio` | `minio/minio:latest` | `19001` | `9001` |
 | Redis | `playmate-redis` | `redis:7.2-alpine` | `16379` | `6379` |
 
-Redis 已加入 Compose，但放在 `optional` profile 中。P0 后端暂时不依赖 Redis，默认启动不会启动 Redis。
+Redis 已加入 Compose，但放在 `optional` profile 中。费用结算默认也不依赖 Redis：MySQL 始终是事实源，Redis 仅在显式开启 `PLAYMATE_FINANCE_CACHE_ENABLED=true` 时缓存版本化 `SettlementSnapshot`。
 
 ## 启动 Docker 环境
 
@@ -161,6 +161,16 @@ Redis 是可选服务，默认启动命令不会启动 Redis。如需启动：
 ```bash
 docker compose --env-file deploy/.env -f deploy/docker-compose.local.yml --profile optional up -d playmate-redis
 ```
+
+开启缓存后启动后端：
+
+```bash
+cd playmate-server
+PLAYMATE_FINANCE_CACHE_ENABLED=true \
+  mvn -s ../docs/maven-central-settings.xml spring-boot:run
+```
+
+Redis 未启动、连接失败、超时或缓存 JSON 损坏时，费用 summary / dashboard 会自动回源 MySQL；无需为了正常开发启动 Redis。
 
 如果本机安装了 `redis-cli`，可以执行：
 

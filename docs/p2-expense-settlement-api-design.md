@@ -87,9 +87,10 @@ netAmount = paidAmount - shareAmount
 
 `POST /api/files/upload` 支持 `fileType=EXPENSE_RECEIPT`，仅接受 jpg/jpeg/png/webp，单文件不超过 5MB。
 
-## 后续 TODO（未实现）
+## 可选 Redis 结算快照缓存
 
-- 基于 `activityId + financeVersion` 的 Redis `SettlementSnapshot`。
-- 缓存并发回填、失效与 Redis 故障回源 MySQL。
+`GET /expenses/summary` 和 `GET /expenses/dashboard` 共享 `SettlementSnapshotProvider`。它先从 MySQL 读取活动当前 `financeVersion`，再尝试读取 `playmate:finance:snapshot:v1:{activityId}:{financeVersion}`。缓存未命中时，独立的 `REPEATABLE_READ` 只读事务从 MySQL 生成纯财务快照并 best effort 写入 Redis。
 
-本阶段未引入 Redis dependency、`RedisTemplate`、`@Cacheable` 或任何缓存连接。
+快照只保存账单金额、分摊、净额、转账建议、最近两笔账单事实和用户 ID；昵称、头像和“我”的展示信息每次响应实时查询用户表补齐。快照加载期间若版本变化，使用 Loader 实际读取到的版本写入对应新 key，避免把版本 9 的数据写入版本 8 的 key。
+
+缓存默认关闭，开启变量为 `PLAYMATE_FINANCE_CACHE_ENABLED=true`，TTL 默认 `15m`。Redis 故障、超时、连接失败或 JSON 损坏时自动回源 MySQL，不改变接口语义。账单的 POST / PUT / VOID 只提交 MySQL 事实与 `financeVersion`，不更新或删除 Redis。

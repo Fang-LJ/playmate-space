@@ -43,7 +43,13 @@ cp deploy/.env.example deploy/.env
 docker compose --env-file deploy/.env -f deploy/docker-compose.local.yml up -d
 ```
 
-Redis 是可选服务，如需启动再增加 `--profile optional`。
+Redis 是可选服务；默认关闭结算缓存，MySQL 和 MinIO 不受影响。需要验证费用快照缓存时再启动：
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.local.yml --profile optional up -d playmate-redis
+cd playmate-server
+PLAYMATE_FINANCE_CACHE_ENABLED=true mvn -s ../docs/maven-central-settings.xml spring-boot:run
+```
 
 停止本地 Docker 环境：
 
@@ -166,7 +172,7 @@ P0.5 账号体系已调整为：
 ## 下一步
 
 - 继续验证 P2 费用页面的真机交互、表单选择器和安全区表现。
-- 财务一致性基础已完成：`finance_version`、活动级数据库行锁、新增账单请求幂等及编辑/作废版本冲突保护均已落地；后续仅在此基础上评估 Redis 结算快照。
+- 财务一致性与可选缓存已完成：`finance_version`、活动级数据库行锁、新增账单请求幂等及编辑/作废版本冲突保护均已落地；Redis `SettlementSnapshot` 仅作为可关闭的查询性能增强。
 - 暂不开发微信转账、微信支付和真实转账状态。
 
 ## P1 行程与投票联调
@@ -218,7 +224,29 @@ bash scripts/p2-expense-settlement-smoke-test.sh
 
 脚本验证记账、权限、均摊尾差、dashboard、成员净额、建议、自定义分摊、编辑版本冲突、VOID 过滤、创建幂等、`financeVersion` 递增，以及并发新增、并发编辑、编辑与作废竞争；不再验证“我已转账”、撤销或转账历史。
 
-后续财务基础设施 TODO（本轮未实现）：基于 `activityId + financeVersion` 的 Redis `SettlementSnapshot`、缓存并发回填与 MySQL 回源。本轮没有引入 Redis 依赖、连接或缓存逻辑。
+### 可选 Redis SettlementSnapshot 缓存
+
+MySQL 是唯一事实源，`finance_version` 是活动费用事实版本。`summary` 和 `dashboard` 会先读取 MySQL 当前版本，再按以下 key 查询可选 Redis 快照：
+
+```text
+playmate:finance:snapshot:v1:{activityId}:{financeVersion}
+```
+
+快照只保存金额、账单事实、分摊、转账建议和用户 ID；不保存昵称、头像、当前用户视角或展示文案。每次请求都会根据用户 ID 实时补充资料，因此用户改昵称不需要修改 `finance_version`。
+
+缓存默认关闭：`PLAYMATE_FINANCE_CACHE_ENABLED=false`。开启后 TTL 默认 `15m`，可用 `PLAYMATE_FINANCE_CACHE_TTL` 修改。Redis 未启动、超时、连接失败或 JSON 损坏时会记录 WARN 并自动回源 MySQL，费用接口仍正常返回。账单写入事务不读写 Redis；版本化 key 会自然绕过旧快照，旧 key 由 TTL 清理。
+
+普通 P2 回归保持 Redis disabled：
+
+```bash
+bash scripts/p2-expense-settlement-smoke-test.sh
+```
+
+可选 Redis 验证会使用独立的 `18080` 后端进程，只清理 `playmate:finance:snapshot:*` 键：
+
+```bash
+bash scripts/p2-expense-redis-smoke-test.sh
+```
 
 ## 文件上传验证
 

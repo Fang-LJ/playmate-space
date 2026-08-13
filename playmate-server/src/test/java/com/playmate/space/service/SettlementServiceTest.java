@@ -8,6 +8,8 @@ import com.playmate.space.entity.ActivityExpenseShareEntity;
 import com.playmate.space.entity.ActivityMemberEntity;
 import com.playmate.space.entity.UserEntity;
 import com.playmate.space.mapper.*;
+import com.playmate.space.service.finance.SettlementSnapshot;
+import com.playmate.space.service.finance.SettlementSnapshotProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -37,13 +41,14 @@ class SettlementServiceTest {
     @Mock private ActivityMemberMapper memberMapper;
     @Mock private UserMapper userMapper;
     @Mock private ActivityFinanceStateService financeStateService;
+    @Mock private SettlementSnapshotProvider snapshotProvider;
 
     private SettlementService service;
 
     @BeforeEach
     void setUp() {
         service = new SettlementService(access, expenseMapper, shareMapper, settlementMapper, memberMapper, userMapper,
-                financeStateService);
+                financeStateService, snapshotProvider);
         ActivityEntity activity = new ActivityEntity();
         activity.setId(ACTIVITY_ID);
         ActivityMemberEntity member = new ActivityMemberEntity();
@@ -57,21 +62,14 @@ class SettlementServiceTest {
 
     @Test
     void dashboardUsesPaidMinusShareAndIgnoresHistoricalTransfers() {
-        when(expenseMapper.selectList(any())).thenReturn(List.of(
-                expense(101L, USER_A, "40.00"),
-                expense(102L, USER_C, "518.00")
-        ));
-        when(shareMapper.selectList(any())).thenReturn(List.of(
-                share(101L, USER_A, "40.00"),
-                share(102L, USER_A, "192.67"),
-                share(102L, USER_B, "152.67"),
-                share(102L, USER_C, "172.66")
-        ));
+        when(snapshotProvider.getSnapshot(ACTIVITY_ID)).thenReturn(snapshot(
+                List.of(account(USER_A, "40.00", "232.67"), account(USER_B, "0.00", "152.67"), account(USER_C, "518.00", "172.66")),
+                List.of(new SettlementSnapshot.Suggestion(USER_A, USER_C, new BigDecimal("192.67")),
+                        new SettlementSnapshot.Suggestion(USER_B, USER_C, new BigDecimal("152.67"))),
+                2, 3, "558.00", 12L));
         when(userMapper.selectByIds(any())).thenReturn(List.of(
                 user(USER_A, "A"), user(USER_B, "B"), user(USER_C, "C")
         ));
-        when(financeStateService.currentVersion(ACTIVITY_ID)).thenReturn(12L);
-
         ExpenseDashboardResponse dashboard = service.dashboard(ACTIVITY_ID);
 
         assertEquals(new BigDecimal("558.00"), dashboard.summary().totalExpenseAmount());
@@ -90,8 +88,8 @@ class SettlementServiceTest {
 
     @Test
     void balancedAccountsProduceNoSuggestions() {
-        when(expenseMapper.selectList(any())).thenReturn(List.of(expense(201L, USER_A, "20.00")));
-        when(shareMapper.selectList(any())).thenReturn(List.of(share(201L, USER_A, "20.00")));
+        when(snapshotProvider.getSnapshot(ACTIVITY_ID)).thenReturn(snapshot(
+                List.of(account(USER_A, "20.00", "20.00")), List.of(), 1, 1, "20.00", 0L));
         when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A, "A")));
 
         ExpenseDashboardResponse dashboard = service.dashboard(ACTIVITY_ID);
@@ -99,6 +97,20 @@ class SettlementServiceTest {
         assertTrue(dashboard.suggestions().isEmpty());
         assertEquals("无需结算", dashboard.members().getFirst().settlementText());
         verifyNoInteractions(settlementMapper);
+    }
+
+    @Test
+    void dashboardUsesFreshNicknameWithoutChangingFinanceSnapshot() {
+        when(snapshotProvider.getSnapshot(ACTIVITY_ID)).thenReturn(snapshot(
+                List.of(account(USER_A, "10.00", "10.00")), List.of(), 1, 1, "10.00", 8L));
+        when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A, "旧昵称")), List.of(user(USER_A, "新昵称")));
+
+        ExpenseDashboardResponse first = service.dashboard(ACTIVITY_ID);
+        ExpenseDashboardResponse second = service.dashboard(ACTIVITY_ID);
+
+        assertEquals("旧昵称", first.members().getFirst().nickname());
+        assertEquals("新昵称", second.members().getFirst().nickname());
+        verify(snapshotProvider, times(2)).getSnapshot(ACTIVITY_ID);
     }
 
     private ActivityExpenseEntity expense(Long id, Long payerId, String amount) {
@@ -127,5 +139,18 @@ class SettlementServiceTest {
         entity.setId(id);
         entity.setNickname(nickname);
         return entity;
+    }
+
+    private SettlementSnapshot snapshot(List<SettlementSnapshot.Account> accounts,
+                                        List<SettlementSnapshot.Suggestion> suggestions,
+                                        int expenseCount, int participantCount, String total, long financeVersion) {
+        return new SettlementSnapshot(SettlementSnapshot.SCHEMA_VERSION, ACTIVITY_ID, financeVersion,
+                new BigDecimal(total), expenseCount, participantCount, accounts, suggestions, List.of());
+    }
+
+    private SettlementSnapshot.Account account(Long userId, String paid, String share) {
+        BigDecimal paidAmount = new BigDecimal(paid);
+        BigDecimal shareAmount = new BigDecimal(share);
+        return new SettlementSnapshot.Account(userId, paidAmount, shareAmount, paidAmount.subtract(shareAmount));
     }
 }
