@@ -18,8 +18,10 @@ Page({
     this.setData({ activityId: options.activityId || '' });
   },
 
-  onShow() {
-    if (this.data.activityId) this.load();
+  async onShow() {
+    if (!this.data.activityId) return;
+    await this.load();
+    if (this.data.activeTab === 'COSTS') await this.loadExpenseSummary();
   },
 
   async load() {

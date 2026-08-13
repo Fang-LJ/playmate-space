@@ -7,5 +7,5 @@ function getExpenses(activityId, category) { return request({ url: `${base(activ
 function getExpense(activityId, expenseId) { return request({ url: `${base(activityId)}/expenses/${expenseId}` }); }
 function saveExpense(activityId, data, expenseId) { return request({ url: expenseId ? `${base(activityId)}/expenses/${expenseId}` : `${base(activityId)}/expenses`, method: expenseId ? 'PUT' : 'POST', data }); }
 function voidExpense(activityId, expenseId, data) { return request({ url: `${base(activityId)}/expenses/${expenseId}/void`, method: 'POST', data }); }
-function getExpenseMembers(activityId) { return request({ url: `${base(activityId)}/expenses/members` }); }
+function getExpenseMembers(activityId) { return request({ url: `${base(activityId)}/members` }); }
 module.exports = { getExpenseSummary, getExpenseDashboard, getExpenses, getExpense, saveExpense, voidExpense, getExpenseMembers };
