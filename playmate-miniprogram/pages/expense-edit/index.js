@@ -34,11 +34,16 @@ Page({
       description: '', version: null
     },
     saving: false,
-    uploading: false
+    uploading: false,
+    clientRequestId: ''
   },
 
   async onLoad(options) {
-    this.setData({ activityId: options.activityId || '', expenseId: options.expenseId || '' });
+    this.setData({
+      activityId: options.activityId || '',
+      expenseId: options.expenseId || '',
+      clientRequestId: options.expenseId ? '' : `expense-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    });
     try {
       const [members, activity, currentUser] = await Promise.all([
         expense.getExpenseMembers(this.data.activityId),
@@ -209,7 +214,8 @@ Page({
       amount,
       payerUserId: Number(form.payerUserId),
       shares,
-      version: form.version
+      version: form.version,
+      clientRequestId: this.data.expenseId ? null : this.data.clientRequestId
     };
     delete payload.receiptUrl;
     try {

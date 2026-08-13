@@ -36,12 +36,14 @@ class SettlementServiceTest {
     @Mock private ActivitySettlementMapper settlementMapper;
     @Mock private ActivityMemberMapper memberMapper;
     @Mock private UserMapper userMapper;
+    @Mock private ActivityFinanceStateService financeStateService;
 
     private SettlementService service;
 
     @BeforeEach
     void setUp() {
-        service = new SettlementService(access, expenseMapper, shareMapper, settlementMapper, memberMapper, userMapper);
+        service = new SettlementService(access, expenseMapper, shareMapper, settlementMapper, memberMapper, userMapper,
+                financeStateService);
         ActivityEntity activity = new ActivityEntity();
         activity.setId(ACTIVITY_ID);
         ActivityMemberEntity member = new ActivityMemberEntity();
@@ -68,6 +70,7 @@ class SettlementServiceTest {
         when(userMapper.selectByIds(any())).thenReturn(List.of(
                 user(USER_A, "A"), user(USER_B, "B"), user(USER_C, "C")
         ));
+        when(financeStateService.currentVersion(ACTIVITY_ID)).thenReturn(12L);
 
         ExpenseDashboardResponse dashboard = service.dashboard(ACTIVITY_ID);
 
@@ -81,6 +84,7 @@ class SettlementServiceTest {
                 dashboard.suggestions().stream().map(ExpenseSuggestionResponse::amount).toList());
         assertEquals(new BigDecimal("345.34"), dashboard.suggestions().stream()
                 .map(ExpenseSuggestionResponse::amount).reduce(BigDecimal.ZERO, BigDecimal::add));
+        assertEquals(12L, dashboard.financeVersion());
         verifyNoInteractions(settlementMapper);
     }
 

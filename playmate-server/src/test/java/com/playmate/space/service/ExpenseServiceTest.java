@@ -4,6 +4,7 @@ import com.playmate.space.common.exception.BusinessException;
 import com.playmate.space.common.exception.ForbiddenException;
 import com.playmate.space.dto.expense.ExpenseShareRequest;
 import com.playmate.space.dto.expense.SaveExpenseRequest;
+import com.playmate.space.dto.expense.VoidExpenseRequest;
 import com.playmate.space.entity.ActivityEntity;
 import com.playmate.space.entity.ActivityExpenseEntity;
 import com.playmate.space.entity.ActivityExpenseShareEntity;
@@ -40,6 +41,7 @@ class ExpenseServiceTest {
     @Mock private UserMapper userMapper;
     @Mock private FileMapper fileMapper;
     @Mock private SettlementService settlementService;
+    @Mock private ActivityFinanceStateService financeStateService;
 
     private ExpenseService service;
     private ActivityEntity activity;
@@ -47,7 +49,8 @@ class ExpenseServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ExpenseService(access, expenseMapper, shareMapper, memberMapper, userMapper, fileMapper, settlementService);
+        service = new ExpenseService(access, expenseMapper, shareMapper, memberMapper, userMapper, fileMapper,
+                settlementService, financeStateService);
         activity = new ActivityEntity();
         activity.setId(ACTIVITY_ID);
         activity.setCreatorUserId(USER_A);
@@ -110,9 +113,10 @@ class ExpenseServiceTest {
     @Test
     void atomicVersionUpdateSucceedsAndIncrementsVersion() {
         ActivityExpenseEntity existing = existingExpense(88L, 3);
-        when(expenseMapper.selectById(88L)).thenReturn(existing);
+        when(expenseMapper.selectByIdForUpdate(ACTIVITY_ID, 88L)).thenReturn(existing);
         when(access.isActivityCreator(activity, operator, USER_A)).thenReturn(true);
         when(expenseMapper.updateActiveByVersion(any(), eq(3), any())).thenReturn(1);
+        when(shareMapper.selectByExpenseIdForUpdate(88L)).thenReturn(List.of());
         when(shareMapper.selectList(any())).thenReturn(List.of());
         when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A)));
 
@@ -122,14 +126,13 @@ class ExpenseServiceTest {
         assertEquals(4, result.version());
         verify(expenseMapper).updateActiveByVersion(existing, 3, existing.getUpdateTime());
         verify(shareMapper).deleteByExpenseId(88L);
+        verify(financeStateService).incrementVersion(ACTIVITY_ID);
     }
 
     @Test
     void staleVersionFailsAtomicallyBeforeReplacingShares() {
         ActivityExpenseEntity existing = existingExpense(89L, 4);
-        when(expenseMapper.selectById(89L)).thenReturn(existing);
-        when(access.isActivityCreator(activity, operator, USER_A)).thenReturn(true);
-        when(expenseMapper.updateActiveByVersion(any(), eq(3), any())).thenReturn(0);
+        when(expenseMapper.selectByIdForUpdate(ACTIVITY_ID, 89L)).thenReturn(existing);
 
         BusinessException error = assertThrows(BusinessException.class, () -> service.update(
                 ACTIVITY_ID, 89L, request(USER_A, "12.00", "EQUAL", 3,
@@ -137,6 +140,75 @@ class ExpenseServiceTest {
 
         assertEquals("账单已被其他成员修改，请刷新后重试", error.getMessage());
         verify(shareMapper, never()).deleteByExpenseId(anyLong());
+        verify(financeStateService, never()).incrementVersion(anyLong());
+    }
+
+    @Test
+    void duplicateCreateReturnsOriginalWithoutIncrementingFinanceVersion() {
+        ActivityExpenseEntity existing = existingExpense(90L, 1);
+        when(expenseMapper.selectByCreateRequest(ACTIVITY_ID, USER_A, "request-1")).thenReturn(existing);
+        when(shareMapper.selectByExpenseIdForUpdate(90L)).thenReturn(List.of());
+        when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A)));
+
+        var result = service.create(ACTIVITY_ID, request(USER_A, "10.00", "EQUAL", null,
+                List.of(new ExpenseShareRequest(USER_A, null))));
+
+        assertEquals(90L, result.expenseId());
+        verify(expenseMapper, never()).insert(any(ActivityExpenseEntity.class));
+        verify(financeStateService, never()).incrementVersion(anyLong());
+    }
+
+    @Test
+    void unchangedUpdateDoesNotWriteOrIncrementFinanceVersion() {
+        ActivityExpenseEntity existing = existingExpense(91L, 2);
+        existing.setTitle("测试账单");
+        existing.setAmount(new BigDecimal("10.00"));
+        existing.setExpenseTime(LocalDateTime.of(2026, 8, 11, 12, 0));
+        ActivityExpenseShareEntity share = new ActivityExpenseShareEntity();
+        share.setExpenseId(91L); share.setUserId(USER_A); share.setShareAmount(new BigDecimal("10.00"));
+        when(expenseMapper.selectByIdForUpdate(ACTIVITY_ID, 91L)).thenReturn(existing);
+        when(access.isActivityCreator(activity, operator, USER_A)).thenReturn(true);
+        when(shareMapper.selectByExpenseIdForUpdate(91L)).thenReturn(List.of(share));
+        when(shareMapper.selectList(any())).thenReturn(List.of(share));
+        when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A)));
+
+        var result = service.update(ACTIVITY_ID, 91L, request(USER_A, "10.00", "EQUAL", 2,
+                List.of(new ExpenseShareRequest(USER_A, null))));
+
+        assertEquals(2, result.version());
+        verify(expenseMapper, never()).updateActiveByVersion(any(), anyInt(), any());
+        verify(shareMapper, never()).deleteByExpenseId(anyLong());
+        verify(financeStateService, never()).incrementVersion(anyLong());
+    }
+
+    @Test
+    void voidUsesExpectedVersionAndIncrementsFinanceVersion() {
+        ActivityExpenseEntity existing = existingExpense(92L, 5);
+        when(expenseMapper.selectByIdForUpdate(ACTIVITY_ID, 92L)).thenReturn(existing);
+        when(expenseMapper.voidActiveByVersion(eq(ACTIVITY_ID), eq(92L), eq(5), eq(USER_A), any(), isNull(), any()))
+                .thenReturn(1);
+        when(shareMapper.selectList(any())).thenReturn(List.of());
+        when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A)));
+
+        var result = service.voidExpense(ACTIVITY_ID, 92L, new VoidExpenseRequest(5, null));
+
+        assertEquals("VOID", result.status());
+        assertEquals(6, result.version());
+        verify(financeStateService).incrementVersion(ACTIVITY_ID);
+    }
+
+    @Test
+    void staleVoidDoesNotIncrementFinanceVersion() {
+        ActivityExpenseEntity existing = existingExpense(93L, 5);
+        when(expenseMapper.selectByIdForUpdate(ACTIVITY_ID, 93L)).thenReturn(existing);
+        when(expenseMapper.voidActiveByVersion(eq(ACTIVITY_ID), eq(93L), eq(4), eq(USER_A), any(), isNull(), any()))
+                .thenReturn(0);
+
+        BusinessException error = assertThrows(BusinessException.class,
+                () -> service.voidExpense(ACTIVITY_ID, 93L, new VoidExpenseRequest(4, null)));
+
+        assertEquals("账单已被其他成员修改，请刷新后重试", error.getMessage());
+        verify(financeStateService, never()).incrementVersion(anyLong());
     }
 
     private List<ActivityExpenseShareEntity> insertedShares() {
@@ -147,7 +219,7 @@ class ExpenseServiceTest {
                                        List<ExpenseShareRequest> shares) {
         return new SaveExpenseRequest("测试账单", "FOOD", new BigDecimal(amount), payerId,
                 LocalDateTime.of(2026, 8, 11, 12, 0), splitMode, shares,
-                null, null, version);
+                null, null, "request-1", version);
     }
 
     private ActivityExpenseEntity existingExpense(Long id, int version) {

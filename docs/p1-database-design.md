@@ -45,6 +45,7 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 | `t_activity_budget_item` | 预算明细 | 类别、计算方式、单价、数量、最终预算金额、可选关联行程；预算总额动态汇总。 |
 | `t_activity_expense` | 实际账单 | 金额、付款人、消费时间、主凭证文件、状态和版本；已参与结算的账单通过 `VOID` 作废。 |
 | `t_activity_expense_share` | 每位成员最终承担金额 | `expense_id`、`user_id`、`share_amount`；支持均摊、部分成员和后续自定义金额分摊。 |
+| `t_activity_finance_state` | 活动费用事实版本与写锁载体 | `activity_id` 主键、`finance_version`；写事务通过 `SELECT ... FOR UPDATE` 按活动串行化。 |
 | `t_activity_settlement` | 第二版真实转账状态预留 | 保留转出人、收款人、金额和状态历史；第一版不读取该表参与余额计算。 |
 | `t_activity_photo` | 活动照片墙关联 | `activity_id`、`file_id`、上传人、拍摄时间、说明和排序；照片二进制继续保存在对象存储。 |
 | `t_activity_todo` | 待办任务生命周期 | `todo_type`、来源、幂等 `source_key`、截止时间、任务状态和创建人；自动投票待办按 `activity_id + source_key` 唯一。 |
@@ -65,6 +66,9 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 
 - 预算总额为 `t_activity_budget_item.estimated_amount` 的动态汇总，不写回 `t_activity`。
 - 每笔 `t_activity_expense` 有一个付款人，可有多条 `t_activity_expense_share`，保存最终分摊金额。
+- `t_activity_expense.client_request_id` 与 `activity_id + created_by` 组成唯一创建请求，旧账单允许为 `NULL`；重复请求返回首次创建结果，不覆盖原账单。
+- `t_activity_finance_state` 在第一次费用写入时懒初始化。新增、实际发生变化的编辑、成功作废均在同一事务内将 `finance_version + 1`；失败、回滚、幂等重试和无变化编辑不递增。
+- 所有费用写操作使用统一锁顺序：活动财务状态行 → 账单 → 分摊。不同活动锁定不同主键，不互相阻塞。
 - AA 建议依据有效账单、付款人和分摊记录实时计算。第一版不保存建议，也不追踪线下转账完成状态；`t_activity_settlement` 仅作为第二版兼容数据保留。
 - MySQL 8 支持 `CHECK`，但 P0 现有 SQL 未使用数据库检查约束；P1 保持一致，由阶段 C 校验金额大于零、转出人不等于收款人及活动成员归属。
 
@@ -108,7 +112,7 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 
 - 建表 SQL：[p1_001_activity_collaboration.sql](sql/p1_001_activity_collaboration.sql)、[p1_002_activity_todo.sql](sql/p1_002_activity_todo.sql)、[p1_003_itinerary_poll_field_linkage.sql](sql/p1_003_itinerary_poll_field_linkage.sql)。
 - 新环境：Docker MySQL 初始化顺序增加 `004-p1_itinerary_poll_field_linkage.sql`。
-- 已存在的本地开发库：执行 `p1_003_itinerary_poll_field_linkage.sql` 和 `p1_004_expense_settlement.sql`。后者为费用表补齐 `split_mode`、账单作废审计和结算撤销审计字段；脚本可重复执行且不清空已有数据。
+- 已存在的本地开发库：依次执行 `p1_003_itinerary_poll_field_linkage.sql`、`p1_004_expense_settlement.sql` 和 `p1_005_activity_finance_state.sql`。费用迁移会补齐 `split_mode`、账单作废审计、活动财务版本及新增请求幂等字段；脚本均可重复执行且不清空已有数据。
 - 历史数据回填为显式、一次性操作：完成迁移后可设置 `PLAYMATE_TODO_BACKFILL_ON_STARTUP=true` 启动后端。它只处理进行中投票和 `REVIEW_REQUIRED` 结果，执行幂等。
 - 行程类型策略调整不修改表结构，也不新增迁移 SQL；现有 `route_detail`、`all_day` 和历史投票 JSON 全部保留。
 
@@ -119,7 +123,7 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 - 账单作废保留账单与分摊历史，但不再参与结算。已结束活动允许补记、编辑和结算；已取消活动只读。
 - 移除成员前必须保证其当前净额为零，历史已移除成员仍在账单和结算历史中保留展示。
 
-下一批再设计 `t_activity_finance_state`、`finance_version`、活动级数据库锁、写入幂等和 Redis 结算快照；本次不新增相关表或迁移。
+财务一致性基础已落地：`t_activity_finance_state` 提供活动级数据库行锁和 `finance_version`，`t_activity_expense.client_request_id` 提供新增账单幂等。Redis 结算快照仍为后续可选能力，本阶段未引入缓存。
 
 ## 后续范围
 

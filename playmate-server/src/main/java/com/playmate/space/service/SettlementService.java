@@ -29,23 +29,28 @@ public class SettlementService {
     private final ActivitySettlementMapper settlementMapper;
     private final ActivityMemberMapper memberMapper;
     private final UserMapper userMapper;
+    private final ActivityFinanceStateService financeStateService;
 
     public SettlementService(ActivityCollaborationAccess access, ActivityExpenseMapper expenseMapper,
                              ActivityExpenseShareMapper shareMapper, ActivitySettlementMapper settlementMapper,
-                             ActivityMemberMapper memberMapper, UserMapper userMapper) {
+                             ActivityMemberMapper memberMapper, UserMapper userMapper,
+                             ActivityFinanceStateService financeStateService) {
         this.access = access;
         this.expenseMapper = expenseMapper;
         this.shareMapper = shareMapper;
         this.settlementMapper = settlementMapper;
         this.memberMapper = memberMapper;
         this.userMapper = userMapper;
+        this.financeStateService = financeStateService;
     }
 
+    @Transactional(readOnly = true)
     public ExpenseSummaryResponse expenseSummary(Long activityId) {
         Long userId = requireExpenseAccess(activityId);
         return toExpenseSummary(calculate(activityId), userId);
     }
 
+    @Transactional(readOnly = true)
     public ExpenseDashboardResponse dashboard(Long activityId) {
         requireExpenseAccess(activityId);
         Calculation calculation = calculate(activityId);
@@ -56,7 +61,8 @@ public class SettlementService {
                 new ExpenseDashboardSummaryResponse(calculation.totalExpense, calculation.expenses.size(), calculation.accounts.size()),
                 members,
                 calculation.suggestions,
-                CALCULATION_RULE
+                CALCULATION_RULE,
+                calculation.financeVersion
         );
     }
 
@@ -180,7 +186,7 @@ public class SettlementService {
         BigDecimal totalExpense = expenses.stream().map(ActivityExpenseEntity::getAmount)
                 .reduce(ZERO, SettlementService::plus);
         return new Calculation(expenses, sharesByExpense, accounts, users,
-                suggestions(accounts, users), totalExpense);
+                suggestions(accounts, users), totalExpense, financeStateService.currentVersion(activityId));
     }
 
     private Long requireExpenseAccess(Long activityId) {
@@ -203,7 +209,8 @@ public class SettlementService {
                 calculation.suggestions.size(),
                 calculation.expenses.size(),
                 listItems(calculation.expenses.stream().limit(2).toList(), calculation.sharesByExpense,
-                        calculation.users, currentUserId)
+                        calculation.users, currentUserId),
+                calculation.financeVersion
         );
     }
 
@@ -383,5 +390,6 @@ public class SettlementService {
                        Map<Long, Account> accounts,
                        Map<Long, UserEntity> users,
                        List<ExpenseSuggestionResponse> suggestions,
-                       BigDecimal totalExpense) {}
+                       BigDecimal totalExpense,
+                       long financeVersion) {}
 }

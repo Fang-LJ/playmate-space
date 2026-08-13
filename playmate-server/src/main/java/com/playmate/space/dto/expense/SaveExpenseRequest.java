@@ -14,5 +14,6 @@ public record SaveExpenseRequest(
   @NotEmpty List<@Valid ExpenseShareRequest> shares,
   Long receiptFileId,
   @Size(max=512) String description,
+  @NotBlank(groups = CreateExpenseValidation.class) @Size(max=64) String clientRequestId,
   Integer version
 ) {}

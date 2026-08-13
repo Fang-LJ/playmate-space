@@ -4,4 +4,5 @@ import java.util.List;
 public record ExpenseSummaryResponse(BigDecimal myNetAmount, String mySettlementText,
                                      List<ExpenseSuggestionResponse> mySuggestions,
                                      int suggestionCount, int expenseCount,
-                                     List<ExpenseListItemResponse> recentExpenses) {}
+                                     List<ExpenseListItemResponse> recentExpenses,
+                                     long financeVersion) {}
