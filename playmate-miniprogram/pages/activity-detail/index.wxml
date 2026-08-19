@@ -108,17 +108,20 @@
               </view>
             </view>
           </view>
-          <view class="section-head"><view class="section-title">我的待处理</view><view class="muted">{{expenseSummary.mySuggestions.length}} 笔</view></view>
+          <view class="section-head expense-section-head"><view class="section-title">我的待处理</view></view>
           <view wx:if="{{expenseSummary.mySuggestions.length}}">
             <view class="card settlement-preview" wx:for="{{expenseSummary.mySuggestions}}" wx:key="fromUserId">
               <view class="settlement-main">
-                <view class="settlement-party">
+                <view class="settlement-party settlement-party-from">
                 <image wx:if="{{item.fromAvatarUrl}}" class="settlement-avatar" src="{{item.fromAvatarUrl}}" mode="aspectFill" />
                 <view wx:else class="settlement-avatar settlement-avatar-placeholder">{{item.fromAvatarText}}</view>
                   <view class="settlement-name">{{item.fromDisplayName}}</view>
                 </view>
-                <view class="settlement-arrow">→</view>
-                <view class="settlement-party">
+                <view class="settlement-arrow" aria-label="转账方向">
+                  <view class="settlement-arrow-track"></view>
+                  <view class="settlement-arrow-head"></view>
+                </view>
+                <view class="settlement-party settlement-party-to">
                 <image wx:if="{{item.toAvatarUrl}}" class="settlement-avatar" src="{{item.toAvatarUrl}}" mode="aspectFill" />
                 <view wx:else class="settlement-avatar settlement-avatar-placeholder">{{item.toAvatarText}}</view>
                   <view class="settlement-name">{{item.toDisplayName}}</view>
@@ -128,7 +131,7 @@
             </view>
           </view>
           <view wx:else class="card empty-card">当前无需结算</view>
-          <view class="section-head"><view class="section-title">最近账单</view><view class="link-text" bindtap="goExpenses">查看全部 ›</view></view>
+          <view class="section-head expense-section-head"><view class="section-title">最近账单</view></view>
           <view wx:if="{{expenseSummary.recentExpenses.length}}">
             <view wx:for="{{expenseSummary.recentExpenses}}" wx:key="expenseId" class="card expense-preview" data-id="{{item.expenseId}}" bindtap="goExpenseItem"><view><view class="row-title">{{item.title}}</view><view class="muted">{{item.payerNickname}} 支付</view></view><view class="expense-right"><view class="expense-amount">¥{{item.amount}}</view><view wx:if="{{item.currentUserShareAmount!==null}}" class="my-share">我承担 ¥{{item.currentUserShareAmount}}</view></view></view>
           </view>
