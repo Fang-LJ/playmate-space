@@ -110,14 +110,14 @@ Page({
   formatMoney(value) { return `¥${Number(value || 0).toFixed(2)}`; },
   normalizeMySuggestion(item) {
     const isFromMe = String(item.fromUserId) === String(this.data.currentUserId);
+    const counterpartyName = isFromMe ? item.toNickname : item.fromNickname;
     return {
       ...item,
-      fromDisplayName: isFromMe ? '我' : item.fromNickname,
-      toDisplayName: isFromMe ? item.toNickname : '我',
-      fromAvatarText: (isFromMe ? '我' : item.fromNickname || '玩').slice(0, 1),
-      toAvatarText: (isFromMe ? item.toNickname || '玩' : '我').slice(0, 1),
-      transferDirection: isFromMe ? 'outbound' : 'inbound',
-      transferTag: isFromMe ? '转出账单' : '转入账单'
+      counterpartyUserId: isFromMe ? item.toUserId : item.fromUserId,
+      counterpartyName,
+      counterpartyAvatarUrl: isFromMe ? item.toAvatarUrl : item.fromAvatarUrl,
+      counterpartyAvatarText: (counterpartyName || '玩').slice(0, 1),
+      directionText: isFromMe ? '你需要转给 TA' : 'TA 需要转给你'
     };
   },
   goMembers() { wx.navigateTo({ url: `/pages/member-list/index?activityId=${this.data.activityId}` }); },
