@@ -57,17 +57,20 @@ public class ActivityService {
     private final ActivityMemberMapper activityMemberMapper;
     private final FileMapper fileMapper;
     private final ActivityTodoLifecycleService todoLifecycleService;
+    private final ActivityFinanceStateService financeStateService;
 
     public ActivityService(
             ActivityMapper activityMapper,
             ActivityMemberMapper activityMemberMapper,
             FileMapper fileMapper,
-            ActivityTodoLifecycleService todoLifecycleService
+            ActivityTodoLifecycleService todoLifecycleService,
+            ActivityFinanceStateService financeStateService
     ) {
         this.activityMapper = activityMapper;
         this.activityMemberMapper = activityMemberMapper;
         this.fileMapper = fileMapper;
         this.todoLifecycleService = todoLifecycleService;
+        this.financeStateService = financeStateService;
     }
 
     @Transactional
@@ -182,6 +185,10 @@ public class ActivityService {
     public ActivityDetailResponse cancelActivity(Long activityId) {
         Long userId = requireLoginUserId();
         ActivityEntity activity = getExistingActivity(activityId);
+        requireCreatorMember(activityId, userId, activity);
+
+        financeStateService.ensureAndLock(activityId);
+        activity = getExistingActivity(activityId);
         ActivityMemberEntity member = requireCreatorMember(activityId, userId, activity);
 
         if (STATUS_ENDED.equals(activity.getStatus())) {

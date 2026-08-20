@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -317,6 +318,65 @@ class ExpenseServiceTest {
         verify(financeStateService, never()).incrementVersion(anyLong());
     }
 
+    @Test
+    void createRereadsCanceledActivityAfterFinanceLockAndRejectsWrite() {
+        ActivityEntity canceled = activity("CANCELED");
+        when(access.requireActivity(ACTIVITY_ID)).thenReturn(activity, canceled);
+
+        ForbiddenException error = assertThrows(ForbiddenException.class, () -> service.create(ACTIVITY_ID,
+                request(USER_A, "10.00", "EQUAL", null, List.of(new ExpenseShareRequest(USER_A, null)))));
+
+        assertTrue(error.getMessage().contains("活动已取消"));
+        InOrder order = inOrder(access, financeStateService);
+        order.verify(access).requireUserId();
+        order.verify(access).requireActivity(ACTIVITY_ID);
+        order.verify(financeStateService).ensureAndLock(ACTIVITY_ID);
+        order.verify(access).requireActivity(ACTIVITY_ID);
+        order.verify(access).requireActiveMember(ACTIVITY_ID, USER_A);
+        verify(expenseMapper, never()).insert(any(ActivityExpenseEntity.class));
+        verify(financeStateService, never()).incrementVersion(anyLong());
+    }
+
+    @Test
+    void updateRereadsCanceledActivityAfterFinanceLockAndRejectsWrite() {
+        ActivityEntity canceled = activity("CANCELED");
+        when(access.requireActivity(ACTIVITY_ID)).thenReturn(activity, canceled);
+
+        ForbiddenException error = assertThrows(ForbiddenException.class, () -> service.update(ACTIVITY_ID, 94L,
+                request(USER_A, "10.00", "EQUAL", 1, List.of(new ExpenseShareRequest(USER_A, null)))));
+
+        assertTrue(error.getMessage().contains("活动已取消"));
+        InOrder order = inOrder(access, financeStateService);
+        order.verify(access).requireUserId();
+        order.verify(access).requireActivity(ACTIVITY_ID);
+        order.verify(financeStateService).ensureAndLock(ACTIVITY_ID);
+        order.verify(access).requireActivity(ACTIVITY_ID);
+        order.verify(access).requireActiveMember(ACTIVITY_ID, USER_A);
+        verify(expenseMapper, never()).selectByIdForUpdate(anyLong(), anyLong());
+        verify(expenseMapper, never()).updateActiveByVersion(any(), anyInt(), any());
+        verify(financeStateService, never()).incrementVersion(anyLong());
+    }
+
+    @Test
+    void voidRereadsCanceledActivityAfterFinanceLockAndRejectsWrite() {
+        ActivityEntity canceled = activity("CANCELED");
+        when(access.requireActivity(ACTIVITY_ID)).thenReturn(activity, canceled);
+
+        ForbiddenException error = assertThrows(ForbiddenException.class,
+                () -> service.voidExpense(ACTIVITY_ID, 95L, new VoidExpenseRequest(1, null)));
+
+        assertTrue(error.getMessage().contains("活动已取消"));
+        InOrder order = inOrder(access, financeStateService);
+        order.verify(access).requireUserId();
+        order.verify(access).requireActivity(ACTIVITY_ID);
+        order.verify(financeStateService).ensureAndLock(ACTIVITY_ID);
+        order.verify(access).requireActivity(ACTIVITY_ID);
+        order.verify(access).requireActiveMember(ACTIVITY_ID, USER_A);
+        verify(expenseMapper, never()).selectByIdForUpdate(anyLong(), anyLong());
+        verify(expenseMapper, never()).voidActiveByVersion(anyLong(), anyLong(), anyInt(), anyLong(), any(), any(), any());
+        verify(financeStateService, never()).incrementVersion(anyLong());
+    }
+
     private List<ActivityExpenseShareEntity> insertedShares() {
         return List.of();
     }
@@ -362,6 +422,14 @@ class ExpenseServiceTest {
         entity.setStatus("ACTIVE");
         entity.setVersion(version);
         entity.setDeleteFlag(0);
+        return entity;
+    }
+
+    private ActivityEntity activity(String status) {
+        ActivityEntity entity = new ActivityEntity();
+        entity.setId(ACTIVITY_ID);
+        entity.setCreatorUserId(USER_A);
+        entity.setStatus(status);
         return entity;
     }
 

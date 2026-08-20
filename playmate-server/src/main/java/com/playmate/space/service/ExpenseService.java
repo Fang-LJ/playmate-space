@@ -63,16 +63,19 @@ public class ExpenseService {
 
     @Transactional
     public ExpenseDetailResponse create(Long activityId, SaveExpenseRequest request) {
-        Long userId = access.requireUserId(); ActivityEntity activity = access.requireActivity(activityId); ActivityMemberEntity operator = access.requireActiveMember(activityId, userId);
+        Long userId = access.requireUserId();
         String clientRequestId = requireClientRequestId(request.clientRequestId());
+        access.requireActivity(activityId);
         financeStateService.ensureAndLock(activityId);
+        ActivityEntity activity = access.requireActivity(activityId);
+        ActivityMemberEntity operator = access.requireActiveMember(activityId, userId);
+        requireNotCanceled(activity);
         ActivityExpenseEntity existing = expenseMapper.selectByCreateRequest(activityId, userId, clientRequestId);
         if (existing != null) {
             log.warn("Duplicate expense create request returns existing expense: activityId={}, userId={}, clientRequestId={}, expenseId={}",
                     activityId, userId, clientRequestId, existing.getId());
             return toDetailAfterLock(existing);
         }
-        requireNotCanceled(activity);
         validateRequest(activityId, request, userId, access.isActivityCreator(activity, operator, userId));
         validateReceiptChange(null, request.receiptFileId(), userId);
         LocalDateTime now = LocalDateTime.now();
@@ -96,8 +99,11 @@ public class ExpenseService {
 
     @Transactional
     public ExpenseDetailResponse update(Long activityId, Long expenseId, SaveExpenseRequest request) {
-        Long userId = access.requireUserId(); ActivityEntity activity = access.requireActivity(activityId); ActivityMemberEntity operator = access.requireActiveMember(activityId, userId);
+        Long userId = access.requireUserId();
+        access.requireActivity(activityId);
         financeStateService.ensureAndLock(activityId);
+        ActivityEntity activity = access.requireActivity(activityId);
+        ActivityMemberEntity operator = access.requireActiveMember(activityId, userId);
         requireNotCanceled(activity);
         ActivityExpenseEntity expense = findForUpdate(activityId, expenseId); requireEditable(expense, activity, operator, userId);
         if (request.version() == null) throw param("编辑账单时必须提供版本号");
@@ -121,9 +127,12 @@ public class ExpenseService {
 
     @Transactional
     public ExpenseDetailResponse voidExpense(Long activityId, Long expenseId, VoidExpenseRequest request) {
-        Long userId = access.requireUserId(); ActivityEntity activity = access.requireActivity(activityId); ActivityMemberEntity operator = access.requireActiveMember(activityId, userId);
+        Long userId = access.requireUserId();
         if (request == null || request.expectedVersion() == null) throw param("删除账单时必须提供版本号");
+        access.requireActivity(activityId);
         financeStateService.ensureAndLock(activityId);
+        ActivityEntity activity = access.requireActivity(activityId);
+        ActivityMemberEntity operator = access.requireActiveMember(activityId, userId);
         requireNotCanceled(activity);
         ActivityExpenseEntity expense = findForUpdate(activityId, expenseId);
         requireExpenseOperator(expense, activity, operator, userId);
