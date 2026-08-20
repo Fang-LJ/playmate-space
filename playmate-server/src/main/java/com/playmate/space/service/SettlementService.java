@@ -29,22 +29,20 @@ public class SettlementService {
     private final ActivityExpenseMapper expenseMapper;
     private final ActivityExpenseShareMapper shareMapper;
     private final ActivitySettlementMapper settlementMapper;
-    private final ActivityMemberMapper memberMapper;
-    private final UserMapper userMapper;
+    private final ActivityMemberDisplayService memberDisplayService;
     private final ActivityFinanceStateService financeStateService;
     private final SettlementSnapshotProvider snapshotProvider;
 
     public SettlementService(ActivityCollaborationAccess access, ActivityExpenseMapper expenseMapper,
                              ActivityExpenseShareMapper shareMapper, ActivitySettlementMapper settlementMapper,
-                             ActivityMemberMapper memberMapper, UserMapper userMapper,
+                             ActivityMemberDisplayService memberDisplayService,
                              ActivityFinanceStateService financeStateService,
                              SettlementSnapshotProvider snapshotProvider) {
         this.access = access;
         this.expenseMapper = expenseMapper;
         this.shareMapper = shareMapper;
         this.settlementMapper = settlementMapper;
-        this.memberMapper = memberMapper;
-        this.userMapper = userMapper;
+        this.memberDisplayService = memberDisplayService;
         this.financeStateService = financeStateService;
         this.snapshotProvider = snapshotProvider;
     }
@@ -57,15 +55,15 @@ public class SettlementService {
     public ExpenseDashboardResponse dashboard(Long activityId) {
         requireExpenseAccess(activityId);
         SettlementSnapshot snapshot = snapshotProvider.getSnapshot(activityId);
-        Map<Long, UserEntity> users = userMap(snapshot.accounts().stream()
-                .map(SettlementSnapshot.Account::userId).collect(Collectors.toSet()));
+        Map<Long, ParticipantProfile> profiles = memberDisplayService.loadParticipantProfiles(activityId,
+                snapshot.accounts().stream().map(SettlementSnapshot.Account::userId).collect(Collectors.toSet()));
         List<ExpenseDashboardMemberResponse> members = snapshot.accounts().stream()
-                .map(account -> dashboardMember(account, users.get(account.userId())))
+                .map(account -> dashboardMember(account, profiles.get(account.userId())))
                 .toList();
         return new ExpenseDashboardResponse(
                 new ExpenseDashboardSummaryResponse(snapshot.totalExpenseAmount(), snapshot.expenseCount(), snapshot.participantCount()),
                 members,
-                suggestions(snapshot, users),
+                suggestions(snapshot, profiles),
                 CALCULATION_RULE,
                 snapshot.financeVersion()
         );
@@ -138,7 +136,8 @@ public class SettlementService {
         entity.setUpdateTime(now);
         entity.setDeleteFlag(0);
         settlementMapper.insert(entity);
-        return historyItem(entity, userMap(Set.of(entity.getFromUserId(), entity.getToUserId())));
+        return historyItem(entity, memberDisplayService.loadParticipantProfiles(activityId,
+                Set.of(entity.getFromUserId(), entity.getToUserId())));
     }
 
     /** Legacy V2-compatible endpoint. */
@@ -160,7 +159,8 @@ public class SettlementService {
         entity.setCancelReason(trim(request == null ? null : request.reason()));
         entity.setUpdateTime(LocalDateTime.now());
         settlementMapper.updateById(entity);
-        return historyItem(entity, userMap(Set.of(entity.getFromUserId(), entity.getToUserId())));
+        return historyItem(entity, memberDisplayService.loadParticipantProfiles(activityId,
+                Set.of(entity.getFromUserId(), entity.getToUserId())));
     }
 
     Calculation calculate(Long activityId) {
@@ -178,7 +178,7 @@ public class SettlementService {
         Set<Long> userIds = new TreeSet<>();
         expenses.forEach(item -> userIds.add(item.getPayerUserId()));
         shares.forEach(item -> userIds.add(item.getUserId()));
-        Map<Long, UserEntity> users = userMap(userIds);
+        Map<Long, ParticipantProfile> profiles = memberDisplayService.loadParticipantProfiles(activityId, userIds);
         Map<Long, Account> accounts = new TreeMap<>();
         userIds.forEach(id -> accounts.put(id, new Account(id)));
         expenses.forEach(item -> accounts.get(item.getPayerUserId()).paid =
@@ -191,8 +191,8 @@ public class SettlementService {
                 .collect(Collectors.groupingBy(ActivityExpenseShareEntity::getExpenseId));
         BigDecimal totalExpense = expenses.stream().map(ActivityExpenseEntity::getAmount)
                 .reduce(ZERO, SettlementService::plus);
-        return new Calculation(expenses, sharesByExpense, accounts, users,
-                suggestions(accounts, users), totalExpense, financeStateService.currentVersion(activityId));
+        return new Calculation(expenses, sharesByExpense, accounts, profiles,
+                suggestions(accounts, profiles), totalExpense, financeStateService.currentVersion(activityId));
     }
 
     private Long requireExpenseAccess(Long activityId) {
@@ -219,7 +219,7 @@ public class SettlementService {
                 calculation.suggestions.size(),
                 calculation.expenses.size(),
                 listItems(calculation.expenses.stream().limit(2).toList(), calculation.sharesByExpense,
-                        calculation.users, currentUserId),
+                        calculation.profiles, currentUserId),
                 calculation.financeVersion
         );
     }
@@ -233,8 +233,8 @@ public class SettlementService {
         Set<Long> userIds = new HashSet<>();
         snapshot.suggestions().forEach(item -> { userIds.add(item.fromUserId()); userIds.add(item.toUserId()); });
         snapshot.recentExpenses().forEach(item -> userIds.add(item.payerUserId()));
-        Map<Long, UserEntity> users = userMap(userIds);
-        List<ExpenseSuggestionResponse> suggestions = suggestions(snapshot, users);
+        Map<Long, ParticipantProfile> profiles = memberDisplayService.loadParticipantProfiles(snapshot.activityId(), userIds);
+        List<ExpenseSuggestionResponse> suggestions = suggestions(snapshot, profiles);
         return new ExpenseSummaryResponse(
                 net,
                 paid,
@@ -246,7 +246,7 @@ public class SettlementService {
                 snapshot.expenseCount(),
                 snapshot.recentExpenses().stream().map(item -> new ExpenseListItemResponse(
                         item.expenseId(), item.title(), item.category(), item.amount(),
-                        nickname(users.get(item.payerUserId())), item.payerUserId(), item.expenseTime(),
+                        displayName(profiles.get(item.payerUserId())), item.payerUserId(), item.expenseTime(),
                         item.shares().size(), item.shares().stream().filter(share -> share.userId().equals(currentUserId))
                                 .map(SettlementSnapshot.Share::shareAmount).findFirst().orElse(null),
                         "ACTIVE", item.version())).toList(),
@@ -254,25 +254,24 @@ public class SettlementService {
         );
     }
 
-    private ExpenseDashboardMemberResponse dashboardMember(Account account, UserEntity user) {
-        return new ExpenseDashboardMemberResponse(account.userId, nickname(user),
-                user == null ? null : user.getAvatarUrl(), account.paid, account.share,
+    private ExpenseDashboardMemberResponse dashboardMember(Account account, ParticipantProfile profile) {
+        return new ExpenseDashboardMemberResponse(account.userId, displayName(profile), avatarUrl(profile), account.paid, account.share,
                 account.net, settlementText(account.net));
     }
 
-    private ExpenseDashboardMemberResponse dashboardMember(SettlementSnapshot.Account account, UserEntity user) {
-        return new ExpenseDashboardMemberResponse(account.userId(), nickname(user), user == null ? null : user.getAvatarUrl(),
+    private ExpenseDashboardMemberResponse dashboardMember(SettlementSnapshot.Account account, ParticipantProfile profile) {
+        return new ExpenseDashboardMemberResponse(account.userId(), displayName(profile), avatarUrl(profile),
                 account.paidAmount(), account.shareAmount(), account.netAmount(), settlementText(account.netAmount()));
     }
 
-    private List<ExpenseSuggestionResponse> suggestions(SettlementSnapshot snapshot, Map<Long, UserEntity> users) {
+    private List<ExpenseSuggestionResponse> suggestions(SettlementSnapshot snapshot, Map<Long, ParticipantProfile> profiles) {
         return snapshot.suggestions().stream().map(item -> new ExpenseSuggestionResponse(
-                item.fromUserId(), nickname(users.get(item.fromUserId())), avatarUrl(users.get(item.fromUserId())),
-                item.toUserId(), nickname(users.get(item.toUserId())), avatarUrl(users.get(item.toUserId())),
+                item.fromUserId(), displayName(profiles.get(item.fromUserId())), avatarUrl(profiles.get(item.fromUserId())),
+                item.toUserId(), displayName(profiles.get(item.toUserId())), avatarUrl(profiles.get(item.toUserId())),
                 item.amount())).toList();
     }
 
-    private List<ExpenseSuggestionResponse> suggestions(Map<Long, Account> accounts, Map<Long, UserEntity> users) {
+    private List<ExpenseSuggestionResponse> suggestions(Map<Long, Account> accounts, Map<Long, ParticipantProfile> profiles) {
         List<Account> debtors = accounts.values().stream()
                 .filter(item -> item.net.compareTo(ZERO) < 0)
                 .sorted(Comparator.comparing(item -> item.userId))
@@ -291,9 +290,9 @@ public class SettlementService {
             Account creditor = creditors.get(creditorIndex);
             BigDecimal amount = debtor.net.abs().min(creditor.net);
             if (amount.compareTo(ZERO) > 0) {
-                result.add(new ExpenseSuggestionResponse(debtor.userId, nickname(users.get(debtor.userId)),
-                        avatarUrl(users.get(debtor.userId)), creditor.userId, nickname(users.get(creditor.userId)),
-                        avatarUrl(users.get(creditor.userId)), normalize(amount)));
+                result.add(new ExpenseSuggestionResponse(debtor.userId, displayName(profiles.get(debtor.userId)),
+                        avatarUrl(profiles.get(debtor.userId)), creditor.userId, displayName(profiles.get(creditor.userId)),
+                        avatarUrl(profiles.get(creditor.userId)), normalize(amount)));
             }
             debtor.net = normalize(debtor.net.add(amount));
             creditor.net = normalize(creditor.net.subtract(amount));
@@ -303,8 +302,8 @@ public class SettlementService {
         return result;
     }
 
-    private String avatarUrl(UserEntity user) {
-        return user == null ? null : user.getAvatarUrl();
+    private String avatarUrl(ParticipantProfile profile) {
+        return profile == null ? null : profile.avatarUrl();
     }
 
     private List<ExpenseMemberResponse> legacyMembers(Calculation calculation,
@@ -321,16 +320,16 @@ public class SettlementService {
                     sharedBy.computeIfAbsent(share.getUserId(), ignored -> new ArrayList<>()).add(expense));
         });
         return calculation.accounts.values().stream().map(account -> {
-            UserEntity user = calculation.users.get(account.userId);
+            ParticipantProfile profile = calculation.profiles.get(account.userId);
             List<SettlementHistoryResponse> related = history.stream()
                     .filter(item -> item.fromUserId().equals(account.userId) || item.toUserId().equals(account.userId))
                     .toList();
-            return new ExpenseMemberResponse(account.userId, nickname(user), user == null ? null : user.getAvatarUrl(),
+            return new ExpenseMemberResponse(account.userId, displayName(profile), avatarUrl(profile),
                     account.paid, account.share, ZERO, ZERO, account.net, settlementText(account.net),
                     listItems(paidBy.getOrDefault(account.userId, List.of()), calculation.sharesByExpense,
-                            calculation.users, currentUserId),
+                            calculation.profiles, currentUserId),
                     listItems(sharedBy.getOrDefault(account.userId, List.of()), calculation.sharesByExpense,
-                            calculation.users, currentUserId), related);
+                            calculation.profiles, currentUserId), related);
         }).toList();
     }
 
@@ -353,13 +352,13 @@ public class SettlementService {
             userIds.add(item.getFromUserId());
             userIds.add(item.getToUserId());
         });
-        Map<Long, UserEntity> users = userMap(userIds);
-        return settlements.stream().map(item -> historyItem(item, users)).toList();
+        Map<Long, ParticipantProfile> profiles = memberDisplayService.loadParticipantProfiles(activityId, userIds);
+        return settlements.stream().map(item -> historyItem(item, profiles)).toList();
     }
 
     private List<ExpenseListItemResponse> listItems(List<ActivityExpenseEntity> expenses,
                                                     Map<Long, List<ActivityExpenseShareEntity>> shares,
-                                                    Map<Long, UserEntity> users,
+                                                    Map<Long, ParticipantProfile> profiles,
                                                     Long currentUserId) {
         return expenses.stream().map(item -> {
             List<ActivityExpenseShareEntity> expenseShares = shares.getOrDefault(item.getId(), List.of());
@@ -368,23 +367,20 @@ public class SettlementService {
                     .map(ActivityExpenseShareEntity::getShareAmount)
                     .findFirst().orElse(null);
             return new ExpenseListItemResponse(item.getId(), item.getTitle(), item.getCategory(), money(item.getAmount()),
-                    nickname(users.get(item.getPayerUserId())), item.getPayerUserId(), item.getExpenseTime(),
+                    displayName(profiles.get(item.getPayerUserId())), item.getPayerUserId(), item.getExpenseTime(),
                     expenseShares.size(), currentShare == null ? null : money(currentShare),
                     item.getStatus(), item.getVersion());
         }).toList();
     }
 
-    private SettlementHistoryResponse historyItem(ActivitySettlementEntity item, Map<Long, UserEntity> users) {
+    private SettlementHistoryResponse historyItem(ActivitySettlementEntity item, Map<Long, ParticipantProfile> profiles) {
         return new SettlementHistoryResponse(item.getId(), item.getFromUserId(),
-                nickname(users.get(item.getFromUserId())), item.getToUserId(),
-                nickname(users.get(item.getToUserId())), money(item.getAmount()), item.getStatus(),
+                displayName(profiles.get(item.getFromUserId())), item.getToUserId(),
+                displayName(profiles.get(item.getToUserId())), money(item.getAmount()), item.getStatus(),
                 item.getCompletedAt(), item.getCanceledAt(), item.getOperatedBy(), item.getRemark());
     }
 
-    private Map<Long, UserEntity> userMap(Set<Long> ids) {
-        return ids.isEmpty() ? Map.of() : userMapper.selectByIds(ids).stream()
-                .collect(Collectors.toMap(UserEntity::getId, Function.identity()));
-    }
+    private String displayName(ParticipantProfile profile) { return profile == null ? "玩伴用户" : profile.displayName(); }
 
     private void requireNotCanceled(ActivityEntity activity) {
         if ("CANCELED".equals(activity.getStatus())) throw new ForbiddenException("活动已取消，仅可查看历史费用");
@@ -408,11 +404,6 @@ public class SettlementService {
 
     static String trim(String value) {
         return value == null || value.trim().isEmpty() ? null : value.trim();
-    }
-
-    static String nickname(UserEntity user) {
-        return user == null || user.getNickname() == null || user.getNickname().isBlank()
-                ? "活动成员" : user.getNickname();
     }
 
     static String settlementText(BigDecimal net) {
@@ -445,7 +436,7 @@ public class SettlementService {
     record Calculation(List<ActivityExpenseEntity> expenses,
                        Map<Long, List<ActivityExpenseShareEntity>> sharesByExpense,
                        Map<Long, Account> accounts,
-                       Map<Long, UserEntity> users,
+                       Map<Long, ParticipantProfile> profiles,
                        List<ExpenseSuggestionResponse> suggestions,
                        BigDecimal totalExpense,
                        long financeVersion) {}

@@ -7,7 +7,7 @@ import java.util.List;
 public record SaveExpenseRequest(
   @NotBlank @Size(max=128) String title,
   @NotBlank @Size(max=32) String category,
-  @NotNull @DecimalMin(value="0.01") BigDecimal amount,
+  @NotNull @DecimalMin(value="0.01") @Digits(integer=10, fraction=2) BigDecimal amount,
   @NotNull Long payerUserId,
   @NotNull LocalDateTime expenseTime,
   @NotBlank @Size(max=32) String splitMode,

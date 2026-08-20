@@ -9,7 +9,7 @@ import com.playmate.space.entity.ActivityEntity;
 import com.playmate.space.entity.ActivityExpenseEntity;
 import com.playmate.space.entity.ActivityExpenseShareEntity;
 import com.playmate.space.entity.ActivityMemberEntity;
-import com.playmate.space.entity.UserEntity;
+import com.playmate.space.entity.FileEntity;
 import com.playmate.space.mapper.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,8 +37,7 @@ class ExpenseServiceTest {
     @Mock private ActivityCollaborationAccess access;
     @Mock private ActivityExpenseMapper expenseMapper;
     @Mock private ActivityExpenseShareMapper shareMapper;
-    @Mock private ActivityMemberMapper memberMapper;
-    @Mock private UserMapper userMapper;
+    @Mock private ActivityMemberDisplayService memberDisplayService;
     @Mock private FileMapper fileMapper;
     @Mock private SettlementService settlementService;
     @Mock private ActivityFinanceStateService financeStateService;
@@ -49,7 +48,7 @@ class ExpenseServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ExpenseService(access, expenseMapper, shareMapper, memberMapper, userMapper, fileMapper,
+        service = new ExpenseService(access, expenseMapper, shareMapper, memberDisplayService, fileMapper,
                 settlementService, financeStateService);
         activity = new ActivityEntity();
         activity.setId(ACTIVITY_ID);
@@ -64,12 +63,19 @@ class ExpenseServiceTest {
         when(access.requireActivity(ACTIVITY_ID)).thenReturn(activity);
         when(access.requireActiveMember(ACTIVITY_ID, USER_A)).thenReturn(operator);
         lenient().when(access.requireActiveMember(ACTIVITY_ID, USER_B)).thenReturn(activeMember(USER_B));
+        lenient().when(memberDisplayService.loadParticipantProfiles(anyLong(), any())).thenAnswer(invocation -> {
+            java.util.Collection<Long> ids = invocation.getArgument(1);
+            if (ids == null) {
+                return java.util.Map.of();
+            }
+            return ids.stream().collect(java.util.stream.Collectors.toMap(id -> id,
+                    id -> new ParticipantProfile(id, "用户 " + id, null)));
+        });
     }
 
     @Test
     void equalSplitAssignsRemainderByStableUserOrder() {
         when(access.isActivityCreator(activity, operator, USER_A)).thenReturn(true);
-        when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A), user(USER_B)));
         when(shareMapper.selectList(any())).thenAnswer(invocation -> insertedShares());
 
         service.create(ACTIVITY_ID, request(USER_A, "100.01", "EQUAL", null,
@@ -99,7 +105,6 @@ class ExpenseServiceTest {
     @Test
     void proportionalSplitCalculatesAmountsFromRatios() {
         when(access.isActivityCreator(activity, operator, USER_A)).thenReturn(true);
-        when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A), user(USER_B)));
         when(shareMapper.selectList(any())).thenAnswer(invocation -> insertedShares());
 
         service.create(ACTIVITY_ID, request(USER_A, "100.00", "PROPORTIONAL", null,
@@ -140,10 +145,79 @@ class ExpenseServiceTest {
 
         assertThrows(ForbiddenException.class, () -> service.create(ACTIVITY_ID, request));
 
-        when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A), user(USER_B)));
         when(shareMapper.selectList(any())).thenReturn(List.of());
         service.create(ACTIVITY_ID, request);
         verify(expenseMapper).insert(any(ActivityExpenseEntity.class));
+    }
+
+    @Test
+    void expenseDetailUsesActivityDisplayNameForPayerCreatorAndShares() {
+        ActivityExpenseEntity expense = existingExpense(70L, 1);
+        expense.setCreatedBy(USER_A); expense.setPayerUserId(USER_A);
+        ActivityExpenseShareEntity share = new ActivityExpenseShareEntity();
+        share.setExpenseId(70L); share.setUserId(USER_A); share.setShareAmount(new BigDecimal("10.00"));
+        when(expenseMapper.selectById(70L)).thenReturn(expense);
+        when(shareMapper.selectList(any())).thenReturn(List.of(share));
+        doReturn(java.util.Map.of(USER_A, new ParticipantProfile(USER_A, "小王", null)))
+                .when(memberDisplayService).loadParticipantProfiles(eq(ACTIVITY_ID), any());
+
+        var detail = service.detail(ACTIVITY_ID, 70L);
+
+        assertEquals("小王", detail.payerNickname());
+        assertEquals("小王", detail.creatorNickname());
+        assertEquals("小王", detail.shares().getFirst().nickname());
+    }
+
+    @Test
+    void creatorCanKeepOriginalReceiptUploadedByAnotherMember() {
+        ActivityExpenseEntity existing = existingExpense(80L, 1); existing.setReceiptFileId(100L);
+        prepareSuccessfulUpdate(existing);
+        when(fileMapper.selectById(100L)).thenReturn(receipt(100L, USER_B));
+
+        service.update(ACTIVITY_ID, 80L, request(USER_A, "12.00", "EQUAL", 1,
+                List.of(new ExpenseShareRequest(USER_A, null)), 100L));
+
+        // The single lookup comes from response assembly; unchanged receipts skip ownership validation.
+        verify(fileMapper, times(1)).selectById(100L);
+        verify(expenseMapper).updateActiveByVersion(eq(existing), eq(1), any());
+    }
+
+    @Test
+    void creatorCannotReplaceReceiptWithFileUploadedByAnotherMember() {
+        ActivityExpenseEntity existing = existingExpense(81L, 1); existing.setReceiptFileId(100L);
+        when(expenseMapper.selectByIdForUpdate(ACTIVITY_ID, 81L)).thenReturn(existing);
+        when(access.isActivityCreator(activity, operator, USER_A)).thenReturn(true);
+        when(fileMapper.selectById(101L)).thenReturn(receipt(101L, USER_B));
+
+        BusinessException error = assertThrows(BusinessException.class, () -> service.update(ACTIVITY_ID, 81L,
+                request(USER_A, "12.00", "EQUAL", 1, List.of(new ExpenseShareRequest(USER_A, null)), 101L)));
+
+        assertTrue(error.getMessage().contains("不属于当前用户"));
+        verify(expenseMapper, never()).updateActiveByVersion(any(), anyInt(), any());
+    }
+
+    @Test
+    void creatorCanReplaceReceiptWithOwnNewFile() {
+        ActivityExpenseEntity existing = existingExpense(82L, 1); existing.setReceiptFileId(100L);
+        prepareSuccessfulUpdate(existing);
+        when(fileMapper.selectById(102L)).thenReturn(receipt(102L, USER_A));
+
+        service.update(ACTIVITY_ID, 82L, request(USER_A, "12.00", "EQUAL", 1,
+                List.of(new ExpenseShareRequest(USER_A, null)), 102L));
+
+        verify(expenseMapper).updateActiveByVersion(eq(existing), eq(1), any());
+    }
+
+    @Test
+    void creatorCanRemoveOriginalReceiptReference() {
+        ActivityExpenseEntity existing = existingExpense(83L, 1); existing.setReceiptFileId(100L);
+        prepareSuccessfulUpdate(existing);
+
+        service.update(ACTIVITY_ID, 83L, request(USER_A, "12.00", "EQUAL", 1,
+                List.of(new ExpenseShareRequest(USER_A, null)), null));
+
+        verify(fileMapper, never()).selectById(anyLong());
+        verify(expenseMapper).updateActiveByVersion(eq(existing), eq(1), any());
     }
 
     @Test
@@ -154,7 +228,6 @@ class ExpenseServiceTest {
         when(expenseMapper.updateActiveByVersion(any(), eq(3), any())).thenReturn(1);
         when(shareMapper.selectByExpenseIdForUpdate(88L)).thenReturn(List.of());
         when(shareMapper.selectList(any())).thenReturn(List.of());
-        when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A)));
 
         var result = service.update(ACTIVITY_ID, 88L, request(USER_A, "12.00", "EQUAL", 3,
                 List.of(new ExpenseShareRequest(USER_A, null))));
@@ -184,7 +257,6 @@ class ExpenseServiceTest {
         ActivityExpenseEntity existing = existingExpense(90L, 1);
         when(expenseMapper.selectByCreateRequest(ACTIVITY_ID, USER_A, "request-1")).thenReturn(existing);
         when(shareMapper.selectByExpenseIdForUpdate(90L)).thenReturn(List.of());
-        when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A)));
 
         var result = service.create(ACTIVITY_ID, request(USER_A, "10.00", "EQUAL", null,
                 List.of(new ExpenseShareRequest(USER_A, null))));
@@ -206,7 +278,6 @@ class ExpenseServiceTest {
         when(access.isActivityCreator(activity, operator, USER_A)).thenReturn(true);
         when(shareMapper.selectByExpenseIdForUpdate(91L)).thenReturn(List.of(share));
         when(shareMapper.selectList(any())).thenReturn(List.of(share));
-        when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A)));
 
         var result = service.update(ACTIVITY_ID, 91L, request(USER_A, "10.00", "EQUAL", 2,
                 List.of(new ExpenseShareRequest(USER_A, null))));
@@ -224,7 +295,6 @@ class ExpenseServiceTest {
         when(expenseMapper.voidActiveByVersion(eq(ACTIVITY_ID), eq(92L), eq(5), eq(USER_A), any(), isNull(), any()))
                 .thenReturn(1);
         when(shareMapper.selectList(any())).thenReturn(List.of());
-        when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A)));
 
         var result = service.voidExpense(ACTIVITY_ID, 92L, new VoidExpenseRequest(5, null));
 
@@ -253,9 +323,29 @@ class ExpenseServiceTest {
 
     private SaveExpenseRequest request(Long payerId, String amount, String splitMode, Integer version,
                                        List<ExpenseShareRequest> shares) {
+        return request(payerId, amount, splitMode, version, shares, null);
+    }
+
+    private SaveExpenseRequest request(Long payerId, String amount, String splitMode, Integer version,
+                                       List<ExpenseShareRequest> shares, Long receiptFileId) {
         return new SaveExpenseRequest("测试账单", "FOOD", new BigDecimal(amount), payerId,
                 LocalDateTime.of(2026, 8, 11, 12, 0), splitMode, shares,
-                null, null, "request-1", version);
+                receiptFileId, null, "request-1", version);
+    }
+
+    private void prepareSuccessfulUpdate(ActivityExpenseEntity existing) {
+        when(expenseMapper.selectByIdForUpdate(ACTIVITY_ID, existing.getId())).thenReturn(existing);
+        when(access.isActivityCreator(activity, operator, USER_A)).thenReturn(true);
+        when(expenseMapper.updateActiveByVersion(any(), eq(existing.getVersion()), any())).thenReturn(1);
+        when(shareMapper.selectByExpenseIdForUpdate(existing.getId())).thenReturn(List.of());
+        when(shareMapper.selectList(any())).thenReturn(List.of());
+    }
+
+    private FileEntity receipt(Long id, Long uploadUserId) {
+        FileEntity file = new FileEntity();
+        file.setId(id); file.setFileType("EXPENSE_RECEIPT"); file.setStatus("NORMAL");
+        file.setDeleteFlag(0); file.setUploadUserId(uploadUserId);
+        return file;
     }
 
     private ActivityExpenseEntity existingExpense(Long id, int version) {
@@ -284,10 +374,4 @@ class ExpenseServiceTest {
         return member;
     }
 
-    private UserEntity user(Long userId) {
-        UserEntity user = new UserEntity();
-        user.setId(userId);
-        user.setNickname("用户 " + userId);
-        return user;
-    }
 }

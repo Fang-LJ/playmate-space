@@ -44,7 +44,7 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 | `t_activity_poll_application` | 投票结果应用历史 | 每个投票最多一条正式应用记录，保存前后快照、实际变化、保持不变字段、操作人和时间。 |
 | `t_activity_budget_item` | 预算明细 | 类别、计算方式、单价、数量、最终预算金额、可选关联行程；预算总额动态汇总。 |
 | `t_activity_expense` | 实际账单 | 金额、付款人、消费时间、主凭证文件、状态和版本；已参与结算的账单通过 `VOID` 作废。 |
-| `t_activity_expense_share` | 每位成员最终承担金额 | `expense_id`、`user_id`、`share_amount`；支持均摊、部分成员和后续自定义金额分摊。 |
+| `t_activity_expense_share` | 每位成员最终承担金额 | `expense_id`、`user_id`、`share_amount`、`split_ratio`；支持均摊、自定义金额和按比例分摊。 |
 | `t_activity_finance_state` | 活动费用事实版本与写锁载体 | `activity_id` 主键、`finance_version`；写事务通过 `SELECT ... FOR UPDATE` 按活动串行化。 |
 | `t_activity_settlement` | 第二版真实转账状态预留 | 保留转出人、收款人、金额和状态历史；第一版不读取该表参与余额计算。 |
 | `t_activity_photo` | 活动照片墙关联 | `activity_id`、`file_id`、上传人、拍摄时间、说明和排序；照片二进制继续保存在对象存储。 |
@@ -68,7 +68,7 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 - 每笔 `t_activity_expense` 有一个付款人，可有多条 `t_activity_expense_share`，保存最终分摊金额。
 - `t_activity_expense.client_request_id` 与 `activity_id + created_by` 组成唯一创建请求，旧账单允许为 `NULL`；重复请求返回首次创建结果，不覆盖原账单。
 - `t_activity_finance_state` 在第一次费用写入时懒初始化。新增、实际发生变化的编辑、成功作废均在同一事务内将 `finance_version + 1`；失败、回滚、幂等重试和无变化编辑不递增。
-- 所有费用写操作使用统一锁顺序：活动财务状态行 → 账单 → 分摊。不同活动锁定不同主键，不互相阻塞。
+- 所有费用写操作使用统一锁顺序：活动财务状态行 → 账单 → 分摊。成员移除也先锁活动财务状态行，再重新读取成员、检查 `remainingNet` 并更新成员状态。不同活动锁定不同主键，不互相阻塞。
 - AA 建议依据有效账单、付款人和分摊记录实时计算。第一版不保存建议，也不追踪线下转账完成状态；`t_activity_settlement` 仅作为第二版兼容数据保留。
 - MySQL 8 支持 `CHECK`，但 P0 现有 SQL 未使用数据库检查约束；P1 保持一致，由阶段 C 校验金额大于零、转出人不等于收款人及活动成员归属。
 
@@ -112,13 +112,13 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 
 - 建表 SQL：[p1_001_activity_collaboration.sql](sql/p1_001_activity_collaboration.sql)、[p1_002_activity_todo.sql](sql/p1_002_activity_todo.sql)、[p1_003_itinerary_poll_field_linkage.sql](sql/p1_003_itinerary_poll_field_linkage.sql)。
 - 新环境：Docker MySQL 初始化顺序增加 `004-p1_itinerary_poll_field_linkage.sql`。
-- 已存在的本地开发库：依次执行 `p1_003_itinerary_poll_field_linkage.sql`、`p1_004_expense_settlement.sql` 和 `p1_005_activity_finance_state.sql`。费用迁移会补齐 `split_mode`、账单作废审计、活动财务版本及新增请求幂等字段；脚本均可重复执行且不清空已有数据。
+- 已存在的本地开发库：依次执行 `p1_003_itinerary_poll_field_linkage.sql`、`p1_004_expense_settlement.sql`、`p1_005_activity_finance_state.sql` 和 `p1_006_expense_proportional_split.sql`。费用迁移会补齐 `split_mode`、账单作废审计、活动财务版本、新增请求幂等字段及 `split_ratio`；脚本均可重复执行且不清空已有数据。
 - 历史数据回填为显式、一次性操作：完成迁移后可设置 `PLAYMATE_TODO_BACKFILL_ON_STARTUP=true` 启动后端。它只处理进行中投票和 `REVIEW_REQUIRED` 结果，执行幂等。
 - 行程类型策略调整不修改表结构，也不新增迁移 SQL；现有 `route_detail`、`all_day` 和历史投票 JSON 全部保留。
 
 ## 费用结算实现规则
 
-- 第一版账单只支持单付款人、`EQUAL` 和 `CUSTOM` 两种分摊方式。均摊按分计算余数，按成员 ID 稳定分配，金额始终为 `DECIMAL(12,2)` / `BigDecimal`。
+- 第一版账单支持单付款人以及 `EQUAL / CUSTOM / PROPORTIONAL` 三种分摊方式。均摊按分计算余数并按成员 ID 稳定分配；自定义金额总和必须等于账单金额；比例分摊要求每人比例大于零且不要求总和为 100，按 `ratio / totalRatio` 计算后，尾差按小数余数从大到小分配，相同余数按 `userId` 稳定排序。最终金额总和严格等于账单金额，金额始终为 `DECIMAL(12,2)` / `BigDecimal`，比例为 `DECIMAL(16,4)`。
 - 第一版 AA 余额固定为“实际付款 - 应承担”。建议转账实时计算且不落库；历史 `t_activity_settlement` 记录不影响第一版余额、成员状态和建议。
 - 账单作废保留账单与分摊历史，但不再参与结算。已结束活动允许补记、编辑和结算；已取消活动只读。
 - 移除成员前必须保证其当前净额为零，历史已移除成员仍在账单和结算历史中保留展示。
@@ -130,3 +130,6 @@ Redis 不增加任何事实表或迁移。它只缓存可从 MySQL 重建的 `Se
 ## 后续范围
 
 - 费用、照片、已结束或已取消活动的可编辑和只读规则。
+- 费用账单列表当前首屏最多 50 条，后续增加分页和触底加载。
+- 照片墙阶段统一处理对象存储私有访问：费用凭证和活动照片需经过成员权限校验并返回短时效 presigned URL。
+- 第二版再接入真实微信转账及转账状态。

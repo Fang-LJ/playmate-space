@@ -27,7 +27,7 @@ netAmount = paidAmount - shareAmount
 - `POST /api/activities/{activityId}/expenses/{expenseId}/void`：传入 `expectedVersion` 和可选 `reason`，使用数据库条件更新将账单置为 `VOID`；旧版本请求被拒绝。
 - `GET /api/activities/{activityId}/expenses/members`：旧成员明细兼容接口。第一版新页面使用 dashboard 中的干净成员 DTO。
 
-普通成员只能记录自己付款；活动创建者可以代活动成员记账。付款人、分摊人和凭证上传人均在写入时校验成员状态及文件归属。`EQUAL` 按分计算尾差并按成员 ID 稳定分配；`CUSTOM` 分摊总和必须严格等于账单金额。
+普通成员只能记录自己付款；活动创建者可以代活动成员记账。付款人、分摊人和新凭证上传人均在写入时校验成员状态及文件归属；编辑时保留原凭证不重新校验上传人，更换凭证必须使用当前编辑者上传的有效文件，删除原凭证引用允许。`EQUAL` 按分计算尾差并按成员 ID 稳定分配；`CUSTOM` 分摊总和必须严格等于账单金额；`PROPORTIONAL` 要求每个比例大于零但不要求比例和为 100，按 `ratio / totalRatio` 计算，尾差按小数余数从大到小分配，相同余数按 `userId` 稳定排序，最终总和严格等于账单金额。
 
 ## 财务一致性
 
@@ -35,6 +35,7 @@ netAmount = paidAmount - shareAmount
 - `expense.version`：单笔账单版本，继续用于防止旧页面覆盖新数据。
 - `clientRequestId`：新增账单请求幂等键；同一活动、创建人和请求 ID 永远代表第一次成功创建的账单。
 - 写事务统一执行：基础权限校验 → `INSERT ... ON DUPLICATE KEY UPDATE` 懒初始化 → `SELECT ... FOR UPDATE` 锁活动财务状态 → 业务校验与账单/分摊写入 → `finance_version + 1` → 提交。
+- 成员移除复用同一活动财务锁：锁活动财务状态 → 重新读取目标成员 → 检查 `remainingNet` → 更新为 `REMOVED`，避免与费用新增、编辑、作废形成并发窗口。
 - 新增幂等重试、失败或回滚、无变化编辑、版本冲突不会递增 `financeVersion`。查询不存在的状态行时返回 `0`，不写数据库。
 - 唯一索引为 `uk_expense_create_request(activity_id, created_by, client_request_id)`；旧数据的请求 ID 可以为 `NULL`。
 
@@ -76,12 +77,14 @@ netAmount = paidAmount - shareAmount
 
 ## 第二版兼容接口
 
-以下接口及 `t_activity_settlement` 历史数据暂时保留，供后续微信转账/真实转账状态使用，但小程序第一版没有入口，且这些记录不参与第一版 `netAmount`：
+以下接口及 `t_activity_settlement` 历史数据暂时保留，供第二版微信转账/真实转账状态使用，但这些记录不参与第一版 `netAmount`：
 
 - `GET /api/activities/{activityId}/settlements/summary`
 - `POST /api/activities/{activityId}/settlements/complete`
 - `POST /api/activities/{activityId}/settlements/{settlementId}/cancel`
 - `GET /api/activities/{activityId}/settlements/history`
+
+两个 POST 写接口由 `playmate.features.settlement-transfer-enabled` 控制，对应环境变量 `PLAYMATE_SETTLEMENT_TRANSFER_ENABLED`，默认 `false`。关闭时返回“当前版本暂未开放转账状态功能”；两个 GET 兼容接口不受影响。显式设为 `true` 时保留原第二版兼容行为。
 
 ## 文件
 
@@ -91,6 +94,12 @@ netAmount = paidAmount - shareAmount
 
 `GET /expenses/summary` 和 `GET /expenses/dashboard` 共享 `SettlementSnapshotProvider`。它先从 MySQL 读取活动当前 `financeVersion`，再尝试读取 `playmate:finance:snapshot:v1:{activityId}:{financeVersion}`。缓存未命中时，独立的 `REPEATABLE_READ` 只读事务从 MySQL 生成纯财务快照并 best effort 写入 Redis。
 
-快照只保存账单金额、分摊、净额、转账建议、最近两笔账单事实和用户 ID；昵称、头像和“我”的展示信息每次响应实时查询用户表补齐。快照加载期间若版本变化，使用 Loader 实际读取到的版本写入对应新 key，避免把版本 9 的数据写入版本 8 的 key。
+快照只保存账单金额、分摊、净额、转账建议、最近两笔账单事实和用户 ID；昵称、头像和“我”的展示信息每次响应实时查询活动成员表和用户表补齐，展示名优先级为“活动内昵称 > 用户昵称 > 玩伴用户”。因此 Redis 命中后修改活动内昵称也会在下一次请求立即生效。快照加载期间若版本变化，使用 Loader 实际读取到的版本写入对应新 key，避免把版本 9 的数据写入版本 8 的 key。
 
 缓存默认关闭，开启变量为 `PLAYMATE_FINANCE_CACHE_ENABLED=true`，TTL 默认 `15m`。Redis 故障、超时、连接失败或 JSON 损坏时自动回源 MySQL，不改变接口语义。账单的 POST / PUT / VOID 只提交 MySQL 事实与 `financeVersion`，不更新或删除 Redis。
+
+## 后续 TODO
+
+- 费用账单列表当前首屏最多加载 50 条，后续增加分页和触底加载。
+- 照片墙开发阶段统一重构对象存储访问策略：头像、活动封面可按产品决定公开；费用凭证、活动照片作为私有资源，由后端校验活动成员权限后返回短时效 presigned URL。
+- 第二版接入真实微信转账和转账状态。

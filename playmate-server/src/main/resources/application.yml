@@ -26,6 +26,8 @@ mybatis-plus:
     banner: false
 
 playmate:
+  features:
+    settlement-transfer-enabled: ${PLAYMATE_SETTLEMENT_TRANSFER_ENABLED:false}
   jwt:
     secret: ${PLAYMATE_JWT_SECRET:playmate-local-dev-jwt-secret-change-me-at-least-32-bytes}
     expire-seconds: ${PLAYMATE_JWT_EXPIRE_SECONDS:604800}

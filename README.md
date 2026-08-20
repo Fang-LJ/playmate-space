@@ -6,7 +6,7 @@
 
 P0-001 到 P0-027 已完成。P0.5 用户中心、登录注册、我的页和 P0 页面体验收尾已完成：平台账号与微信身份绑定、手机号 / 邮箱密码登录、个人资料、登录页、我的页及未登录状态均已完成本轮整理。
 
-P1 行程 × 投票协作闭环、字段级结果应用和动态待办中心已经具备。第一版关联已有行程只开放 `FULL_PLAN` 完整方案投票。P2 第一版费用与 AA 已完成产品收口：支持单付款人账单、均摊/自定义分摊、账单作废、付款凭证和实时 AA 建议；第一版不追踪线下转账完成状态。
+P1 行程 × 投票协作闭环、字段级结果应用和动态待办中心已经具备。第一版关联已有行程只开放 `FULL_PLAN` 完整方案投票。P2 第一版费用与 AA 已完成产品收口：支持单付款人账单、均摊/自定义金额/按比例分摊、账单作废、付款凭证和实时 AA 建议；第一版不追踪线下转账完成状态。
 
 ## 技术栈
 
@@ -173,7 +173,9 @@ P0.5 账号体系已调整为：
 
 - 继续验证 P2 费用页面的真机交互、表单选择器和安全区表现。
 - 财务一致性与可选缓存已完成：`finance_version`、活动级数据库行锁、新增账单请求幂等及编辑/作废版本冲突保护均已落地；Redis `SettlementSnapshot` 仅作为可关闭的查询性能增强。
-- 暂不开发微信转账、微信支付和真实转账状态。
+- 费用账单列表当前首屏最多加载 50 条，后续增加分页和触底加载。
+- 照片墙开发阶段统一重构对象存储访问策略：头像、活动封面可按产品决定公开；费用凭证、活动照片保持私有，由后端校验活动成员权限后返回短时效 presigned URL。
+- 第二版再开发真实微信转账、微信支付和转账状态。
 
 ## P1 行程与投票联调
 
@@ -210,9 +212,12 @@ docs/p1-itinerary-poll-api-design.md
 ```bash
 docker exec -i playmate-mysql mysql -u playmate -p playmate_space < docs/sql/p1_004_expense_settlement.sql
 docker exec -i playmate-mysql mysql -u playmate -p playmate_space < docs/sql/p1_005_activity_finance_state.sql
+docker exec -i playmate-mysql mysql -u playmate -p playmate_space < docs/sql/p1_006_expense_proportional_split.sql
 ```
 
 费用以有效账单和分摊明细为事实来源，账单状态保留 `ACTIVE / VOID`，默认列表和 AA 只读取 `ACTIVE`。第一版结算净额固定为“实际付款 - 应承担”，系统只实时展示谁应给谁多少钱，不记录线下转账是否完成；历史 `t_activity_settlement` 表和兼容接口保留给第二版，不参与第一版余额计算。账单编辑使用数据库版本条件更新，旧版本请求会被拒绝。独立费用详情通过 dashboard 和账单列表两个请求完成初始加载。
+
+分摊方式支持 `EQUAL / CUSTOM / PROPORTIONAL`。比例分摊要求每位成员输入大于零的比例值，不要求比例和等于 100；后端按 `ratio / totalRatio` 计算承担金额，尾差按未取整小数余数从大到小稳定分配，相同余数按 `userId` 排序，最终承担金额总和严格等于账单金额。
 
 费用写入按活动串行化：事务先懒初始化并锁定 `t_activity_finance_state`，再写账单与分摊，最后在同一事务内递增 `finance_version`。`finance_version` 表示活动整套费用事实版本，`expense.version` 表示单笔账单编辑版本，新增请求的 `clientRequestId` 是 `(activity_id, created_by, client_request_id)` 维度的幂等键。无费用状态行的活动读取版本为 `0`，纯查询不会创建状态行或加锁。
 
@@ -224,6 +229,8 @@ bash scripts/p2-expense-settlement-smoke-test.sh
 
 脚本验证记账、权限、均摊尾差、dashboard、成员净额、建议、自定义分摊、编辑版本冲突、VOID 过滤、创建幂等、`financeVersion` 递增，以及并发新增、并发编辑、编辑与作废竞争；不再验证“我已转账”、撤销或转账历史。
 
+历史 settlement 写接口由 `PLAYMATE_SETTLEMENT_TRANSFER_ENABLED` 控制，默认 `false`。关闭时 `complete / cancel` 返回“当前版本暂未开放转账状态功能”，只读 summary/history 和第一版实时 AA 建议不受影响。
+
 ### 可选 Redis SettlementSnapshot 缓存
 
 MySQL 是唯一事实源，`finance_version` 是活动费用事实版本。`summary` 和 `dashboard` 会先读取 MySQL 当前版本，再按以下 key 查询可选 Redis 快照：
@@ -232,7 +239,7 @@ MySQL 是唯一事实源，`finance_version` 是活动费用事实版本。`summ
 playmate:finance:snapshot:v1:{activityId}:{financeVersion}
 ```
 
-快照只保存金额、账单事实、分摊、转账建议和用户 ID；不保存昵称、头像、当前用户视角或展示文案。每次请求都会根据用户 ID 实时补充资料，因此用户改昵称不需要修改 `finance_version`。
+快照只保存金额、账单事实、分摊、转账建议和用户 ID；不保存昵称、头像、当前用户视角或展示文案。每次请求都会实时读取活动成员和用户资料，展示名优先级为“活动内昵称 > 用户昵称 > 玩伴用户”，因此用户改活动内昵称不需要修改 `finance_version` 或失效 Redis。
 
 缓存默认关闭：`PLAYMATE_FINANCE_CACHE_ENABLED=false`。开启后 TTL 默认 `15m`，可用 `PLAYMATE_FINANCE_CACHE_TTL` 修改。Redis 未启动、超时、连接失败或 JSON 损坏时会记录 WARN 并自动回源 MySQL，费用接口仍正常返回。账单写入事务不读写 Redis；版本化 key 会自然绕过旧快照，旧 key 由 TTL 清理。
 

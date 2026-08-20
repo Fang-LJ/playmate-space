@@ -41,19 +41,22 @@ public class ActivityMemberService {
     private final UserMapper userMapper;
     private final ActivityTodoLifecycleService todoLifecycleService;
     private final SettlementService settlementService;
+    private final ActivityFinanceStateService financeStateService;
 
     public ActivityMemberService(
             ActivityMapper activityMapper,
             ActivityMemberMapper activityMemberMapper,
             UserMapper userMapper,
             ActivityTodoLifecycleService todoLifecycleService,
-            SettlementService settlementService
+            SettlementService settlementService,
+            ActivityFinanceStateService financeStateService
     ) {
         this.activityMapper = activityMapper;
         this.activityMemberMapper = activityMemberMapper;
         this.userMapper = userMapper;
         this.todoLifecycleService = todoLifecycleService;
         this.settlementService = settlementService;
+        this.financeStateService = financeStateService;
     }
 
     public List<ActivityMemberResponse> listMembers(Long activityId) {
@@ -106,24 +109,12 @@ public class ActivityMemberService {
         }
 
         ActivityMemberEntity target = activityMemberMapper.selectById(memberId);
-        if (target == null || !activityId.equals(target.getActivityId())) {
-            throw new NotFoundException("成员不存在");
-        }
-        if (ROLE_CREATOR.equals(target.getRole())) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "不能移除创建者");
-        }
-        if (!ROLE_MEMBER.equals(target.getRole())) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "只能移除普通成员");
-        }
-        if (userId.equals(target.getUserId()) || operator.getId().equals(target.getId())) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "不能移除自己");
-        }
-        if (MEMBER_STATUS_REMOVED.equals(target.getMemberStatus())) {
-            return;
-        }
-        if (!MEMBER_STATUS_ACTIVE.equals(target.getMemberStatus())) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "当前成员状态不可移除");
-        }
+        if (!validateRemovalTarget(activityId, target, operator, userId, true)) return;
+
+        financeStateService.ensureAndLock(activityId);
+
+        target = activityMemberMapper.selectById(memberId);
+        validateRemovalTarget(activityId, target, operator, userId, false);
         if (settlementService.remainingNet(activityId, target.getUserId()).compareTo(java.math.BigDecimal.ZERO) != 0) {
             throw new BusinessException(ErrorCode.BUSINESS_ERROR.code(), "该成员仍有未结清费用，不能移除");
         }
@@ -140,6 +131,29 @@ public class ActivityMemberService {
             throw new BusinessException("移除成员失败，请重试");
         }
         todoLifecycleService.cancelUserPendingTodos(activityId, target.getUserId());
+    }
+
+    private boolean validateRemovalTarget(Long activityId, ActivityMemberEntity target,
+                                          ActivityMemberEntity operator, Long userId, boolean allowAlreadyRemoved) {
+        if (target == null || !activityId.equals(target.getActivityId())) {
+            throw new NotFoundException("成员不存在");
+        }
+        if (ROLE_CREATOR.equals(target.getRole())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "不能移除创建者");
+        }
+        if (!ROLE_MEMBER.equals(target.getRole())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "只能移除普通成员");
+        }
+        if (userId.equals(target.getUserId()) || operator.getId().equals(target.getId())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "不能移除自己");
+        }
+        if (allowAlreadyRemoved && MEMBER_STATUS_REMOVED.equals(target.getMemberStatus())) {
+            return false;
+        }
+        if (!MEMBER_STATUS_ACTIVE.equals(target.getMemberStatus())) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "当前成员状态不可移除");
+        }
+        return true;
     }
 
     private Long requireLoginUserId() {

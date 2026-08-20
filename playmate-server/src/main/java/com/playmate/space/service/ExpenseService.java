@@ -30,17 +30,16 @@ public class ExpenseService {
     private final ActivityCollaborationAccess access;
     private final ActivityExpenseMapper expenseMapper;
     private final ActivityExpenseShareMapper shareMapper;
-    private final ActivityMemberMapper memberMapper;
-    private final UserMapper userMapper;
+    private final ActivityMemberDisplayService memberDisplayService;
     private final FileMapper fileMapper;
     private final SettlementService settlementService;
     private final ActivityFinanceStateService financeStateService;
 
     public ExpenseService(ActivityCollaborationAccess access, ActivityExpenseMapper expenseMapper, ActivityExpenseShareMapper shareMapper,
-                          ActivityMemberMapper memberMapper, UserMapper userMapper, FileMapper fileMapper, SettlementService settlementService,
+                          ActivityMemberDisplayService memberDisplayService, FileMapper fileMapper, SettlementService settlementService,
                           ActivityFinanceStateService financeStateService) {
-        this.access = access; this.expenseMapper = expenseMapper; this.shareMapper = shareMapper; this.memberMapper = memberMapper;
-        this.userMapper = userMapper; this.fileMapper = fileMapper; this.settlementService = settlementService;
+        this.access = access; this.expenseMapper = expenseMapper; this.shareMapper = shareMapper; this.memberDisplayService = memberDisplayService;
+        this.fileMapper = fileMapper; this.settlementService = settlementService;
         this.financeStateService = financeStateService;
     }
 
@@ -75,6 +74,7 @@ public class ExpenseService {
         }
         requireNotCanceled(activity);
         validateRequest(activityId, request, userId, access.isActivityCreator(activity, operator, userId));
+        validateReceiptChange(null, request.receiptFileId(), userId);
         LocalDateTime now = LocalDateTime.now();
         ActivityExpenseEntity expense = new ActivityExpenseEntity(); apply(expense, request); expense.setActivityId(activityId); expense.setCreatedBy(userId); expense.setStatus("ACTIVE");
         expense.setClientRequestId(clientRequestId); expense.setVersion(1); expense.setCreateTime(now); expense.setUpdateTime(now); expense.setDeleteFlag(0);
@@ -103,6 +103,7 @@ public class ExpenseService {
         if (request.version() == null) throw param("编辑账单时必须提供版本号");
         if (!Objects.equals(expense.getVersion(), request.version())) throw versionConflict();
         validateRequest(activityId, request, userId, access.isActivityCreator(activity, operator, userId));
+        validateReceiptChange(expense.getReceiptFileId(), request.receiptFileId(), userId);
         List<ActivityExpenseShareEntity> currentShares = loadShares(expenseId);
         if (!hasChanges(expense, currentShares, request)) return toDetail(expense);
         apply(expense, request);
@@ -143,12 +144,17 @@ public class ExpenseService {
         SettlementService.money(request.amount());
         access.requireActiveMember(activityId, request.payerUserId());
         if (!creator && !userId.equals(request.payerUserId())) throw new ForbiddenException("普通成员只能记录自己支付的账单");
-        if (request.receiptFileId() != null) validateReceipt(request.receiptFileId(), userId);
         Set<Long> users = request.shares().stream().map(ExpenseShareRequest::userId).collect(Collectors.toSet());
         if (users.size() != request.shares().size()) throw param("分摊成员不能重复");
         users.forEach(memberId -> access.requireActiveMember(activityId, memberId));
         if ("CUSTOM".equals(splitMode)) {
-            BigDecimal total = request.shares().stream().map(ExpenseShareRequest::shareAmount).filter(Objects::nonNull).map(SettlementService::money).reduce(BigDecimal.ZERO, SettlementService::plus);
+            BigDecimal total = BigDecimal.ZERO;
+            for (ExpenseShareRequest share : request.shares()) {
+                if (share.shareAmount() == null) throw param("自定义分摊金额不能为空");
+                BigDecimal shareAmount = SettlementService.money(share.shareAmount());
+                if (shareAmount.signum() < 0) throw param("分摊金额不能小于零");
+                total = SettlementService.plus(total, shareAmount);
+            }
             if (total.compareTo(SettlementService.money(request.amount())) != 0) throw param("自定义分摊金额之和必须等于总金额");
         }
         if ("PROPORTIONAL".equals(splitMode)) {
@@ -162,7 +168,14 @@ public class ExpenseService {
             if (totalRatio.signum() <= 0) throw param("分摊比例必须大于零");
         }
     }
-    private void validateReceipt(Long fileId, Long userId) { FileEntity file = fileMapper.selectById(fileId); if (file == null || !"EXPENSE_RECEIPT".equals(file.getFileType()) || !userId.equals(file.getUploadUserId())) throw param("付款凭证无效或不属于当前用户"); }
+    private void validateReceiptChange(Long oldReceiptFileId, Long newReceiptFileId, Long userId) {
+        if (Objects.equals(oldReceiptFileId, newReceiptFileId) || newReceiptFileId == null) return;
+        FileEntity file = fileMapper.selectById(newReceiptFileId);
+        if (file == null || !"EXPENSE_RECEIPT".equals(file.getFileType()) || !"NORMAL".equals(file.getStatus())
+                || !Integer.valueOf(0).equals(file.getDeleteFlag()) || !userId.equals(file.getUploadUserId())) {
+            throw param("付款凭证无效或不属于当前用户");
+        }
+    }
     private void apply(ActivityExpenseEntity expense, SaveExpenseRequest request) { expense.setTitle(request.title().trim()); expense.setCategory(request.category().trim().toUpperCase()); expense.setAmount(SettlementService.money(request.amount())); expense.setPayerUserId(request.payerUserId()); expense.setSplitMode(request.splitMode().trim().toUpperCase()); expense.setExpenseTime(request.expenseTime()); expense.setReceiptFileId(request.receiptFileId()); expense.setDescription(SettlementService.trim(request.description())); }
     private void replaceShares(Long expenseId, SaveExpenseRequest request, LocalDateTime now) {
         shareMapper.deleteByExpenseId(expenseId); List<ActivityExpenseShareEntity> shares = buildShares(expenseId, request, now); for (ActivityExpenseShareEntity share : shares) shareMapper.insert(share);
@@ -248,10 +261,35 @@ public class ExpenseService {
         return toDetail(expense, shares);
     }
     private ExpenseDetailResponse toDetail(ActivityExpenseEntity expense, List<ActivityExpenseShareEntity> shares) {
-        Set<Long> ids = new HashSet<>(); ids.add(expense.getPayerUserId()); ids.add(expense.getCreatedBy()); shares.forEach(item -> ids.add(item.getUserId())); Map<Long, UserEntity> users = ids.isEmpty() ? Map.of() : userMapper.selectByIds(ids).stream().collect(Collectors.toMap(UserEntity::getId, item -> item)); FileEntity receipt = expense.getReceiptFileId() == null ? null : fileMapper.selectById(expense.getReceiptFileId());
-        return new ExpenseDetailResponse(expense.getId(), expense.getActivityId(), expense.getTitle(), expense.getCategory(), expense.getAmount(), expense.getPayerUserId(), SettlementService.nickname(users.get(expense.getPayerUserId())), expense.getCreatedBy(), SettlementService.nickname(users.get(expense.getCreatedBy())), expense.getExpenseTime(), expense.getSplitMode(), expense.getReceiptFileId(), receipt == null ? null : receipt.getUrl(), expense.getDescription(), expense.getStatus(), expense.getVoidReason(), expense.getVersion(), shares.stream().map(item -> new ExpenseShareResponse(item.getUserId(), SettlementService.nickname(users.get(item.getUserId())), users.get(item.getUserId()) == null ? null : users.get(item.getUserId()).getAvatarUrl(), item.getShareAmount(), storedRatio(item))).toList(), expense.getCreateTime(), expense.getUpdateTime());
+        Set<Long> ids = new HashSet<>(); ids.add(expense.getPayerUserId()); ids.add(expense.getCreatedBy()); shares.forEach(item -> ids.add(item.getUserId()));
+        Map<Long, ParticipantProfile> profiles = memberDisplayService.loadParticipantProfiles(expense.getActivityId(), ids);
+        FileEntity receipt = expense.getReceiptFileId() == null ? null : fileMapper.selectById(expense.getReceiptFileId());
+        return new ExpenseDetailResponse(expense.getId(), expense.getActivityId(), expense.getTitle(), expense.getCategory(), expense.getAmount(),
+                expense.getPayerUserId(), displayName(profiles.get(expense.getPayerUserId())), expense.getCreatedBy(),
+                displayName(profiles.get(expense.getCreatedBy())), expense.getExpenseTime(), expense.getSplitMode(), expense.getReceiptFileId(),
+                receipt == null ? null : receipt.getUrl(), expense.getDescription(), expense.getStatus(), expense.getVoidReason(), expense.getVersion(),
+                shares.stream().map(item -> new ExpenseShareResponse(item.getUserId(), displayName(profiles.get(item.getUserId())),
+                        avatarUrl(profiles.get(item.getUserId())), item.getShareAmount(), storedRatio(item))).toList(),
+                expense.getCreateTime(), expense.getUpdateTime());
     }
-    private List<ExpenseListItemResponse> toListItems(List<ActivityExpenseEntity> expenses, Long currentUserId) { if (expenses.isEmpty()) return List.of(); Set<Long> ids = expenses.stream().map(ActivityExpenseEntity::getId).collect(Collectors.toSet()); Map<Long,List<ActivityExpenseShareEntity>> shares = shareMapper.selectList(new LambdaQueryWrapper<ActivityExpenseShareEntity>().in(ActivityExpenseShareEntity::getExpenseId, ids)).stream().collect(Collectors.groupingBy(ActivityExpenseShareEntity::getExpenseId)); Set<Long> payerIds = expenses.stream().map(ActivityExpenseEntity::getPayerUserId).collect(Collectors.toSet()); Map<Long,UserEntity> users = userMapper.selectByIds(payerIds).stream().collect(Collectors.toMap(UserEntity::getId, item -> item)); return expenses.stream().map(item -> { List<ActivityExpenseShareEntity> lines = shares.getOrDefault(item.getId(), List.of()); BigDecimal currentShare = lines.stream().filter(line -> currentUserId.equals(line.getUserId())).map(ActivityExpenseShareEntity::getShareAmount).findFirst().orElse(null); return new ExpenseListItemResponse(item.getId(), item.getTitle(), item.getCategory(), item.getAmount(), SettlementService.nickname(users.get(item.getPayerUserId())), item.getPayerUserId(), item.getExpenseTime(), lines.size(), currentShare, item.getStatus(), item.getVersion()); }).toList(); }
+    private List<ExpenseListItemResponse> toListItems(List<ActivityExpenseEntity> expenses, Long currentUserId) {
+        if (expenses.isEmpty()) return List.of();
+        Set<Long> ids = expenses.stream().map(ActivityExpenseEntity::getId).collect(Collectors.toSet());
+        Map<Long,List<ActivityExpenseShareEntity>> shares = shareMapper.selectList(new LambdaQueryWrapper<ActivityExpenseShareEntity>()
+                .in(ActivityExpenseShareEntity::getExpenseId, ids)).stream().collect(Collectors.groupingBy(ActivityExpenseShareEntity::getExpenseId));
+        Set<Long> payerIds = expenses.stream().map(ActivityExpenseEntity::getPayerUserId).collect(Collectors.toSet());
+        Map<Long, ParticipantProfile> profiles = memberDisplayService.loadParticipantProfiles(expenses.getFirst().getActivityId(), payerIds);
+        return expenses.stream().map(item -> {
+            List<ActivityExpenseShareEntity> lines = shares.getOrDefault(item.getId(), List.of());
+            BigDecimal currentShare = lines.stream().filter(line -> currentUserId.equals(line.getUserId()))
+                    .map(ActivityExpenseShareEntity::getShareAmount).findFirst().orElse(null);
+            return new ExpenseListItemResponse(item.getId(), item.getTitle(), item.getCategory(), item.getAmount(),
+                    displayName(profiles.get(item.getPayerUserId())), item.getPayerUserId(), item.getExpenseTime(), lines.size(),
+                    currentShare, item.getStatus(), item.getVersion());
+        }).toList();
+    }
+    private String displayName(ParticipantProfile profile) { return profile == null ? "玩伴用户" : profile.displayName(); }
+    private String avatarUrl(ParticipantProfile profile) { return profile == null ? null : profile.avatarUrl(); }
     private static BusinessException param(String message) { return new BusinessException(ErrorCode.PARAM_ERROR.code(), message); }
     private static BusinessException versionConflict() { return new BusinessException(ErrorCode.BUSINESS_ERROR.code(), "账单已被其他成员修改，请刷新后重试"); }
     private static String requireClientRequestId(String value) { if (value == null || value.trim().isEmpty()) throw param("新增账单时必须提供 clientRequestId"); String result = value.trim(); if (result.length() > 64) throw param("clientRequestId 长度不能超过 64"); return result; }

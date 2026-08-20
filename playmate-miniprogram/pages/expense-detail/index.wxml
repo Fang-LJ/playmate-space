@@ -6,8 +6,8 @@
       <view class="eyebrow">活动总支出</view>
       <view class="total">¥{{summary.totalExpenseAmountText}}</view>
       <view class="overview-stats">
-        <view class="overview-stat active-expense"><view class="overview-stat-label">有效账单</view><view class="overview-stat-value">{{summary.expenseCount}} 笔</view></view>
-        <view class="overview-stat pending-settlement"><view class="overview-stat-label">待结算</view><view class="overview-stat-value">{{summary.pendingSettlementCount}} 笔</view></view>
+        <view class="overview-stat active-expense"><view class="overview-stat-label">账单</view><view class="overview-stat-value">{{summary.expenseCount}} 笔</view></view>
+        <view class="overview-stat pending-settlement"><view class="overview-stat-label">转账建议</view><view class="overview-stat-value">{{summary.pendingSettlementCount}} 笔</view></view>
         <view class="overview-stat participant-count"><view class="overview-stat-label">参与成员</view><view class="overview-stat-value">{{summary.participantCount}} 人</view></view>
       </view>
     </view>
@@ -24,6 +24,5 @@
     </view>
     <view wx:if="{{activeTab==='MEMBERS'}}"><view wx:for="{{members}}" wx:key="userId" class="card member"><image wx:if="{{item.avatarUrl}}" src="{{item.avatarUrl}}" class="avatar" mode="aspectFill"/><view wx:else class="avatar">玩</view><view class="member-main"><view class="bill-title">{{item.nickname}}</view><view class="member-amounts"><view><text class="muted">实际付款</text><text>¥{{item.paidAmount}}</text></view><view><text class="muted">应承担</text><text>¥{{item.shareAmount}}</text></view></view></view><view class="member-net">{{item.settlementText}}</view></view></view>
     <view wx:if="{{activeTab==='SETTLEMENTS'}}"><view class="section-title expense-section-title">结算建议</view><view wx:if="{{!suggestions.length}}" class="card empty">当前所有成员无需结算。</view><view wx:for="{{suggestions}}" wx:key="suggestionKey" class="card settlement-row"><view class="settlement-route"><view class="settlement-party"><image wx:if="{{item.fromAvatarUrl}}" src="{{item.fromAvatarUrl}}" class="settlement-avatar" mode="aspectFill"/><view wx:else class="settlement-avatar settlement-avatar-placeholder">{{item.fromAvatarText}}</view><view class="settlement-name">{{item.fromNickname}}</view></view><view class="settlement-arrow">→</view><view class="settlement-party"><image wx:if="{{item.toAvatarUrl}}" src="{{item.toAvatarUrl}}" class="settlement-avatar" mode="aspectFill"/><view wx:else class="settlement-avatar settlement-avatar-placeholder">{{item.toAvatarText}}</view><view class="settlement-name">{{item.toNickname}}</view></view></view><view class="bill-right">¥{{item.amountText}}</view></view><view class="calculation-note">{{dashboard.calculationRule}}</view></view>
-    <view class="bottom-safe"><button class="primary-button" bindtap="create">记一笔</button></view>
   </view>
 </view>
