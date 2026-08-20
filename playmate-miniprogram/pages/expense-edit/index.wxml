@@ -40,6 +40,7 @@
     <view class="chips">
       <view class="chip {{form.splitMode==='EQUAL'?'selected':''}}" data-mode="EQUAL" bindtap="mode">平均分摊</view>
       <view class="chip {{form.splitMode==='CUSTOM'?'selected':''}}" data-mode="CUSTOM" bindtap="mode">自定义金额</view>
+      <view class="chip {{form.splitMode==='PROPORTIONAL'?'selected':''}}" data-mode="PROPORTIONAL" bindtap="mode">按比例分摊</view>
     </view>
   </view>
 
@@ -47,11 +48,13 @@
     <view class="share-heading">
       <view class="label">参与分摊成员</view>
       <view wx:if="{{form.splitMode==='CUSTOM'}}" class="allocation {{allocationBalanced?'balanced':''}}">已分配 ¥{{allocatedAmount}} / ¥{{form.amount || '0.00'}}</view>
+      <view wx:if="{{form.splitMode==='PROPORTIONAL'}}" class="allocation balanced">比例合计 {{ratioTotal}}</view>
     </view>
     <view wx:for="{{members}}" wx:key="userId" class="share-row">
       <view class="check {{form.shares[index].checked?'checked':''}}" data-index="{{index}}" bindtap="toggleShare">{{form.shares[index].checked?'✓':''}}</view>
       <view class="share-name">{{item.nickname}}</view>
       <input wx:if="{{form.splitMode==='CUSTOM'&&form.shares[index].checked}}" class="share-input" type="digit" placeholder="0.00" value="{{form.shares[index].shareAmount}}" data-index="{{index}}" bindinput="shareAmount"/>
+      <view wx:if="{{form.splitMode==='PROPORTIONAL'&&form.shares[index].checked}}" class="ratio-field"><text>比例</text><input class="share-input ratio-input" type="digit" placeholder="1" value="{{form.shares[index].splitRatio}}" data-index="{{index}}" bindinput="ratioInput" bindblur="ratioBlur"/></view>
     </view>
   </view>
 

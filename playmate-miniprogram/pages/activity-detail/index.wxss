@@ -62,7 +62,6 @@
 .cost-summary-title { color: #2f6f5e; font-size: 23rpx; font-weight: 700; line-height: 1.35; }
 .cost-settlement-headline { margin-top: 16rpx; color: #1f2a24; font-size: 34rpx; font-weight: 900; line-height: 1.3; }
 .cost-settlement-headline.pay,.cost-settlement-headline.receive { color: #1f2a24; }.cost-settlement-headline.balanced { color: #65746b; }
-.cost-settlement-description { margin-top: 14rpx; color: #8a958e; font-size: 20rpx; font-weight: 400; line-height: 1.45; }
 .cost-summary-stats { display: flex; gap: 14rpx; margin-top: 30rpx; }
 .cost-summary-stat { flex: 1; min-width: 0; padding: 24rpx 16rpx 26rpx; border-radius: 16rpx; box-sizing: border-box; }
 .cost-stat-label { overflow: hidden; color: #65746b; font-size: 23rpx; font-weight: 500; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
@@ -70,18 +69,25 @@
 .pay-stat { background: #e6f5ee; }
 .receive-stat { background: #fff4dc; }
 .net-stat { background: #edf2ee; }
-.expense-section-head { margin-top: 24rpx; padding: 0 26rpx; }
+.expense-section-head { margin-top: 30rpx; padding: 0 26rpx; }
 .expense-section-head .section-title { font-size: 28rpx; line-height: 1.35; }
 .expense-preview { display:flex; align-items:center; justify-content:space-between; min-height:120rpx; margin-top:16rpx; padding:24rpx 26rpx; box-sizing:border-box; }
-.settlement-preview { display:flex; align-items:center; justify-content:space-between; min-height:120rpx; gap:18rpx; margin-top:16rpx; padding:24rpx 26rpx; box-sizing:border-box; }
-.settlement-amount,.expense-amount { color:var(--pm-primary-dark); font-weight:900; }
+.settlement-card { display:flex; align-items:center; justify-content:space-between; min-height:128rpx; gap:24rpx; margin-top:16rpx; padding:30rpx 32rpx; box-sizing:border-box; }
+.settlement-amount,.expense-amount { font-weight:900; }
 .expense-amount { font-size:28rpx; }
-.settlement-amount { flex:0 0 auto; font-size:32rpx; }
-.settlement-person { display:flex; flex:1; min-width:0; align-items:center; gap:16rpx; }
-.settlement-avatar { flex: 0 0 auto; width: 52rpx; height: 52rpx; border: 3rpx solid #fff; border-radius: 50%; background: var(--pm-primary-light); box-sizing: border-box; }
-.settlement-avatar-placeholder { display: flex; align-items: center; justify-content: center; color: var(--pm-primary-dark); font-size: 22rpx; font-weight: 800; }
-.settlement-copy { flex:1; min-width:0; }
-.settlement-name { overflow:hidden; color:var(--pm-text); font-size:28rpx; font-weight:800; line-height:1.3; text-overflow:ellipsis; white-space:nowrap; }
-.settlement-description { margin-top:6rpx; overflow:hidden; color:#7d9388; font-size:22rpx; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
+.settlement-left { display:flex; flex:1; min-width:0; align-items:center; }
+.settlement-route { display:flex; flex:1; min-width:0; align-items:center; gap:16rpx; }
+.settlement-party { display:flex; min-width:0; align-items:center; gap:14rpx; }
+.settlement-avatar { flex:0 0 56rpx; width:56rpx; height:56rpx; border-radius:50%; background:var(--pm-primary-light); box-sizing:border-box; }
+.settlement-avatar-placeholder { display: flex; align-items: center; justify-content: center; color: var(--pm-primary-dark); font-size: 24rpx; font-weight: 800; }
+.settlement-name { overflow:hidden; min-width:0; max-width:144rpx; color:var(--pm-text); font-size:28rpx; font-weight:800; line-height:1.25; white-space:nowrap; text-overflow:ellipsis; }
+.settlement-arrow { flex:0 0 auto; color:var(--pm-text-muted); font-size:32rpx; font-weight:700; line-height:1; text-align:center; }
+.settlement-right { display:flex; flex:0 0 auto; min-width:150rpx; align-items:flex-end; justify-content:center; flex-direction:column; }
+.settlement-status { font-size:21rpx; font-weight:500; line-height:1.2; }
+.settlement-status.outbound { color:#9c8167; }
+.settlement-status.inbound { color:#6f8e80; }
+.settlement-amount { margin-top:10rpx; font-size:33rpx; font-weight:900; line-height:1; white-space:nowrap; }
+.settlement-amount.outbound { color:#b86d24; }
+.settlement-amount.inbound { color:var(--pm-primary-dark); }
 .cost-add { width: 310rpx; margin: 30rpx auto 0; }
 .expense-right { text-align:right; }.my-share { margin-top:6rpx; color:var(--pm-primary-dark); font-size:21rpx; }.cost-actions { display:flex; gap:18rpx; }.cost-actions-fixed { position:fixed; z-index:20; right:32rpx; bottom:calc(env(safe-area-inset-bottom) + 20rpx); left:32rpx; padding:20rpx 0; background:linear-gradient(to bottom, rgba(246,248,245,0), var(--pm-bg) 28rpx); }.cost-overview { padding-bottom:158rpx; }.cost-action { flex:1; text-align:center; }.expense-empty { margin-top:16rpx; padding:30rpx; text-align:center; }.empty-expense-button { width:220rpx; margin:24rpx auto 0; }

@@ -28,6 +28,7 @@ Page({
     optionalExpanded: false,
     allocatedAmount: '0.00',
     allocationBalanced: false,
+    ratioTotal: '0',
     form: {
       title: '', category: 'FOOD', amount: '', payerUserId: '', expenseTime: '',
       splitMode: 'EQUAL', shares: [], receiptFileId: null, receiptUrl: '',
@@ -55,7 +56,7 @@ Page({
         ...this.data.form,
         expenseTime: this.composeDatetime(now.date, now.time),
         payerUserId: currentUser.userId,
-        shares: members.map(item => ({ userId: item.userId, checked: true, shareAmount: '' }))
+        shares: members.map(item => ({ userId: item.userId, checked: true, shareAmount: '', splitRatio: '1' }))
       };
       let expenseDate = now.date;
       let expenseClock = now.time;
@@ -71,7 +72,12 @@ Page({
           expenseTime: this.composeDatetime(expenseDate, expenseClock),
           shares: members.map(member => {
             const share = (detail.shares || []).find(item => item.userId === member.userId);
-            return { userId: member.userId, checked: !!share, shareAmount: share ? String(share.shareAmount) : '' };
+            return {
+              userId: member.userId,
+              checked: !!share,
+              shareAmount: share ? String(share.shareAmount) : '',
+              splitRatio: share && detail.splitMode === 'PROPORTIONAL' ? String(share.splitRatio || 1) : '1'
+            };
           }),
           receiptUrl: detail.receiptUrl || ''
         };
@@ -143,7 +149,9 @@ Page({
   },
 
   mode(event) {
-    this.setData({ 'form.splitMode': event.currentTarget.dataset.mode }, () => this.updateAllocation());
+    const splitMode = event.currentTarget.dataset.mode;
+    const shares = this.data.form.shares.map(item => ({ ...item, splitRatio: item.splitRatio || '1' }));
+    this.setData({ 'form.splitMode': splitMode, 'form.shares': shares }, () => this.updateAllocation());
   },
 
   toggleShare(event) {
@@ -155,14 +163,25 @@ Page({
     this.setData({ [`form.shares[${event.currentTarget.dataset.index}].shareAmount`]: event.detail.value }, () => this.updateAllocation());
   },
 
+  ratioInput(event) {
+    this.setData({ [`form.shares[${event.currentTarget.dataset.index}].splitRatio`]: event.detail.value }, () => this.updateAllocation());
+  },
+
+  ratioBlur(event) {
+    const value = event.detail.value;
+    if (value && !this.isPositiveRatio(value)) wx.showToast({ title: '分摊比例必须大于 0', icon: 'none' });
+  },
+
   updateAllocation() {
     const totalCents = this.toCents(this.data.form.amount);
-    const allocatedCents = this.data.form.shares
-      .filter(item => item.checked)
+    const selectedShares = this.data.form.shares.filter(item => item.checked);
+    const allocatedCents = selectedShares
       .reduce((sum, item) => sum + (this.toCents(item.shareAmount) || 0), 0);
+    const ratioTotal = selectedShares.reduce((sum, item) => sum + (this.toRatio(item.splitRatio) || 0), 0);
     this.setData({
       allocatedAmount: (allocatedCents / 100).toFixed(2),
-      allocationBalanced: totalCents !== null && totalCents > 0 && allocatedCents === totalCents
+      allocationBalanced: totalCents !== null && totalCents > 0 && allocatedCents === totalCents,
+      ratioTotal: this.formatRatio(ratioTotal)
     });
   },
 
@@ -171,6 +190,17 @@ Page({
     if (!/^\d+(?:\.\d{1,2})?$/.test(text)) return null;
     return Math.round(Number(text) * 100);
   },
+
+  toRatio(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!/^\d+(?:\.\d{1,4})?$/.test(text)) return null;
+    const result = Number(text);
+    return result > 0 ? result : null;
+  },
+
+  isPositiveRatio(value) { return this.toRatio(value) !== null; },
+
+  formatRatio(value) { return Number(value || 0).toFixed(4).replace(/\.?0+$/, ''); },
 
   toggleOptional() {
     this.setData({ optionalExpanded: !this.data.optionalExpanded });
@@ -194,7 +224,8 @@ Page({
     const amount = String(form.amount || '').trim();
     const shares = form.shares.filter(item => item.checked).map(item => ({
       userId: item.userId,
-      shareAmount: form.splitMode === 'CUSTOM' ? String(item.shareAmount || '').trim() : null
+      shareAmount: form.splitMode === 'CUSTOM' ? String(item.shareAmount || '').trim() : null,
+      splitRatio: form.splitMode === 'PROPORTIONAL' ? String(item.splitRatio || '').trim() : null
     }));
     if (!form.title.trim() || !amount || !shares.length) {
       wx.showToast({ title: '请填写账单并选择分摊成员', icon: 'none' });
@@ -206,6 +237,10 @@ Page({
     }
     if (form.splitMode === 'CUSTOM' && !this.data.allocationBalanced) {
       wx.showToast({ title: '自定义分摊金额之和必须等于总金额', icon: 'none' });
+      return;
+    }
+    if (form.splitMode === 'PROPORTIONAL' && shares.some(item => !this.isPositiveRatio(item.splitRatio))) {
+      wx.showToast({ title: '分摊比例必须大于 0', icon: 'none' });
       return;
     }
     const payload = {

@@ -92,7 +92,6 @@
           <view class="cost-summary-card card">
             <view class="cost-summary-title">我的结算</view>
             <view class="cost-settlement-headline {{expenseSummary.settlementState}}">{{expenseSummary.settlementHeadline}}</view>
-            <view class="cost-settlement-description">待支付与待收款抵扣后的剩余金额</view>
             <view class="cost-summary-stats">
               <view class="cost-summary-stat pay-stat">
                 <view class="cost-stat-label">{{expenseSummary.settlementLabel}}</view>
@@ -110,16 +109,26 @@
           </view>
           <view class="section-head expense-section-head"><view class="section-title">我的转账建议</view></view>
           <view wx:if="{{expenseSummary.mySuggestions.length}}">
-            <view class="card settlement-preview" wx:for="{{expenseSummary.mySuggestions}}" wx:key="fromUserId">
-              <view class="settlement-person">
-                <image wx:if="{{item.counterpartyAvatarUrl}}" class="settlement-avatar" src="{{item.counterpartyAvatarUrl}}" mode="aspectFill" />
-                <view wx:else class="settlement-avatar settlement-avatar-placeholder">{{item.counterpartyAvatarText}}</view>
-                <view class="settlement-copy">
-                  <view class="settlement-name">{{item.counterpartyName}}</view>
-                  <view class="settlement-description">{{item.directionText}}</view>
+            <view class="card settlement-card" wx:for="{{expenseSummary.mySuggestions}}" wx:key="fromUserId">
+              <view class="settlement-left">
+                <view class="settlement-route">
+                  <view class="settlement-party">
+                    <image wx:if="{{item.fromAvatarUrl}}" class="settlement-avatar" src="{{item.fromAvatarUrl}}" mode="aspectFill" />
+                    <view wx:else class="settlement-avatar settlement-avatar-placeholder">{{item.fromAvatarText}}</view>
+                    <view class="settlement-name">{{item.fromDisplayName}}</view>
+                  </view>
+                  <view class="settlement-arrow">→</view>
+                  <view class="settlement-party">
+                    <image wx:if="{{item.toAvatarUrl}}" class="settlement-avatar" src="{{item.toAvatarUrl}}" mode="aspectFill" />
+                    <view wx:else class="settlement-avatar settlement-avatar-placeholder">{{item.toAvatarText}}</view>
+                    <view class="settlement-name">{{item.toDisplayName}}</view>
+                  </view>
                 </view>
               </view>
-              <view class="settlement-amount">¥{{item.amount}}</view>
+              <view class="settlement-right">
+                <view class="settlement-status {{item.directionType}}">{{item.statusText}}</view>
+                <view class="settlement-amount {{item.directionType}}">{{item.amountText}}</view>
+              </view>
             </view>
           </view>
           <view wx:else class="card empty-card">当前无需结算</view>

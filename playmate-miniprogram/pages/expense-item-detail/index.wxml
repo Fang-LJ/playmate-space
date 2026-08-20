@@ -1,1 +1,35 @@
-<view class="page detail-page"><view wx:if="{{loading}}" class="card">正在加载账单…</view><view wx:elif="{{errorMessage}}" class="card">{{errorMessage}}</view><view wx:else><view class="card hero"><view class="tag">{{detail.categoryText}}</view><view class="amount">¥ {{detail.amount}}</view><view class="title">{{detail.title}}</view><view class="muted">{{detail.payerNickname}} 支付 · {{detail.expenseTime}}</view><view wx:if="{{detail.status==='VOID'}}" class="void">该账单已删除</view></view><view class="card"><view class="heading">分摊明细</view><view wx:for="{{detail.shares}}" wx:key="userId" class="share"><view>{{item.nickname}}</view><view>¥ {{item.shareAmount}}</view></view></view><view wx:if="{{detail.receiptUrl}}" class="card"><view class="heading">付款凭证</view><image src="{{detail.receiptUrl}}" class="receipt" mode="widthFix"/></view><view wx:if="{{detail.description}}" class="card"><view class="heading">备注</view><view class="muted">{{detail.description}}</view></view><view wx:if="{{detail.status==='ACTIVE'}}" class="actions"><button class="edit" bindtap="edit">编辑账单</button><button class="void-button" bindtap="voidExpense">删除账单</button></view></view></view>
+<view class="page detail-page">
+  <view wx:if="{{loading}}" class="card">正在加载账单…</view>
+  <view wx:elif="{{errorMessage}}" class="card">{{errorMessage}}</view>
+  <view wx:else>
+    <view class="card hero {{detail.categoryTheme}}">
+      <view class="hero-heading"><view class="title">{{detail.title}}</view><view class="category-tag">{{detail.categoryText}}</view></view>
+      <view class="amount">¥{{detail.amountText}}</view>
+      <view class="hero-meta">{{detail.statusText}} · {{detail.expenseTimeShort}}</view>
+      <view wx:if="{{detail.status==='VOID'}}" class="void">该账单已作废，不参与费用结算</view>
+    </view>
+
+    <view class="card info-card">
+      <view class="heading">账单信息</view>
+      <view class="info-row"><view class="info-label">付款人</view><view class="info-value">{{detail.payerNickname}}</view></view>
+      <view class="info-row"><view class="info-label">创建人</view><view class="info-value">{{detail.creatorDisplayName}}</view></view>
+      <view class="info-row"><view class="info-label">分摊方式</view><view class="info-value">{{detail.shareCount}} 人{{detail.splitModeText}}</view></view>
+      <view class="info-row"><view class="info-label">消费时间</view><view class="info-value">{{detail.expenseTimeFull}}</view></view>
+    </view>
+
+    <view class="card shares-card">
+      <view class="shares-heading"><view class="heading">分摊明细</view><view class="shares-total">合计 ¥{{detail.amountText}}</view></view>
+      <view wx:for="{{detail.shares}}" wx:key="userId" class="share {{item.isCurrentUser?'current-share':''}}">
+        <image wx:if="{{item.avatarUrl}}" src="{{item.avatarUrl}}" class="share-avatar" mode="aspectFill"/>
+        <view wx:else class="share-avatar share-avatar-placeholder">{{item.avatarText}}</view>
+        <view class="share-name">{{item.nickname}}{{item.isCurrentUser ? '（我）' : ''}}</view>
+        <view class="share-amount">¥{{item.shareAmountText}}</view>
+      </view>
+      <view class="allocation-note">¥{{detail.amountText}} · {{detail.shareCount}} 人{{detail.splitModeText}}</view>
+    </view>
+
+    <view wx:if="{{detail.receiptUrl}}" class="card attachment-card"><view class="heading">付款凭证</view><image src="{{detail.receiptUrl}}" class="receipt" mode="widthFix"/></view>
+    <view wx:if="{{detail.description}}" class="card note-card"><view class="heading">备注</view><view class="note-content">{{detail.description}}</view></view>
+    <view wx:if="{{detail.status==='ACTIVE'}}" class="actions"><button class="void-button" bindtap="voidExpense">作废账单</button><button class="edit" bindtap="edit">编辑账单</button></view>
+  </view>
+</view>

@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -24,7 +25,8 @@ import java.util.stream.Collectors;
 public class ExpenseService {
     private static final Logger log = LoggerFactory.getLogger(ExpenseService.class);
     private static final Set<String> CATEGORIES = Set.of("TRANSPORT", "LODGING", "TICKET", "FOOD", "ENTERTAINMENT", "SHOPPING", "OTHER");
-    private static final Set<String> SPLIT_MODES = Set.of("EQUAL", "CUSTOM");
+    private static final Set<String> SPLIT_MODES = Set.of("EQUAL", "CUSTOM", "PROPORTIONAL");
+    private static final BigDecimal DEFAULT_SPLIT_RATIO = new BigDecimal("1.0000");
     private final ActivityCollaborationAccess access;
     private final ActivityExpenseMapper expenseMapper;
     private final ActivityExpenseShareMapper shareMapper;
@@ -136,7 +138,8 @@ public class ExpenseService {
 
     private void validateRequest(Long activityId, SaveExpenseRequest request, Long userId, boolean creator) {
         if (!CATEGORIES.contains(request.category().trim().toUpperCase())) throw param("费用分类不支持");
-        if (!SPLIT_MODES.contains(request.splitMode().trim().toUpperCase())) throw param("分摊方式只支持 EQUAL 或 CUSTOM");
+        String splitMode = request.splitMode().trim().toUpperCase();
+        if (!SPLIT_MODES.contains(splitMode)) throw param("分摊方式只支持 EQUAL、CUSTOM 或 PROPORTIONAL");
         SettlementService.money(request.amount());
         access.requireActiveMember(activityId, request.payerUserId());
         if (!creator && !userId.equals(request.payerUserId())) throw new ForbiddenException("普通成员只能记录自己支付的账单");
@@ -144,9 +147,19 @@ public class ExpenseService {
         Set<Long> users = request.shares().stream().map(ExpenseShareRequest::userId).collect(Collectors.toSet());
         if (users.size() != request.shares().size()) throw param("分摊成员不能重复");
         users.forEach(memberId -> access.requireActiveMember(activityId, memberId));
-        if ("CUSTOM".equals(request.splitMode().trim().toUpperCase())) {
+        if ("CUSTOM".equals(splitMode)) {
             BigDecimal total = request.shares().stream().map(ExpenseShareRequest::shareAmount).filter(Objects::nonNull).map(SettlementService::money).reduce(BigDecimal.ZERO, SettlementService::plus);
             if (total.compareTo(SettlementService.money(request.amount())) != 0) throw param("自定义分摊金额之和必须等于总金额");
+        }
+        if ("PROPORTIONAL".equals(splitMode)) {
+            BigDecimal totalRatio = BigDecimal.ZERO;
+            for (ExpenseShareRequest share : request.shares()) {
+                BigDecimal ratio = share.splitRatio();
+                if (ratio == null || ratio.signum() <= 0) throw param("分摊比例必须大于零");
+                if (ratio.scale() > 4) throw param("分摊比例最多保留四位小数");
+                totalRatio = totalRatio.add(ratio);
+            }
+            if (totalRatio.signum() <= 0) throw param("分摊比例必须大于零");
         }
     }
     private void validateReceipt(Long fileId, Long userId) { FileEntity file = fileMapper.selectById(fileId); if (file == null || !"EXPENSE_RECEIPT".equals(file.getFileType()) || !userId.equals(file.getUploadUserId())) throw param("付款凭证无效或不属于当前用户"); }
@@ -166,18 +179,60 @@ public class ExpenseService {
                 || !Objects.equals(expense.getExpenseTime(), request.expenseTime())
                 || !Objects.equals(expense.getReceiptFileId(), request.receiptFileId())
                 || !Objects.equals(expense.getDescription(), SettlementService.trim(request.description()))) return true;
-        Map<Long, BigDecimal> before = currentShares.stream().collect(Collectors.toMap(
-                ActivityExpenseShareEntity::getUserId, ActivityExpenseShareEntity::getShareAmount));
-        Map<Long, BigDecimal> after = buildShares(expense.getId(), request, LocalDateTime.now()).stream().collect(Collectors.toMap(
-                ActivityExpenseShareEntity::getUserId, ActivityExpenseShareEntity::getShareAmount));
+        Map<Long, ShareValue> before = currentShares.stream().collect(Collectors.toMap(
+                ActivityExpenseShareEntity::getUserId, item -> new ShareValue(item.getShareAmount(), storedRatio(item))));
+        Map<Long, ShareValue> after = buildShares(expense.getId(), request, LocalDateTime.now()).stream().collect(Collectors.toMap(
+                ActivityExpenseShareEntity::getUserId, item -> new ShareValue(item.getShareAmount(), storedRatio(item))));
         return !before.equals(after);
     }
     private List<ActivityExpenseShareEntity> buildShares(Long expenseId, SaveExpenseRequest request, LocalDateTime now) {
-        List<ExpenseShareRequest> requests = request.shares().stream().sorted(Comparator.comparing(ExpenseShareRequest::userId)).toList(); BigDecimal amount = SettlementService.money(request.amount());
-        long cents = amount.movePointRight(2).longValueExact(); long base = cents / requests.size(), remainder = cents % requests.size(); List<ActivityExpenseShareEntity> result = new ArrayList<>();
-        for (int index = 0; index < requests.size(); index++) { ExpenseShareRequest item = requests.get(index); BigDecimal share = "EQUAL".equals(request.splitMode().trim().toUpperCase()) ? BigDecimal.valueOf(base + (index < remainder ? 1 : 0), 2) : SettlementService.money(item.shareAmount());
-            if (share.signum() < 0) throw param("分摊金额不能小于零"); ActivityExpenseShareEntity entity = new ActivityExpenseShareEntity(); entity.setExpenseId(expenseId); entity.setUserId(item.userId()); entity.setShareAmount(share); entity.setCreateTime(now); entity.setUpdateTime(now); entity.setDeleteFlag(0); result.add(entity); }
+        List<ExpenseShareRequest> requests = request.shares().stream().sorted(Comparator.comparing(ExpenseShareRequest::userId)).toList();
+        BigDecimal amount = SettlementService.money(request.amount());
+        String splitMode = request.splitMode().trim().toUpperCase();
+        Map<Long, BigDecimal> shares = switch (splitMode) {
+            case "EQUAL" -> equalShares(amount, requests);
+            case "PROPORTIONAL" -> proportionalShares(amount, requests);
+            default -> requests.stream().collect(Collectors.toMap(ExpenseShareRequest::userId,
+                    item -> SettlementService.money(item.shareAmount()), (first, second) -> first, LinkedHashMap::new));
+        };
+        List<ActivityExpenseShareEntity> result = new ArrayList<>();
+        for (ExpenseShareRequest item : requests) {
+            BigDecimal share = shares.get(item.userId());
+            if (share.signum() < 0) throw param("分摊金额不能小于零");
+            ActivityExpenseShareEntity entity = new ActivityExpenseShareEntity();
+            entity.setExpenseId(expenseId); entity.setUserId(item.userId()); entity.setShareAmount(share);
+            entity.setSplitRatio("PROPORTIONAL".equals(splitMode) ? item.splitRatio().setScale(4, RoundingMode.UNNECESSARY) : DEFAULT_SPLIT_RATIO);
+            entity.setCreateTime(now); entity.setUpdateTime(now); entity.setDeleteFlag(0); result.add(entity);
+        }
         return result;
+    }
+    private Map<Long, BigDecimal> equalShares(BigDecimal amount, List<ExpenseShareRequest> requests) {
+        long cents = amount.movePointRight(2).longValueExact(); long base = cents / requests.size(), remainder = cents % requests.size();
+        Map<Long, BigDecimal> result = new LinkedHashMap<>();
+        for (int index = 0; index < requests.size(); index++) result.put(requests.get(index).userId(), BigDecimal.valueOf(base + (index < remainder ? 1 : 0), 2));
+        return result;
+    }
+    private Map<Long, BigDecimal> proportionalShares(BigDecimal amount, List<ExpenseShareRequest> requests) {
+        BigDecimal totalRatio = requests.stream().map(ExpenseShareRequest::splitRatio).reduce(BigDecimal.ZERO, BigDecimal::add);
+        long totalCents = amount.movePointRight(2).longValueExact();
+        List<RatioAllocation> allocations = new ArrayList<>(); long allocatedCents = 0;
+        for (ExpenseShareRequest item : requests) {
+            BigDecimal rawCents = BigDecimal.valueOf(totalCents).multiply(item.splitRatio()).divide(totalRatio, 12, RoundingMode.DOWN);
+            long cents = rawCents.setScale(0, RoundingMode.DOWN).longValueExact();
+            allocatedCents += cents;
+            allocations.add(new RatioAllocation(item.userId(), cents, rawCents.subtract(BigDecimal.valueOf(cents))));
+        }
+        allocations.sort(Comparator.comparing(RatioAllocation::fraction).reversed().thenComparing(RatioAllocation::userId));
+        long remainder = totalCents - allocatedCents;
+        for (int index = 0; index < remainder; index++) allocations.set(index, allocations.get(index).withCents(allocations.get(index).cents() + 1));
+        Map<Long, BigDecimal> result = new LinkedHashMap<>();
+        allocations.stream().sorted(Comparator.comparing(RatioAllocation::userId)).forEach(item -> result.put(item.userId(), BigDecimal.valueOf(item.cents(), 2)));
+        return result;
+    }
+    private BigDecimal storedRatio(ActivityExpenseShareEntity share) { return share.getSplitRatio() == null ? DEFAULT_SPLIT_RATIO : share.getSplitRatio(); }
+    private record ShareValue(BigDecimal amount, BigDecimal ratio) {}
+    private record RatioAllocation(Long userId, long cents, BigDecimal fraction) {
+        RatioAllocation withCents(long value) { return new RatioAllocation(userId, value, fraction); }
     }
     private ActivityExpenseEntity find(Long activityId, Long expenseId) { ActivityExpenseEntity expense = expenseMapper.selectById(expenseId); if (expense == null || !activityId.equals(expense.getActivityId())) throw new NotFoundException("账单不存在"); return expense; }
     private ActivityExpenseEntity findForUpdate(Long activityId, Long expenseId) { ActivityExpenseEntity expense = expenseMapper.selectByIdForUpdate(activityId, expenseId); if (expense == null) throw new NotFoundException("账单不存在"); return expense; }
@@ -194,7 +249,7 @@ public class ExpenseService {
     }
     private ExpenseDetailResponse toDetail(ActivityExpenseEntity expense, List<ActivityExpenseShareEntity> shares) {
         Set<Long> ids = new HashSet<>(); ids.add(expense.getPayerUserId()); ids.add(expense.getCreatedBy()); shares.forEach(item -> ids.add(item.getUserId())); Map<Long, UserEntity> users = ids.isEmpty() ? Map.of() : userMapper.selectByIds(ids).stream().collect(Collectors.toMap(UserEntity::getId, item -> item)); FileEntity receipt = expense.getReceiptFileId() == null ? null : fileMapper.selectById(expense.getReceiptFileId());
-        return new ExpenseDetailResponse(expense.getId(), expense.getActivityId(), expense.getTitle(), expense.getCategory(), expense.getAmount(), expense.getPayerUserId(), SettlementService.nickname(users.get(expense.getPayerUserId())), expense.getCreatedBy(), SettlementService.nickname(users.get(expense.getCreatedBy())), expense.getExpenseTime(), expense.getSplitMode(), expense.getReceiptFileId(), receipt == null ? null : receipt.getUrl(), expense.getDescription(), expense.getStatus(), expense.getVoidReason(), expense.getVersion(), shares.stream().map(item -> new ExpenseShareResponse(item.getUserId(), SettlementService.nickname(users.get(item.getUserId())), users.get(item.getUserId()) == null ? null : users.get(item.getUserId()).getAvatarUrl(), item.getShareAmount())).toList(), expense.getCreateTime(), expense.getUpdateTime());
+        return new ExpenseDetailResponse(expense.getId(), expense.getActivityId(), expense.getTitle(), expense.getCategory(), expense.getAmount(), expense.getPayerUserId(), SettlementService.nickname(users.get(expense.getPayerUserId())), expense.getCreatedBy(), SettlementService.nickname(users.get(expense.getCreatedBy())), expense.getExpenseTime(), expense.getSplitMode(), expense.getReceiptFileId(), receipt == null ? null : receipt.getUrl(), expense.getDescription(), expense.getStatus(), expense.getVoidReason(), expense.getVersion(), shares.stream().map(item -> new ExpenseShareResponse(item.getUserId(), SettlementService.nickname(users.get(item.getUserId())), users.get(item.getUserId()) == null ? null : users.get(item.getUserId()).getAvatarUrl(), item.getShareAmount(), storedRatio(item))).toList(), expense.getCreateTime(), expense.getUpdateTime());
     }
     private List<ExpenseListItemResponse> toListItems(List<ActivityExpenseEntity> expenses, Long currentUserId) { if (expenses.isEmpty()) return List.of(); Set<Long> ids = expenses.stream().map(ActivityExpenseEntity::getId).collect(Collectors.toSet()); Map<Long,List<ActivityExpenseShareEntity>> shares = shareMapper.selectList(new LambdaQueryWrapper<ActivityExpenseShareEntity>().in(ActivityExpenseShareEntity::getExpenseId, ids)).stream().collect(Collectors.groupingBy(ActivityExpenseShareEntity::getExpenseId)); Set<Long> payerIds = expenses.stream().map(ActivityExpenseEntity::getPayerUserId).collect(Collectors.toSet()); Map<Long,UserEntity> users = userMapper.selectByIds(payerIds).stream().collect(Collectors.toMap(UserEntity::getId, item -> item)); return expenses.stream().map(item -> { List<ActivityExpenseShareEntity> lines = shares.getOrDefault(item.getId(), List.of()); BigDecimal currentShare = lines.stream().filter(line -> currentUserId.equals(line.getUserId())).map(ActivityExpenseShareEntity::getShareAmount).findFirst().orElse(null); return new ExpenseListItemResponse(item.getId(), item.getTitle(), item.getCategory(), item.getAmount(), SettlementService.nickname(users.get(item.getPayerUserId())), item.getPayerUserId(), item.getExpenseTime(), lines.size(), currentShare, item.getStatus(), item.getVersion()); }).toList(); }
     private static BusinessException param(String message) { return new BusinessException(ErrorCode.PARAM_ERROR.code(), message); }

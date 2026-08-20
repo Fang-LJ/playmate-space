@@ -97,6 +97,42 @@ class ExpenseServiceTest {
     }
 
     @Test
+    void proportionalSplitCalculatesAmountsFromRatios() {
+        when(access.isActivityCreator(activity, operator, USER_A)).thenReturn(true);
+        when(userMapper.selectByIds(any())).thenReturn(List.of(user(USER_A), user(USER_B)));
+        when(shareMapper.selectList(any())).thenAnswer(invocation -> insertedShares());
+
+        service.create(ACTIVITY_ID, request(USER_A, "100.00", "PROPORTIONAL", null,
+                List.of(new ExpenseShareRequest(USER_A, null, new BigDecimal("1")),
+                        new ExpenseShareRequest(USER_B, null, new BigDecimal("2")))));
+
+        ArgumentCaptor<ActivityExpenseShareEntity> captor = ArgumentCaptor.forClass(ActivityExpenseShareEntity.class);
+        verify(shareMapper, times(2)).insert(captor.capture());
+        assertEquals(new BigDecimal("33.33"), captor.getAllValues().get(0).getShareAmount());
+        assertEquals(new BigDecimal("1.0000"), captor.getAllValues().get(0).getSplitRatio());
+        assertEquals(new BigDecimal("66.67"), captor.getAllValues().get(1).getShareAmount());
+        assertEquals(new BigDecimal("2.0000"), captor.getAllValues().get(1).getSplitRatio());
+    }
+
+    @Test
+    void proportionalSplitRejectsZeroOrNegativeRatios() {
+        when(access.isActivityCreator(activity, operator, USER_A)).thenReturn(true);
+        SaveExpenseRequest zeroRatioRequest = request(USER_A, "100.00", "PROPORTIONAL", null,
+                List.of(new ExpenseShareRequest(USER_A, null, new BigDecimal("1")),
+                        new ExpenseShareRequest(USER_B, null, BigDecimal.ZERO)));
+        SaveExpenseRequest negativeRatioRequest = request(USER_A, "100.00", "PROPORTIONAL", null,
+                List.of(new ExpenseShareRequest(USER_A, null, new BigDecimal("1")),
+                        new ExpenseShareRequest(USER_B, null, new BigDecimal("-1"))));
+
+        BusinessException zeroError = assertThrows(BusinessException.class, () -> service.create(ACTIVITY_ID, zeroRatioRequest));
+        BusinessException negativeError = assertThrows(BusinessException.class, () -> service.create(ACTIVITY_ID, negativeRatioRequest));
+
+        assertTrue(zeroError.getMessage().contains("比例必须大于零"));
+        assertTrue(negativeError.getMessage().contains("比例必须大于零"));
+        verify(expenseMapper, never()).insert(any(ActivityExpenseEntity.class));
+    }
+
+    @Test
     void ordinaryMemberCannotRecordAnotherPayerButCreatorCan() {
         when(access.isActivityCreator(activity, operator, USER_A)).thenReturn(false, true);
         SaveExpenseRequest request = request(USER_B, "10.00", "EQUAL", null,

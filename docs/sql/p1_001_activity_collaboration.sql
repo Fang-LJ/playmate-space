@@ -183,6 +183,7 @@ CREATE TABLE IF NOT EXISTS t_activity_expense_share (
   expense_id BIGINT NOT NULL COMMENT '账单 ID（逻辑关联 t_activity_expense.id）',
   user_id BIGINT NOT NULL COMMENT '分摊用户 ID（逻辑关联 t_user.id）',
   share_amount DECIMAL(12,2) NOT NULL COMMENT '最终承担金额',
+  split_ratio DECIMAL(16,4) NOT NULL DEFAULT 1.0000 COMMENT '按比例分摊时的比例值',
   create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   delete_flag TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0 未删除，1 已删除',
