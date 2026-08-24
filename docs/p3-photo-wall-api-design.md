@@ -1,8 +1,8 @@
-# P3 照片墙 Round 1 设计冻结
+# P3 照片墙 Round 2 后端实现
 
 ## 边界、权限与表关系
 
-本轮仅冻结数据库模型、Java Entity/Mapper、枚举和 API/安全架构；不实现 Controller、PhotoService、点赞/举报/审核 Service、真实微信审核、私有 MinIO 或小程序 UI。
+Round 2 已实现照片墙后端：私有 PHOTO 上传与派生图、活动照片接口、点赞、举报、持久审核任务、Mock 审核、短时效访问 URL 和对象清理任务。本轮不包含小程序 UI，也不接入真实微信内容安全生产凭据。
 
 照片墙完全复用活动访问权限：能够访问活动的 `ACTIVE` 成员即可查看活动照片墙，不新增 photo ACL 或成员权限表。未来上传按活动成员写权限判断；仅上传者本人或活动创建者可删除。删除采用业务软删除：照片记为 `DELETED`，记录 `deleted_by/deleted_at`；文件记为 `DELETING`，对象存储删除留给后台任务。
 
@@ -45,11 +45,11 @@ TEMP -> BOUND -> DELETING -> DELETED
 
 ## 私有对象存储与图片层级
 
-未来 PHOTO 上传为 `PRIVATE + TEMP`。业务层只能通过 `fileId -> FileService / FileStorageService` 获取临时授权 URL，不能拼接 MinIO URL。Round 2 将扩展存储接口为 `upload/delete/generatePresignedUrl`，并支持 original、preview、thumbnail；`storage_provider` 使 `MINIO` 与未来 `COS` 文件可同时存在，`CosFileStorageService` 可无缝实现同一抽象。
+PHOTO 上传为 `PRIVATE + TEMP`。业务层只能通过 `fileId -> FileStorageService` 获取临时授权 URL，不能拼接 MinIO URL。`FileStorageService` 已扩展 `upload/delete/generatePresignedGetUrl`，并支持 original、preview、thumbnail；`storage_provider` 使 `MINIO` 与未来 `COS` 文件可同时存在，`CosFileStorageService` 可实现同一抽象。
 
 原图为 `object_key`，快速预览为 `preview_object_key`，网格缩略图为 `thumb_object_key`。照片墙加载 thumbnail，点击后用 preview，明确点击“查看原图”才返回短时效原图 presigned URL。历史 `url/thumb_url` 保持兼容公开文件。
 
-Round 2 上传必须校验 magic bytes、实际图片解码、宽高、图片尺寸上限和文件大小，仅允许 JPG/JPEG/PNG/WEBP；不能只相信扩展名或 `MultipartFile.contentType`。解析出的宽高写入 `t_file`，GIF/HEIC 本版不支持。
+上传会校验文件大小、magic bytes、实际解码、宽高、像素总量以及声明 MIME 与实际类型的一致性；解析出的宽高、内容类型和扩展名写入 `t_file`。JPG/JPEG 与 PNG 已由 Java 标准库安全解码并生成派生图；当前默认依赖没有可靠 WebP 解码器，因此 PHOTO 暂时明确拒绝 WebP（不会伪装为已验证）。GIF、SVG、HEIC、BMP 也不支持。EXIF Orientation 未做变换，拍照方向校正列为后续图像库评估项。
 
 ## Round 2 API 契约
 
@@ -57,7 +57,7 @@ Round 2 上传必须校验 magic bytes、实际图片解码、宽高、图片尺
 
 | 接口 | 语义 |
 | --- | --- |
-| `GET /api/activities/{activityId}/photos/summary` | `photoCount`（正常展示）、`pendingAuditCount`（仅计数）、`myUploadCount`、`receivedLikeCount`。 |
+| `GET /api/activities/{activityId}/photos/summary` | `photoCount`（正常展示）、`pendingAuditCount`（仅当前用户上传且尚未结束审核的数量）、`myUploadCount`、`receivedLikeCount`。 |
 | `GET /api/activities/{activityId}/photos?scope=ALL|MINE|LIKED&sort=LATEST|EARLIEST|MOST_LIKED&page=1&pageSize=30` | 默认 30、最大 60。ALL 仅正常展示；MINE 为本人所有未删除照片；LIKED 为本人有效点赞且当前正常展示。 |
 | `GET /api/activities/{activityId}/photos/{photoId}` | 返回照片/上传人信息、preview/thumbnail、文件元数据、点赞、审核状态、`canDelete/canReport`；禁止读取他人的非正常照片。 |
 | `POST /api/activities/{activityId}/photos` | `{ "fileIds": [101,102] }`，最多 9 张，验证本人 `PHOTO + PRIVATE + TEMP` 文件，绑定并返回 `photoId/fileId/auditStatus`。 |
@@ -70,9 +70,23 @@ Round 2 上传必须校验 magic bytes、实际图片解码、宽高、图片尺
 
 点赞关系以 `t_activity_photo_like` 为事实，同一 `photo_id + user_id` 一行，在 `ACTIVE ↔ CANCELED` 间切换；`like_count` 仅是冗余。Round 2 必须在同一事务原子切换关系和增减计数，保证幂等、并发不重复加、计数不小于零。
 
-## Round 2 顺序
+## 实际运行配置与策略
 
-1. 支持私有 TEMP PHOTO 上传、真实性检测和 preview/thumbnail 生成。
-2. 实现 PhotoService 的绑定、查看、列表、删除与权限。
-3. 实现点赞、举报、审核任务提交/重试与微信回调适配器。
-4. 实现 presigned URL、对象清理任务与小程序 UI。
+`application.yml` 的 `playmate.photo` 配置项如下：
+
+| 配置 | 默认值 | 作用 |
+| --- | --- | --- |
+| `temp-ttl` | `24h` | 未绑定私有 PHOTO 文件的过期时间。 |
+| `presigned-ttl` | `20m` | thumbnail、preview 和 original 访问 URL 的有效期。 |
+| `thumbnail-max-edge` | `600` | 缩略图最长边。 |
+| `preview-max-edge` | `1800` | 预览图最长边。 |
+| `max-width/max-height/max-pixels` | `6000/6000/24000000` | 图片真实性校验尺寸上限。 |
+| `audit-poll-delay/cleanup-poll-delay` | `10s/1m` | 审核任务及文件清理扫描周期。 |
+| `moderation-provider` | `mock` | `mock` 可用于本地验证；`wechat` 当前只会安全失败并进入重试。 |
+| `mock-result` | `APPROVE` | 可切换为 `REJECT` 或 `ERROR` 验证审核分支。 |
+
+审核任务用数据库原子状态更新抢占：`PENDING/RETRY_WAIT -> SUBMITTED`。Mock 会立即返回结果；WeChat adapter 尚未配置正式 AppID、Secret、回调协议时只返回错误，照片保持 fail-closed，并按 `1/5/15/30` 分钟退避重试，不会默认放行。真实微信请求与 callback 签名/协议须在上线联调时按当期微信官方文档补齐。
+
+删除不会在数据库事务中调用对象存储：照片软删除后将文件设为 `DELETING`，`FileCleanupJob` 异步删除 original、preview、thumbnail；任一对象删除失败就保留 `DELETING`，下一轮重试。过期 `TEMP` 文件走同一清理路径。
+
+活动已取消时拒绝新的照片绑定；未结束和已结束活动的有效成员均可上传。所有读取接口重用 `ActivityCollaborationAccess`，非上传者只能访问 `ACTIVE + APPROVED + NORMAL` 照片。

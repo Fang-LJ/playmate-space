@@ -36,9 +36,24 @@ playmate:
     access-key: ${PLAYMATE_MINIO_ACCESS_KEY:playmate_minio}
     secret-key: ${PLAYMATE_MINIO_SECRET_KEY:playmate_minio_dev_password}
     bucket: ${PLAYMATE_MINIO_BUCKET:playmate-files}
+    private-bucket: ${PLAYMATE_MINIO_PRIVATE_BUCKET:playmate-private-files}
     public-base-url: ${PLAYMATE_MINIO_PUBLIC_BASE_URL:http://127.0.0.1:19000}
   finance:
     cache:
       # Redis is only a cache-aside enhancement. MySQL remains the source of truth.
       enabled: ${PLAYMATE_FINANCE_CACHE_ENABLED:false}
       ttl: ${PLAYMATE_FINANCE_CACHE_TTL:15m}
+  photo:
+    temp-ttl: ${PLAYMATE_PHOTO_TEMP_TTL:24h}
+    presigned-ttl: ${PLAYMATE_PHOTO_PRESIGNED_TTL:20m}
+    thumbnail-max-edge: ${PLAYMATE_PHOTO_THUMBNAIL_MAX_EDGE:600}
+    preview-max-edge: ${PLAYMATE_PHOTO_PREVIEW_MAX_EDGE:1800}
+    max-width: ${PLAYMATE_PHOTO_MAX_WIDTH:6000}
+    max-height: ${PLAYMATE_PHOTO_MAX_HEIGHT:6000}
+    max-pixels: ${PLAYMATE_PHOTO_MAX_PIXELS:24000000}
+    audit-batch-size: ${PLAYMATE_PHOTO_AUDIT_BATCH_SIZE:20}
+    cleanup-batch-size: ${PLAYMATE_PHOTO_CLEANUP_BATCH_SIZE:50}
+    audit-poll-delay: ${PLAYMATE_PHOTO_AUDIT_POLL_DELAY:10000}
+    cleanup-poll-delay: ${PLAYMATE_PHOTO_CLEANUP_POLL_DELAY:60000}
+    moderation-provider: ${PLAYMATE_PHOTO_MODERATION_PROVIDER:mock}
+    mock-result: ${PLAYMATE_PHOTO_MOCK_RESULT:APPROVE}

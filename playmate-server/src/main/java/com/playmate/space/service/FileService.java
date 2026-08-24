@@ -7,6 +7,8 @@ import com.playmate.space.common.security.LoginUserContext;
 import com.playmate.space.entity.FileEntity;
 import com.playmate.space.mapper.FileMapper;
 import com.playmate.space.storage.FileStorageService;
+import com.playmate.space.service.photo.PhotoImageProcessor;
+import com.playmate.space.service.photo.PhotoProperties;
 import com.playmate.space.vo.FileUploadResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +16,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.ByteArrayInputStream;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -27,6 +30,7 @@ public class FileService {
     private static final String FILE_TYPE_ACTIVITY_COVER = "ACTIVITY_COVER";
     private static final String FILE_TYPE_USER_AVATAR = "USER_AVATAR";
     private static final String FILE_TYPE_EXPENSE_RECEIPT = "EXPENSE_RECEIPT";
+    private static final String FILE_TYPE_PHOTO = "PHOTO";
     private static final String FILE_STATUS_NORMAL = "NORMAL";
     private static final long MAX_FILE_SIZE = 5L * 1024 * 1024;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
@@ -39,10 +43,15 @@ public class FileService {
 
     private final FileMapper fileMapper;
     private final FileStorageService fileStorageService;
+    private final PhotoImageProcessor photoImageProcessor;
+    private final PhotoProperties photoProperties;
 
-    public FileService(FileMapper fileMapper, FileStorageService fileStorageService) {
+    public FileService(FileMapper fileMapper, FileStorageService fileStorageService, PhotoImageProcessor photoImageProcessor,
+                       PhotoProperties photoProperties) {
         this.fileMapper = fileMapper;
         this.fileStorageService = fileStorageService;
+        this.photoImageProcessor = photoImageProcessor;
+        this.photoProperties = photoProperties;
     }
 
     @Transactional
@@ -52,6 +61,7 @@ public class FileService {
             throw new UnauthorizedException();
         }
         validateFileType(fileType);
+        if (FILE_TYPE_PHOTO.equals(fileType)) return uploadPhoto(file, userId);
         validateFile(file);
 
         String contentType = resolveContentType(file);
@@ -64,7 +74,8 @@ public class FileService {
                     file.getInputStream(),
                     objectKey,
                     contentType,
-                    file.getSize()
+                    file.getSize(),
+                    false
             ));
         } catch (IOException exception) {
             throw new BusinessException("读取上传文件失败");
@@ -76,10 +87,57 @@ public class FileService {
         return buildResponse(entity);
     }
 
+    @Transactional
+    private FileUploadResponse uploadPhoto(MultipartFile file, Long userId) {
+        if (file == null || file.isEmpty()) throw param("上传文件不能为空");
+        if (file.getSize() > MAX_FILE_SIZE) throw param("文件大小不能超过 5MB");
+        byte[] source;
+        try { source = file.getBytes(); } catch (IOException exception) { throw new BusinessException("读取上传文件失败"); }
+        PhotoImageProcessor.ProcessedPhoto image = photoImageProcessor.process(source, file.getContentType());
+        String originalKey = generateObjectKey(FILE_TYPE_PHOTO, userId, image.extension());
+        String thumbnailKey = derivedObjectKey(originalKey, "thumbnail");
+        String previewKey = derivedObjectKey(originalKey, "preview");
+        java.util.List<FileStorageService.StoredFile> uploaded = new java.util.ArrayList<>();
+        try {
+            FileStorageService.StoredFile original = uploadPrivate(originalKey, image.contentType(), image.original()); uploaded.add(original);
+            uploaded.add(uploadPrivate(thumbnailKey, image.contentType(), image.thumbnail()));
+            uploaded.add(uploadPrivate(previewKey, image.contentType(), image.preview()));
+            LocalDateTime now = LocalDateTime.now();
+            FileEntity entity = new FileEntity();
+            entity.setFileType(FILE_TYPE_PHOTO); entity.setBucketName(original.bucketName()); entity.setObjectKey(originalKey);
+            entity.setOriginalName(file.getOriginalFilename()); entity.setFileExt(image.extension()); entity.setSize((long) image.original().length);
+            entity.setContentType(image.contentType()); entity.setUploadUserId(userId); entity.setStatus(FILE_STATUS_NORMAL);
+            entity.setAccessLevel("PRIVATE"); entity.setLifecycleStatus("TEMP"); entity.setStorageProvider("MINIO");
+            entity.setWidth(image.width()); entity.setHeight(image.height()); entity.setThumbObjectKey(thumbnailKey); entity.setPreviewObjectKey(previewKey);
+            entity.setExpireAt(now.plus(photoProperties.getTempTtl())); entity.setCreateTime(now); entity.setUpdateTime(now); entity.setDeleteFlag(0);
+            fileMapper.insert(entity);
+            return buildResponse(entity);
+        } catch (RuntimeException exception) {
+            deleteBestEffort(uploaded);
+            throw exception;
+        }
+    }
+
+    private FileStorageService.StoredFile uploadPrivate(String objectKey, String contentType, byte[] content) {
+        return fileStorageService.upload(new FileStorageService.UploadFileCommand(new ByteArrayInputStream(content), objectKey,
+                contentType, content.length, true));
+    }
+
+    private String derivedObjectKey(String originalKey, String kind) {
+        int dot = originalKey.lastIndexOf('.');
+        return originalKey.substring(0, dot) + "-" + kind + originalKey.substring(dot);
+    }
+
+    private void deleteBestEffort(java.util.List<FileStorageService.StoredFile> files) { files.forEach(this::deleteObjectBestEffort); }
+    private void deleteObjectBestEffort(FileStorageService.StoredFile file) {
+        try { fileStorageService.delete(file.bucketName(), file.objectKey()); }
+        catch (RuntimeException ignored) { /* orphan cleanup will retry if an object-store delete fails */ }
+    }
+
     private void validateFileType(String fileType) {
-        if (!FILE_TYPE_ACTIVITY_COVER.equals(fileType) && !FILE_TYPE_USER_AVATAR.equals(fileType)
+        if (!FILE_TYPE_ACTIVITY_COVER.equals(fileType) && !FILE_TYPE_USER_AVATAR.equals(fileType) && !FILE_TYPE_PHOTO.equals(fileType)
                 && !FILE_TYPE_EXPENSE_RECEIPT.equals(fileType)) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "fileType 只支持 ACTIVITY_COVER、USER_AVATAR 或 EXPENSE_RECEIPT");
+            throw new BusinessException(ErrorCode.PARAM_ERROR.code(), "fileType 只支持 ACTIVITY_COVER、USER_AVATAR、EXPENSE_RECEIPT 或 PHOTO");
         }
     }
 
@@ -164,4 +222,6 @@ public class FileService {
         response.setSize(entity.getSize());
         return response;
     }
+
+    private BusinessException param(String message) { return new BusinessException(ErrorCode.PARAM_ERROR.code(), message); }
 }

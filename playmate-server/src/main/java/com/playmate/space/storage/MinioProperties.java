@@ -9,6 +9,7 @@ public class MinioProperties {
     private String accessKey;
     private String secretKey;
     private String bucket;
+    private String privateBucket;
     private String publicBaseUrl;
 
     public String getEndpoint() {
@@ -42,6 +43,8 @@ public class MinioProperties {
     public void setBucket(String bucket) {
         this.bucket = bucket;
     }
+    public String getPrivateBucket() { return privateBucket; }
+    public void setPrivateBucket(String privateBucket) { this.privateBucket = privateBucket; }
 
     public String getPublicBaseUrl() {
         return publicBaseUrl;

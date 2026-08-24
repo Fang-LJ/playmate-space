@@ -17,4 +17,5 @@ playmate:
     # playmate_minio_dev_password is only a local Docker example password. Do not use it on cloud servers.
     secret-key: ${PLAYMATE_MINIO_SECRET_KEY:playmate_minio_dev_password}
     bucket: ${PLAYMATE_MINIO_BUCKET:playmate-files}
+    private-bucket: ${PLAYMATE_MINIO_PRIVATE_BUCKET:playmate-private-files}
     public-base-url: ${PLAYMATE_MINIO_PUBLIC_BASE_URL:http://127.0.0.1:19000}
