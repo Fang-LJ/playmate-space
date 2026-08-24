@@ -35,13 +35,19 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.local.yml up -d
 docker compose --env-file deploy/.env -f deploy/docker-compose.local.yml --profile optional up -d
 ```
 
-首次启动时 MySQL 会自动创建 `playmate_space` 数据库，并执行：
+首次启动时 MySQL 会自动创建 `playmate_space` 数据库，并按 Compose 挂载顺序执行 P0、P1、P2 和 P3 的初始化/前向 SQL，其中包含：
 
 ```text
 docs/sql/p0_init.sql
+docs/sql/p1_001_activity_collaboration.sql
+docs/sql/p1_002_activity_todo.sql
+docs/sql/p1_003_itinerary_poll_field_linkage.sql
+docs/sql/p1_004_expense_settlement.sql
+docs/sql/p1_005_activity_finance_state.sql
+docs/sql/p3_001_photo_wall.sql
 ```
 
-该 SQL 会创建 P0 需要的四张表：
+P0 基线会创建：
 
 - `t_user`
 - `t_file`

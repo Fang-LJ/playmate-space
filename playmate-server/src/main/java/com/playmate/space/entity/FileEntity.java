@@ -25,6 +25,15 @@ public class FileEntity {
     private String relatedType;
     private Long relatedId;
     private String status;
+    private String accessLevel;
+    private String lifecycleStatus;
+    private String storageProvider;
+    private Integer width;
+    private Integer height;
+    private String thumbObjectKey;
+    private String previewObjectKey;
+    private LocalDateTime boundAt;
+    private LocalDateTime expireAt;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
     @TableLogic(value = "0", delval = "1")
@@ -141,6 +150,25 @@ public class FileEntity {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    public String getAccessLevel() { return accessLevel; }
+    public void setAccessLevel(String accessLevel) { this.accessLevel = accessLevel; }
+    public String getLifecycleStatus() { return lifecycleStatus; }
+    public void setLifecycleStatus(String lifecycleStatus) { this.lifecycleStatus = lifecycleStatus; }
+    public String getStorageProvider() { return storageProvider; }
+    public void setStorageProvider(String storageProvider) { this.storageProvider = storageProvider; }
+    public Integer getWidth() { return width; }
+    public void setWidth(Integer width) { this.width = width; }
+    public Integer getHeight() { return height; }
+    public void setHeight(Integer height) { this.height = height; }
+    public String getThumbObjectKey() { return thumbObjectKey; }
+    public void setThumbObjectKey(String thumbObjectKey) { this.thumbObjectKey = thumbObjectKey; }
+    public String getPreviewObjectKey() { return previewObjectKey; }
+    public void setPreviewObjectKey(String previewObjectKey) { this.previewObjectKey = previewObjectKey; }
+    public LocalDateTime getBoundAt() { return boundAt; }
+    public void setBoundAt(LocalDateTime boundAt) { this.boundAt = boundAt; }
+    public LocalDateTime getExpireAt() { return expireAt; }
+    public void setExpireAt(LocalDateTime expireAt) { this.expireAt = expireAt; }
 
     public LocalDateTime getCreateTime() {
         return createTime;

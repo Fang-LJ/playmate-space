@@ -47,7 +47,10 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 | `t_activity_expense_share` | 每位成员最终承担金额 | `expense_id`、`user_id`、`share_amount`、`split_ratio`；支持均摊、自定义金额和按比例分摊。 |
 | `t_activity_finance_state` | 活动费用事实版本与写锁载体 | `activity_id` 主键、`finance_version`；写事务通过 `SELECT ... FOR UPDATE` 按活动串行化。 |
 | `t_activity_settlement` | 第二版真实转账状态预留 | 保留转出人、收款人、金额和状态历史；第一版不读取该表参与余额计算。 |
-| `t_activity_photo` | 活动照片墙关联 | `activity_id`、`file_id`、上传人、拍摄时间、说明和排序；照片二进制继续保存在对象存储。 |
+| `t_activity_photo` | P1 基础照片关联，P3 扩展照片墙状态 | P1 预留的 `activity_id/file_id/上传人/拍摄时间/说明/排序` 保持不变；P3 由 `p3_001_photo_wall.sql` 增加审核、可见性、点赞计数、删除审计与版本，照片二进制仍在对象存储。 |
+| `t_activity_photo_like` | P3 照片点赞事实 | `photo_id + user_id` 唯一，使用 `ACTIVE/CANCELED` 复用历史关系。 |
+| `t_activity_photo_report` | P3 无自由文本举报 | 同一成员对同一照片唯一；保存枚举原因、处理状态和复审任务关联。 |
+| `t_activity_photo_audit_task` | P3 内容审核持久任务 | 保存初审/举报复审、外部 trace、重试和审核结果，是 Round 2 的 durable job。 |
 | `t_activity_todo` | 待办任务生命周期 | `todo_type`、来源、幂等 `source_key`、截止时间、任务状态和创建人；自动投票待办按 `activity_id + source_key` 唯一。 |
 | `t_activity_todo_user` | 每位成员的待办处理状态 | `todo_id`、`user_id`、待处理/完成/取消、完成时间和原因；按 `todo_id + user_id` 唯一。 |
 
@@ -78,7 +81,7 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 - 投票：用途 `GENERAL/UPDATE_ITINERARY/CREATE_ITINERARY`；类型 `SINGLE/MULTIPLE`；状态 `DRAFT/ACTIVE/CLOSED/CANCELED`；应用状态 `NOT_REQUIRED/PENDING/APPLIED/REVIEW_REQUIRED/FAILED`。
 - 费用分类：`TRANSPORT/LODGING/TICKET/FOOD/ENTERTAINMENT/SHOPPING/OTHER`。
 - 预算计算方式：`UNIT_X_QUANTITY/DIRECT_AMOUNT`；预算状态 `ACTIVE/VOID`。
-- 账单状态：`ACTIVE/VOID`；`t_activity_settlement` 的 `PENDING/COMPLETED/CANCELED` 为第二版预留；照片状态 `ACTIVE/DELETED`。
+- 账单状态：`ACTIVE/VOID`；`t_activity_settlement` 的 `PENDING/COMPLETED/CANCELED` 为第二版预留；P3 照片状态独立为业务 `ACTIVE/DELETED`、审核 `PENDING/APPROVED/REJECTED`、可见性 `NORMAL/REVIEWING/HIDDEN` 三个维度。
 
 ## 行程类型字段矩阵
 
@@ -110,9 +113,9 @@ P0 表没有物理外键，P1 延续“逻辑外键 + 索引”策略。这样�
 
 ## SQL 与执行方式
 
-- 建表 SQL：[p1_001_activity_collaboration.sql](sql/p1_001_activity_collaboration.sql)、[p1_002_activity_todo.sql](sql/p1_002_activity_todo.sql)、[p1_003_itinerary_poll_field_linkage.sql](sql/p1_003_itinerary_poll_field_linkage.sql)。
+- 建表 SQL：[p1_001_activity_collaboration.sql](sql/p1_001_activity_collaboration.sql)、[p1_002_activity_todo.sql](sql/p1_002_activity_todo.sql)、[p1_003_itinerary_poll_field_linkage.sql](sql/p1_003_itinerary_poll_field_linkage.sql)。P1 的 `t_activity_photo` 是历史基础预留，P3 扩展由 [p3_001_photo_wall.sql](sql/p3_001_photo_wall.sql) 完成。
 - 新环境：Docker MySQL 初始化顺序增加 `004-p1_itinerary_poll_field_linkage.sql`。
-- 已存在的本地开发库：依次执行 `p1_003_itinerary_poll_field_linkage.sql`、`p1_004_expense_settlement.sql`、`p1_005_activity_finance_state.sql` 和 `p1_006_expense_proportional_split.sql`。费用迁移会补齐 `split_mode`、账单作废审计、活动财务版本、新增请求幂等字段及 `split_ratio`；脚本均可重复执行且不清空已有数据。
+- 已存在的本地开发库：依次执行 `p1_003_itinerary_poll_field_linkage.sql`、`p1_004_expense_settlement.sql`、`p1_005_activity_finance_state.sql`、`p1_006_expense_proportional_split.sql` 和 `p3_001_photo_wall.sql`。P3 会为旧照片保守补齐 `PENDING + HIDDEN`，并补齐私有文件生命周期及点赞、举报、审核任务表；脚本均可重复执行且不清空已有数据。
 - 历史数据回填为显式、一次性操作：完成迁移后可设置 `PLAYMATE_TODO_BACKFILL_ON_STARTUP=true` 启动后端。它只处理进行中投票和 `REVIEW_REQUIRED` 结果，执行幂等。
 - 行程类型策略调整不修改表结构，也不新增迁移 SQL；现有 `route_detail`、`all_day` 和历史投票 JSON 全部保留。
 
