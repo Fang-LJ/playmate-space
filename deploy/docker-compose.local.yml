@@ -26,6 +26,7 @@ services:
       - ../docs/sql/p1_004_expense_settlement.sql:/docker-entrypoint-initdb.d/005-p2_expense_settlement.sql:ro
       - ../docs/sql/p1_005_activity_finance_state.sql:/docker-entrypoint-initdb.d/006-p2_activity_finance_state.sql:ro
       - ../docs/sql/p3_001_photo_wall.sql:/docker-entrypoint-initdb.d/007-p3_photo_wall.sql:ro
+      - ../docs/sql/p3_002_photo_wall_hardening.sql:/docker-entrypoint-initdb.d/008-p3_photo_wall_hardening.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
       interval: 10s

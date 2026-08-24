@@ -263,7 +263,7 @@ docker exec -i playmate-mysql sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "
   < docs/sql/p3_002_photo_wall_hardening.sql
 ```
 
-迁移不会删除数据，也不会将任何旧照片自动放行；`p3_002` 仅新增上传落库失败后的对象孤儿清理任务表。完整状态机、文件生命周期、审核可靠性、私有对象访问和 Round 2.5 API 见 [P3 照片墙设计](docs/p3-photo-wall-api-design.md)。
+迁移不会删除数据，也不会将任何旧照片自动放行；`p3_002` 仅新增上传落库失败后的对象孤儿清理任务表。新建本地数据库时，Docker 初始化会按 `007-p3_001`、`008-p3_002` 的顺序自动执行这两个迁移；已有开发库继续按上述命令前向迁移即可。完整状态机、文件生命周期、审核可靠性、私有对象访问和 Round 2.5 API 见 [P3 照片墙设计](docs/p3-photo-wall-api-design.md)。
 
 ## 文件上传验证
 
