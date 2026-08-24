@@ -24,6 +24,10 @@ public class PhotoAuditResultService {
 
     @Transactional
     public void apply(Long taskId, ContentModerationService.ModerationOutcome outcome) {
+        // 全链路固定锁序：photo -> audit_task -> report -> file。
+        ActivityPhotoAuditTaskEntity snapshot = taskMapper.selectById(taskId);
+        if (snapshot == null) return;
+        ActivityPhotoEntity photo = photoMapper.selectByIdForUpdate(snapshot.getActivityId(), snapshot.getPhotoId());
         ActivityPhotoAuditTaskEntity task = taskMapper.selectByIdForUpdate(taskId);
         if (task == null || completed(task.getStatus()) || "CANCELED".equals(task.getStatus())) return;
         LocalDateTime now = LocalDateTime.now();
@@ -32,7 +36,6 @@ public class PhotoAuditResultService {
         task.setResultCode(outcome.resultCode()); task.setResultDetail(jsonDetail(outcome.detail())); task.setCompletedAt(now); task.setUpdateTime(now);
         taskMapper.updateById(task);
 
-        ActivityPhotoEntity photo = photoMapper.selectByIdForUpdate(task.getActivityId(), task.getPhotoId());
         if (photo == null || !task.getId().equals(photo.getLatestAuditTaskId()) || !"ACTIVE".equals(photo.getStatus())) return;
         if ("INITIAL".equals(task.getScene())) {
             photo.setAuditStatus(approved ? "APPROVED" : "REJECTED");
@@ -50,12 +53,20 @@ public class PhotoAuditResultService {
         ActivityPhotoAuditTaskEntity task = taskMapper.selectByIdForUpdate(taskId);
         if (task == null || completed(task.getStatus()) || "CANCELED".equals(task.getStatus())) return;
         int attempts = task.getRetryCount() + 1;
-        long delayMinutes = attempts == 1 ? 1 : attempts == 2 ? 5 : attempts == 3 ? 15 : 30;
         LocalDateTime now = LocalDateTime.now();
-        task.setStatus("RETRY_WAIT"); task.setRetryCount(attempts); task.setNextRetryTime(now.plusMinutes(delayMinutes));
+        task.setStatus("RETRY_WAIT"); task.setRetryCount(attempts); task.setNextRetryTime(now.plusMinutes(backoffMinutes(attempts)));
         task.setProviderTraceId(outcome.providerTraceId()); task.setResultCode(outcome.resultCode()); task.setLastError(outcome.detail()); task.setUpdateTime(now);
         taskMapper.updateById(task);
     }
+
+    @Transactional
+    public void recoverTimedOutSubmission(ActivityPhotoAuditTaskEntity task, LocalDateTime threshold, LocalDateTime now) {
+        if (task == null || task.getRetryCount() == null) return;
+        int attempts = task.getRetryCount() + 1;
+        taskMapper.recoverTimedOutSubmission(task.getId(), threshold, now.plusMinutes(backoffMinutes(attempts)), now);
+    }
+
+    private long backoffMinutes(int attempts) { return attempts == 1 ? 1 : attempts == 2 ? 5 : attempts == 3 ? 15 : 30; }
 
     private boolean completed(String status) { return "APPROVED".equals(status) || "REJECTED".equals(status); }
 

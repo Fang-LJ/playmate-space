@@ -188,7 +188,8 @@ public class ActivityService {
         requireCreatorMember(activityId, userId, activity);
 
         financeStateService.ensureAndLock(activityId);
-        activity = getExistingActivity(activityId);
+        activity = activityMapper.selectByIdForUpdate(activityId);
+        if (activity == null) throw new NotFoundException("活动不存在");
         ActivityMemberEntity member = requireCreatorMember(activityId, userId, activity);
 
         if (STATUS_ENDED.equals(activity.getStatus())) {

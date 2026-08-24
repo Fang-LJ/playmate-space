@@ -11,6 +11,7 @@ public class PhotoProperties {
     private Duration tempTtl = Duration.ofHours(24);
     private Duration presignedTtl = Duration.ofMinutes(20);
     private Duration auditPollDelay = Duration.ofSeconds(10);
+    private Duration auditSubmittedTimeout = Duration.ofMinutes(10);
     private int thumbnailMaxEdge = 600;
     private int previewMaxEdge = 1800;
     private int maxWidth = 6000;
@@ -23,6 +24,7 @@ public class PhotoProperties {
     public Duration getTempTtl(){return tempTtl;} public void setTempTtl(Duration v){tempTtl=v;}
     public Duration getPresignedTtl(){return presignedTtl;} public void setPresignedTtl(Duration v){presignedTtl=v;}
     public Duration getAuditPollDelay(){return auditPollDelay;} public void setAuditPollDelay(Duration v){auditPollDelay=v;}
+    public Duration getAuditSubmittedTimeout(){return auditSubmittedTimeout;} public void setAuditSubmittedTimeout(Duration v){auditSubmittedTimeout=v;}
     public int getThumbnailMaxEdge(){return thumbnailMaxEdge;} public void setThumbnailMaxEdge(int v){thumbnailMaxEdge=v;}
     public int getPreviewMaxEdge(){return previewMaxEdge;} public void setPreviewMaxEdge(int v){previewMaxEdge=v;}
     public int getMaxWidth(){return maxWidth;} public void setMaxWidth(int v){maxWidth=v;}

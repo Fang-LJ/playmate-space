@@ -1,8 +1,8 @@
-# P3 照片墙 Round 2 后端实现
+# P3 照片墙 Round 2.5 后端实现
 
 ## 边界、权限与表关系
 
-Round 2 已实现照片墙后端：私有 PHOTO 上传与派生图、活动照片接口、点赞、举报、持久审核任务、Mock 审核、短时效访问 URL 和对象清理任务。本轮不包含小程序 UI，也不接入真实微信内容安全生产凭据。
+Round 2.5 完成照片墙后端安全收口：私有 PHOTO 上传与派生图、活动照片接口、并发安全点赞、举报、持久审核任务、审核超时恢复、短时效访问 URL 和对象清理任务。本轮不包含小程序 UI，也不接入真实微信内容安全生产凭据。
 
 照片墙完全复用活动访问权限：能够访问活动的 `ACTIVE` 成员即可查看活动照片墙，不新增 photo ACL 或成员权限表。未来上传按活动成员写权限判断；仅上传者本人或活动创建者可删除。删除采用业务软删除：照片记为 `DELETED`，记录 `deleted_by/deleted_at`；文件记为 `DELETING`，对象存储删除留给后台任务。
 
@@ -37,7 +37,7 @@ TEMP -> BOUND -> DELETING -> DELETED
 
 `TEMP` 是已上传未绑定的私有 PHOTO 文件，设置 `expire_at` 供清理孤儿对象；绑定照片后为 `BOUND`，记录 `bound_at` 且清空 `expire_at`。审核失败照片仍可保持 `BOUND`，由后续清理策略决定是否真正删除对象。
 
-初审事务只创建/绑定照片和 `INITIAL + PENDING` 的持久审核任务后提交。提交外部审核失败写 `RETRY_WAIT`、重试次数、下次时间和错误；后台扫描 `PENDING/RETRY_WAIT` 后重试。`t_activity_photo_audit_task` 因此就是 durable job：应用在事务提交后宕机也不会丢任务，不需要 RabbitMQ，也不会把外部网络调用放进数据库事务。
+初审事务只创建/绑定照片和 `INITIAL + PENDING` 的持久审核任务后提交。提交外部审核失败写 `RETRY_WAIT`、重试次数、下次时间和错误；后台扫描 `PENDING/RETRY_WAIT` 后重试。`SUBMITTED` 超过默认 10 分钟会以原子条件更新回收为 `RETRY_WAIT`，绝不会默认放行。未知 provider 一律 fail closed 为 `PROVIDER_NOT_FOUND`，不会回退 MOCK。`t_activity_photo_audit_task` 因此就是 durable job：应用在事务提交后宕机也不会丢任务，不需要 RabbitMQ，也不会把外部网络调用放进数据库事务。
 
 任何可访问成员举报后，照片 `NORMAL -> REVIEWING`，创建唯一举报和 `REPORT_RECHECK` 任务；二审通过将举报置 `DISMISSED` 并恢复 `NORMAL`，拒绝则举报为 `CONFIRMED` 且照片为 `REJECTED + HIDDEN`。该保守策略优先安全，恶意举报阈值/信誉/人工复核留给后续版本。
 
@@ -49,7 +49,7 @@ PHOTO 上传为 `PRIVATE + TEMP`。业务层只能通过 `fileId -> FileStorageS
 
 原图为 `object_key`，快速预览为 `preview_object_key`，网格缩略图为 `thumb_object_key`。照片墙加载 thumbnail，点击后用 preview，明确点击“查看原图”才返回短时效原图 presigned URL。历史 `url/thumb_url` 保持兼容公开文件。
 
-上传会校验文件大小、magic bytes、实际解码、宽高、像素总量以及声明 MIME 与实际类型的一致性；解析出的宽高、内容类型和扩展名写入 `t_file`。JPG/JPEG 与 PNG 已由 Java 标准库安全解码并生成派生图；当前默认依赖没有可靠 WebP 解码器，因此 PHOTO 暂时明确拒绝 WebP（不会伪装为已验证）。GIF、SVG、HEIC、BMP 也不支持。EXIF Orientation 未做变换，拍照方向校正列为后续图像库评估项。
+上传会校验文件大小、magic bytes、图片头宽高、像素总量、实际解码及声明 MIME 与实际类型的一致性；解析出的展示宽高、内容类型和扩展名写入 `t_file`。JPEG 的 EXIF Orientation 1-8 会在缩略图和预览图生成前纠正。PHOTO 只接受 JPEG/PNG，WebP、GIF、SVG、HEIC、BMP 均明确拒绝；其他既有 fileType 的兼容规则不变。
 
 ## Round 2 API 契约
 
@@ -81,12 +81,12 @@ PHOTO 上传为 `PRIVATE + TEMP`。业务层只能通过 `fileId -> FileStorageS
 | `thumbnail-max-edge` | `600` | 缩略图最长边。 |
 | `preview-max-edge` | `1800` | 预览图最长边。 |
 | `max-width/max-height/max-pixels` | `6000/6000/24000000` | 图片真实性校验尺寸上限。 |
-| `audit-poll-delay/cleanup-poll-delay` | `10s/1m` | 审核任务及文件清理扫描周期。 |
+| `audit-poll-delay/cleanup-poll-delay/audit-submitted-timeout` | `10s/1m/10m` | 审核任务、文件清理扫描周期及 SUBMITTED 超时回收阈值。 |
 | `moderation-provider` | `mock` | `mock` 可用于本地验证；`wechat` 当前只会安全失败并进入重试。 |
 | `mock-result` | `APPROVE` | 可切换为 `REJECT` 或 `ERROR` 验证审核分支。 |
 
 审核任务用数据库原子状态更新抢占：`PENDING/RETRY_WAIT -> SUBMITTED`。Mock 会立即返回结果；WeChat adapter 尚未配置正式 AppID、Secret、回调协议时只返回错误，照片保持 fail-closed，并按 `1/5/15/30` 分钟退避重试，不会默认放行。真实微信请求与 callback 签名/协议须在上线联调时按当期微信官方文档补齐。
 
-删除不会在数据库事务中调用对象存储：照片软删除后将文件设为 `DELETING`，`FileCleanupJob` 异步删除 original、preview、thumbnail；任一对象删除失败就保留 `DELETING`，下一轮重试。过期 `TEMP` 文件走同一清理路径。
+删除不会在数据库事务中调用对象存储：照片软删除后将文件设为 `DELETING`，`FileCleanupJob` 异步删除 original、preview、thumbnail；任一对象删除失败就保留 `DELETING`，下一轮重试。过期 `TEMP` 文件走同一清理路径。若对象已上传但 `t_file` 短事务落库失败，会记录到 `t_file_orphan_cleanup_task` 持久重试，防止未登记对象成为永久孤儿。
 
 活动已取消时拒绝新的照片绑定；未结束和已结束活动的有效成员均可上传。所有读取接口重用 `ActivityCollaborationAccess`，非上传者只能访问 `ACTIVE + APPROVED + NORMAL` 照片。

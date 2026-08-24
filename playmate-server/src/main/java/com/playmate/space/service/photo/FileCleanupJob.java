@@ -19,17 +19,20 @@ public class FileCleanupJob {
     private final FileMapper fileMapper;
     private final FileStorageService storage;
     private final PhotoProperties properties;
+    private final OrphanStorageCleanupService orphanStorageCleanupService;
 
-    public FileCleanupJob(FileMapper fileMapper, FileStorageService storage, PhotoProperties properties) {
+    public FileCleanupJob(FileMapper fileMapper, FileStorageService storage, PhotoProperties properties, OrphanStorageCleanupService orphanStorageCleanupService) {
         this.fileMapper = fileMapper;
         this.storage = storage;
         this.properties = properties;
+        this.orphanStorageCleanupService = orphanStorageCleanupService;
     }
 
     @Scheduled(fixedDelayString = "${playmate.photo.cleanup-poll-delay:60000}")
     public void cleanup() {
         LocalDateTime now = LocalDateTime.now();
         fileMapper.selectCleanupCandidates(now, properties.getCleanupBatchSize()).forEach(file -> cleanup(file, now));
+        orphanStorageCleanupService.cleanupDue(properties.getCleanupBatchSize());
     }
 
     void cleanup(FileEntity candidate, LocalDateTime now) {

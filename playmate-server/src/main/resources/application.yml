@@ -54,6 +54,7 @@ playmate:
     audit-batch-size: ${PLAYMATE_PHOTO_AUDIT_BATCH_SIZE:20}
     cleanup-batch-size: ${PLAYMATE_PHOTO_CLEANUP_BATCH_SIZE:50}
     audit-poll-delay: ${PLAYMATE_PHOTO_AUDIT_POLL_DELAY:10000}
+    audit-submitted-timeout: ${PLAYMATE_PHOTO_AUDIT_SUBMITTED_TIMEOUT:10m}
     cleanup-poll-delay: ${PLAYMATE_PHOTO_CLEANUP_POLL_DELAY:60000}
     moderation-provider: ${PLAYMATE_PHOTO_MODERATION_PROVIDER:mock}
     mock-result: ${PLAYMATE_PHOTO_MOCK_RESULT:APPROVE}

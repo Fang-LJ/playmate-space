@@ -36,6 +36,22 @@ class PhotoImageProcessorTest {
         assertThrows(BusinessException.class, () -> new PhotoImageProcessor(new PhotoProperties()).process(new byte[]{1, 2, 3}, "image/png"));
     }
 
+    @Test
+    void rotatesDisplayPixelsForExifOrientationSix() {
+        BufferedImage source = new BufferedImage(2, 3, BufferedImage.TYPE_INT_RGB);
+        source.setRGB(0, 0, 0xFF0000);
+        BufferedImage result = PhotoImageProcessor.applyOrientation(source, 6);
+        assertEquals(3, result.getWidth());
+        assertEquals(2, result.getHeight());
+        assertEquals(0xFF0000, result.getRGB(2, 0) & 0xFFFFFF);
+    }
+
+    @Test
+    void rejectsOverLimitBeforeFullDecode() throws Exception {
+        PhotoProperties properties = new PhotoProperties(); properties.setMaxWidth(10);
+        assertThrows(BusinessException.class, () -> new PhotoImageProcessor(properties).process(png(11, 1), "image/png"));
+    }
+
     private byte[] png(int width, int height) throws Exception {
         BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {

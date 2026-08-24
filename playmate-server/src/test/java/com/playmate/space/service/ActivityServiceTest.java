@@ -50,6 +50,7 @@ class ActivityServiceTest {
         ActivityEntity beforeLock = activity("PLANNING");
         ActivityEntity afterLock = activity("PLANNING");
         when(activityMapper.selectById(ACTIVITY_ID)).thenReturn(beforeLock, afterLock);
+        when(activityMapper.selectByIdForUpdate(ACTIVITY_ID)).thenReturn(afterLock);
         when(activityMemberMapper.selectOne(any())).thenReturn(creatorMember());
 
         var result = service.cancelActivity(ACTIVITY_ID);
@@ -59,7 +60,7 @@ class ActivityServiceTest {
         order.verify(activityMapper).selectById(ACTIVITY_ID);
         order.verify(activityMemberMapper).selectOne(any());
         order.verify(financeStateService).ensureAndLock(ACTIVITY_ID);
-        order.verify(activityMapper).selectById(ACTIVITY_ID);
+        order.verify(activityMapper).selectByIdForUpdate(ACTIVITY_ID);
         order.verify(activityMemberMapper).selectOne(any());
         order.verify(activityMapper).updateById(afterLock);
         order.verify(todoLifecycleService).cancelActivityPendingTodos(ACTIVITY_ID);
@@ -69,6 +70,7 @@ class ActivityServiceTest {
     @Test
     void cancelRejectsWhenLatestActivityReadAfterLockIsAlreadyCanceled() {
         when(activityMapper.selectById(ACTIVITY_ID)).thenReturn(activity("PLANNING"), activity("CANCELED"));
+        when(activityMapper.selectByIdForUpdate(ACTIVITY_ID)).thenReturn(activity("CANCELED"));
         when(activityMemberMapper.selectOne(any())).thenReturn(creatorMember());
 
         BusinessException error = assertThrows(BusinessException.class, () -> service.cancelActivity(ACTIVITY_ID));
@@ -78,7 +80,7 @@ class ActivityServiceTest {
         order.verify(activityMapper).selectById(ACTIVITY_ID);
         order.verify(activityMemberMapper).selectOne(any());
         order.verify(financeStateService).ensureAndLock(ACTIVITY_ID);
-        order.verify(activityMapper).selectById(ACTIVITY_ID);
+        order.verify(activityMapper).selectByIdForUpdate(ACTIVITY_ID);
         order.verify(activityMemberMapper).selectOne(any());
         verify(activityMapper, never()).updateById(any(ActivityEntity.class));
         verify(todoLifecycleService, never()).cancelActivityPendingTodos(anyLong());
@@ -88,6 +90,7 @@ class ActivityServiceTest {
     @Test
     void cancelUsesFinanceLockForActivityWithoutExistingExpenseState() {
         when(activityMapper.selectById(ACTIVITY_ID)).thenReturn(activity("PLANNING"), activity("PLANNING"));
+        when(activityMapper.selectByIdForUpdate(ACTIVITY_ID)).thenReturn(activity("PLANNING"));
         when(activityMemberMapper.selectOne(any())).thenReturn(creatorMember());
 
         service.cancelActivity(ACTIVITY_ID);

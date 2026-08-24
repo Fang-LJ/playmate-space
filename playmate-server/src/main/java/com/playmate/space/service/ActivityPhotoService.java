@@ -13,7 +13,6 @@ import com.playmate.space.service.photo.PhotoProperties;
 import com.playmate.space.storage.FileStorageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,13 +23,13 @@ import java.util.stream.Collectors;
 @Service
 public class ActivityPhotoService {
     private static final Logger log = LoggerFactory.getLogger(ActivityPhotoService.class);
-    private final ActivityCollaborationAccess access; private final ActivityPhotoMapper photoMapper; private final ActivityPhotoLikeMapper likeMapper;
+    private final ActivityCollaborationAccess access; private final ActivityMapper activityMapper; private final ActivityPhotoMapper photoMapper; private final ActivityPhotoLikeMapper likeMapper;
     private final ActivityPhotoReportMapper reportMapper; private final ActivityPhotoAuditTaskMapper taskMapper; private final FileMapper fileMapper;
     private final ActivityMemberDisplayService memberDisplayService; private final FileStorageService storage; private final PhotoProperties properties;
-    public ActivityPhotoService(ActivityCollaborationAccess access, ActivityPhotoMapper photoMapper, ActivityPhotoLikeMapper likeMapper,
+    public ActivityPhotoService(ActivityCollaborationAccess access, ActivityMapper activityMapper, ActivityPhotoMapper photoMapper, ActivityPhotoLikeMapper likeMapper,
                                 ActivityPhotoReportMapper reportMapper, ActivityPhotoAuditTaskMapper taskMapper, FileMapper fileMapper,
                                 ActivityMemberDisplayService memberDisplayService, FileStorageService storage, PhotoProperties properties) {
-        this.access=access; this.photoMapper=photoMapper; this.likeMapper=likeMapper; this.reportMapper=reportMapper; this.taskMapper=taskMapper;
+        this.access=access; this.activityMapper=activityMapper; this.photoMapper=photoMapper; this.likeMapper=likeMapper; this.reportMapper=reportMapper; this.taskMapper=taskMapper;
         this.fileMapper=fileMapper; this.memberDisplayService=memberDisplayService; this.storage=storage; this.properties=properties;
     }
 
@@ -79,7 +78,9 @@ public class ActivityPhotoService {
 
     @Transactional
     public List<CreatePhotoResultResponse> create(Long activityId, CreatePhotosRequest request) {
-        Long userId = access.requireUserId(); ActivityEntity activity = access.requireActivity(activityId); access.requireActiveMember(activityId, userId);
+        Long userId = access.requireUserId(); access.requireActivity(activityId); access.requireActiveMember(activityId, userId);
+        ActivityEntity activity = activityMapper.selectByIdForUpdate(activityId);
+        if (activity == null) throw new NotFoundException("活动不存在");
         requirePhotoWritable(activity); if (request.fileIds().stream().distinct().count() != request.fileIds().size()) throw param("fileIds 不能重复");
         LocalDateTime now = LocalDateTime.now(); List<CreatePhotoResultResponse> results = new ArrayList<>();
         for (Long fileId : request.fileIds().stream().sorted().toList()) {
@@ -112,13 +113,14 @@ public class ActivityPhotoService {
     private void changeLike(Long activityId, Long photoId, boolean desiredActive) {
         Long userId = access.requireUserId(); access.requireActivity(activityId); access.requireActiveMember(activityId, userId);
         ActivityPhotoEntity photo = requirePhotoForUpdate(activityId, photoId); if (!normal(photo)) throw new ForbiddenException("该照片当前不可点赞");
-        ActivityPhotoLikeEntity relation = likeMapper.selectOne(new LambdaQueryWrapper<ActivityPhotoLikeEntity>().eq(ActivityPhotoLikeEntity::getPhotoId, photoId).eq(ActivityPhotoLikeEntity::getUserId, userId).last("LIMIT 1"));
         LocalDateTime now = LocalDateTime.now();
-        if (desiredActive && relation == null) {
-            relation = new ActivityPhotoLikeEntity(); relation.setActivityId(activityId); relation.setPhotoId(photoId); relation.setUserId(userId); relation.setStatus("ACTIVE"); relation.setLikedAt(now); relation.setCreateTime(now); relation.setUpdateTime(now); relation.setDeleteFlag(0);
-            try { likeMapper.insert(relation); photoMapper.incrementLikeCount(photoId, now); } catch (DuplicateKeyException ignored) { /* concurrent request is idempotent */ }
-        } else if (desiredActive && "CANCELED".equals(relation.getStatus())) { relation.setStatus("ACTIVE"); relation.setLikedAt(now); relation.setUpdateTime(now); likeMapper.updateById(relation); photoMapper.incrementLikeCount(photoId, now); }
-        else if (!desiredActive && relation != null && "ACTIVE".equals(relation.getStatus())) { relation.setStatus("CANCELED"); relation.setCanceledAt(now); relation.setUpdateTime(now); likeMapper.updateById(relation); photoMapper.decrementLikeCount(photoId, now); }
+        if (desiredActive) {
+            int changed = likeMapper.insertIfAbsent(activityId, photoId, userId, now);
+            if (changed == 0) changed = likeMapper.reactivateIfCanceled(photoId, userId, now);
+            if (changed == 1) photoMapper.incrementLikeCount(photoId, now);
+        } else if (likeMapper.cancelIfActive(photoId, userId, now) == 1) {
+            photoMapper.decrementLikeCount(photoId, now);
+        }
     }
 
     @Transactional

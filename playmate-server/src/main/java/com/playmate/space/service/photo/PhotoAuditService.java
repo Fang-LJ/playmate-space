@@ -29,16 +29,29 @@ public class PhotoAuditService {
     public void processDueTasks() {
         LocalDateTime now = LocalDateTime.now();
         taskMapper.selectDueTasks(now, properties.getAuditBatchSize()).forEach(task -> process(task.getId(), now));
+        LocalDateTime submittedThreshold = now.minus(properties.getAuditSubmittedTimeout());
+        taskMapper.selectTimedOutSubmittedTasks(submittedThreshold, properties.getAuditBatchSize())
+                .forEach(task -> resultService.recoverTimedOutSubmission(task, submittedThreshold, now));
     }
     public void process(Long taskId, LocalDateTime now) {
         if (taskMapper.claimForSubmission(taskId, now) != 1) return;
         ActivityPhotoAuditTaskEntity task = taskMapper.selectById(taskId);
         ActivityPhotoEntity photo = task == null ? null : photoMapper.selectById(task.getPhotoId());
         FileEntity file = photo == null ? null : fileMapper.selectById(photo.getFileId());
-        ContentModerationService service = providers.getOrDefault((task == null ? "" : task.getProvider()).toUpperCase(), providers.get("MOCK"));
-        ContentModerationService.ModerationOutcome outcome = file == null || service == null
-                ? new ContentModerationService.ModerationOutcome(ContentModerationService.ModerationOutcome.Type.ERROR, null, "FILE_OR_PROVIDER_NOT_FOUND", "审核文件或提供方不存在")
-                : service.submitImage(task, file);
+        ContentModerationService service = task == null || task.getProvider() == null ? null : providers.get(task.getProvider().toUpperCase());
+        ContentModerationService.ModerationOutcome outcome;
+        if (file == null) {
+            outcome = new ContentModerationService.ModerationOutcome(ContentModerationService.ModerationOutcome.Type.ERROR, null, "FILE_NOT_FOUND", "审核文件不存在");
+        } else if (service == null) {
+            outcome = new ContentModerationService.ModerationOutcome(ContentModerationService.ModerationOutcome.Type.ERROR, null, "PROVIDER_NOT_FOUND", "审核提供方不存在");
+        } else {
+            try {
+                outcome = service.submitImage(task, file);
+            } catch (RuntimeException exception) {
+                outcome = new ContentModerationService.ModerationOutcome(ContentModerationService.ModerationOutcome.Type.ERROR, null,
+                        "PROVIDER_CALL_FAILED", exception.getMessage());
+            }
+        }
         try {
             if (outcome.type() == ContentModerationService.ModerationOutcome.Type.APPROVED || outcome.type() == ContentModerationService.ModerationOutcome.Type.REJECTED) resultService.apply(taskId, outcome);
             else if (outcome.type() == ContentModerationService.ModerationOutcome.Type.ERROR) resultService.retry(taskId, outcome);

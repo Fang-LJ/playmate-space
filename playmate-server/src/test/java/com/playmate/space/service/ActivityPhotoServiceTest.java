@@ -8,6 +8,7 @@ import com.playmate.space.entity.ActivityPhotoAuditTaskEntity;
 import com.playmate.space.entity.ActivityPhotoEntity;
 import com.playmate.space.entity.FileEntity;
 import com.playmate.space.mapper.ActivityPhotoAuditTaskMapper;
+import com.playmate.space.mapper.ActivityMapper;
 import com.playmate.space.mapper.ActivityPhotoLikeMapper;
 import com.playmate.space.mapper.ActivityPhotoMapper;
 import com.playmate.space.mapper.ActivityPhotoReportMapper;
@@ -32,6 +33,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ActivityPhotoServiceTest {
@@ -40,6 +42,7 @@ class ActivityPhotoServiceTest {
     private static final Long USER_B = 2L;
 
     @Mock private ActivityCollaborationAccess access;
+    @Mock private ActivityMapper activityMapper;
     @Mock private ActivityPhotoMapper photoMapper;
     @Mock private ActivityPhotoLikeMapper likeMapper;
     @Mock private ActivityPhotoReportMapper reportMapper;
@@ -52,7 +55,7 @@ class ActivityPhotoServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ActivityPhotoService(access, photoMapper, likeMapper, reportMapper, taskMapper, fileMapper,
+        service = new ActivityPhotoService(access, activityMapper, photoMapper, likeMapper, reportMapper, taskMapper, fileMapper,
                 displayService, storage, new PhotoProperties());
         ActivityEntity activity = new ActivityEntity();
         activity.setId(ACTIVITY_ID);
@@ -60,6 +63,7 @@ class ActivityPhotoServiceTest {
         activity.setStatus("ONGOING");
         when(access.requireUserId()).thenReturn(USER_A);
         when(access.requireActivity(ACTIVITY_ID)).thenReturn(activity);
+        lenient().when(activityMapper.selectByIdForUpdate(ACTIVITY_ID)).thenReturn(activity);
     }
 
     @Test
@@ -141,7 +145,7 @@ class ActivityPhotoServiceTest {
     void repeatedLikeDoesNotIncrementCountTwice() {
         ActivityPhotoEntity photo = normalPhoto(100L);
         when(photoMapper.selectByIdForUpdate(ACTIVITY_ID, 100L)).thenReturn(photo);
-        when(likeMapper.selectOne(any())).thenReturn(null);
+        when(likeMapper.insertIfAbsent(eq(ACTIVITY_ID), eq(100L), eq(USER_A), any())).thenReturn(1);
 
         service.like(ACTIVITY_ID, 100L);
 

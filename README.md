@@ -6,7 +6,7 @@
 
 P0-001 到 P0-027 已完成。P0.5 用户中心、登录注册、我的页和 P0 页面体验收尾已完成：平台账号与微信身份绑定、手机号 / 邮箱密码登录、个人资料、登录页、我的页及未登录状态均已完成本轮整理。
 
-P1 行程 × 投票协作闭环、字段级结果应用和动态待办中心已经具备。第一版关联已有行程只开放 `FULL_PLAN` 完整方案投票。P2 第一版费用与 AA 已完成并冻结：支持单付款人账单、均摊/自定义金额/按比例分摊、账单作废、付款凭证和实时 AA 建议；第一版不追踪线下转账完成状态。P3 照片墙 Round 2 后端已完成：支持私有 TEMP PHOTO 上传、缩略图/预览图、活动照片绑定与访问、点赞/举报、持久审核任务、短时效 URL 和对象清理；小程序照片墙 UI 与真实微信内容安全联调留在后续轮次。
+P1 行程 × 投票协作闭环、字段级结果应用和动态待办中心已经具备。第一版关联已有行程只开放 `FULL_PLAN` 完整方案投票。P2 第一版费用与 AA 已完成并冻结：支持单付款人账单、均摊/自定义金额/按比例分摊、账单作废、付款凭证和实时 AA 建议；第一版不追踪线下转账完成状态。P3 照片墙 Round 2.5 后端安全收口已完成：支持私有 TEMP PHOTO 上传、预解码尺寸校验、EXIF 方向纠正派生图、活动照片绑定与访问、并发安全点赞/举报、持久审核任务与超时恢复、短时效 URL，以及可持久重试的对象孤儿清理；小程序照片墙 UI 与真实微信内容安全联调留在后续轮次。
 
 ## 技术栈
 
@@ -171,7 +171,7 @@ P0.5 账号体系已调整为：
 
 ## 下一步
 
-- P3 后续：完成照片墙小程序 UI、真实微信内容安全凭据/回调联调，并评估支持 EXIF 方向校正与 WebP 安全解码。
+- P3 后续：完成照片墙小程序 UI、真实微信内容安全凭据/回调联调；PHOTO 仍只接受 JPEG/PNG，WebP 安全解码另行评估。
 - 费用账单列表后续增加分页和触底加载；真实微信转账及转账状态继续留在后续版本。
 
 ## P1 行程与投票联调
@@ -252,16 +252,18 @@ bash scripts/p2-expense-settlement-smoke-test.sh
 bash scripts/p2-expense-redis-smoke-test.sh
 ```
 
-## P3 照片墙 Round 2
+## P3 照片墙 Round 2.5
 
-P3 Round 2 已实现照片墙后端接口、私有文件生命周期、审核状态机、点赞举报、短时效访问和后台清理；本轮尚未开放小程序照片墙 UI。已有本地开发库可安全、重复执行：
+P3 Round 2.5 完成照片墙后端安全收口：预解码图片限制、EXIF 方向校正、审核 fail-closed 与超时恢复、并发安全点赞、活动取消串行化和持久对象孤儿清理；本轮尚未开放小程序照片墙 UI。已有本地开发库可安全、重复执行：
 
 ```bash
 docker exec -i playmate-mysql sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' \
   < docs/sql/p3_001_photo_wall.sql
+docker exec -i playmate-mysql sh -c 'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' \
+  < docs/sql/p3_002_photo_wall_hardening.sql
 ```
 
-迁移会为旧照片保守补齐 `audit_status=PENDING` 和 `visibility_status=HIDDEN`，不会将任何旧照片自动放行，也不会删除数据。完整状态机、文件生命周期、审核可靠性、私有对象访问和 Round 2 API 见 [P3 照片墙设计](docs/p3-photo-wall-api-design.md)。
+迁移不会删除数据，也不会将任何旧照片自动放行；`p3_002` 仅新增上传落库失败后的对象孤儿清理任务表。完整状态机、文件生命周期、审核可靠性、私有对象访问和 Round 2.5 API 见 [P3 照片墙设计](docs/p3-photo-wall-api-design.md)。
 
 ## 文件上传验证
 

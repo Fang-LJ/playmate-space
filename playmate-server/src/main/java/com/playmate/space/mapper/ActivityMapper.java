@@ -12,6 +12,9 @@ import java.util.List;
 
 public interface ActivityMapper extends BaseMapper<ActivityEntity> {
 
+    @Select("SELECT * FROM t_activity WHERE id = #{activityId} AND delete_flag = 0 FOR UPDATE")
+    ActivityEntity selectByIdForUpdate(@Param("activityId") Long activityId);
+
     @Select("""
             SELECT
               a.id AS activityId,

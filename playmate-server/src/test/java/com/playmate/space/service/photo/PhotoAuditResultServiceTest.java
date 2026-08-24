@@ -28,6 +28,7 @@ class PhotoAuditResultServiceTest {
     void initialApprovalMakesLatestActivePhotoVisibleAndStoresJsonDetail() {
         ActivityPhotoAuditTaskEntity task = task(10L, "INITIAL");
         ActivityPhotoEntity photo = photo(10L);
+        when(taskMapper.selectById(10L)).thenReturn(task);
         when(taskMapper.selectByIdForUpdate(10L)).thenReturn(task);
         when(photoMapper.selectByIdForUpdate(1L, 2L)).thenReturn(photo);
 
@@ -44,6 +45,7 @@ class PhotoAuditResultServiceTest {
         ActivityPhotoAuditTaskEntity task = task(10L, "REPORT_RECHECK");
         ActivityPhotoEntity photo = photo(10L);
         photo.setAuditStatus("APPROVED"); photo.setVisibilityStatus("REVIEWING");
+        when(taskMapper.selectById(10L)).thenReturn(task);
         when(taskMapper.selectByIdForUpdate(10L)).thenReturn(task);
         when(photoMapper.selectByIdForUpdate(1L, 2L)).thenReturn(photo);
 
@@ -59,6 +61,7 @@ class PhotoAuditResultServiceTest {
     void delayedOldTaskCannotOverwriteNewerPhotoState() {
         ActivityPhotoAuditTaskEntity task = task(10L, "INITIAL");
         ActivityPhotoEntity photo = photo(11L);
+        when(taskMapper.selectById(10L)).thenReturn(task);
         when(taskMapper.selectByIdForUpdate(10L)).thenReturn(task);
         when(photoMapper.selectByIdForUpdate(1L, 2L)).thenReturn(photo);
 

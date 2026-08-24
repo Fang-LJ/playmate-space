@@ -8,10 +8,11 @@ import com.playmate.space.entity.FileEntity;
 import com.playmate.space.mapper.FileMapper;
 import com.playmate.space.storage.FileStorageService;
 import com.playmate.space.service.photo.PhotoImageProcessor;
+import com.playmate.space.service.photo.PhotoFilePersistenceService;
+import com.playmate.space.service.photo.OrphanStorageCleanupService;
 import com.playmate.space.service.photo.PhotoProperties;
 import com.playmate.space.vo.FileUploadResponse;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -45,16 +46,20 @@ public class FileService {
     private final FileStorageService fileStorageService;
     private final PhotoImageProcessor photoImageProcessor;
     private final PhotoProperties photoProperties;
+    private final PhotoFilePersistenceService photoFilePersistenceService;
+    private final OrphanStorageCleanupService orphanStorageCleanupService;
 
     public FileService(FileMapper fileMapper, FileStorageService fileStorageService, PhotoImageProcessor photoImageProcessor,
-                       PhotoProperties photoProperties) {
+                       PhotoProperties photoProperties, PhotoFilePersistenceService photoFilePersistenceService,
+                       OrphanStorageCleanupService orphanStorageCleanupService) {
         this.fileMapper = fileMapper;
         this.fileStorageService = fileStorageService;
         this.photoImageProcessor = photoImageProcessor;
         this.photoProperties = photoProperties;
+        this.photoFilePersistenceService = photoFilePersistenceService;
+        this.orphanStorageCleanupService = orphanStorageCleanupService;
     }
 
-    @Transactional
     public FileUploadResponse upload(MultipartFile file, String fileType) {
         Long userId = LoginUserContext.getUserId();
         if (userId == null) {
@@ -87,7 +92,6 @@ public class FileService {
         return buildResponse(entity);
     }
 
-    @Transactional
     private FileUploadResponse uploadPhoto(MultipartFile file, Long userId) {
         if (file == null || file.isEmpty()) throw param("上传文件不能为空");
         if (file.getSize() > MAX_FILE_SIZE) throw param("文件大小不能超过 5MB");
@@ -110,10 +114,10 @@ public class FileService {
             entity.setAccessLevel("PRIVATE"); entity.setLifecycleStatus("TEMP"); entity.setStorageProvider("MINIO");
             entity.setWidth(image.width()); entity.setHeight(image.height()); entity.setThumbObjectKey(thumbnailKey); entity.setPreviewObjectKey(previewKey);
             entity.setExpireAt(now.plus(photoProperties.getTempTtl())); entity.setCreateTime(now); entity.setUpdateTime(now); entity.setDeleteFlag(0);
-            fileMapper.insert(entity);
+            photoFilePersistenceService.insert(entity);
             return buildResponse(entity);
         } catch (RuntimeException exception) {
-            deleteBestEffort(uploaded);
+            orphanStorageCleanupService.recordAndCleanup(uploaded, "PHOTO_FILE_INSERT_FAILED");
             throw exception;
         }
     }
@@ -126,12 +130,6 @@ public class FileService {
     private String derivedObjectKey(String originalKey, String kind) {
         int dot = originalKey.lastIndexOf('.');
         return originalKey.substring(0, dot) + "-" + kind + originalKey.substring(dot);
-    }
-
-    private void deleteBestEffort(java.util.List<FileStorageService.StoredFile> files) { files.forEach(this::deleteObjectBestEffort); }
-    private void deleteObjectBestEffort(FileStorageService.StoredFile file) {
-        try { fileStorageService.delete(file.bucketName(), file.objectKey()); }
-        catch (RuntimeException ignored) { /* orphan cleanup will retry if an object-store delete fails */ }
     }
 
     private void validateFileType(String fileType) {
@@ -180,7 +178,7 @@ public class FileService {
     }
 
     private String generateObjectKey(String fileType, Long userId, String extension) {
-        String prefix = FILE_TYPE_USER_AVATAR.equals(fileType) ? "avatars" : "files";
+        String prefix = FILE_TYPE_USER_AVATAR.equals(fileType) ? "avatars" : FILE_TYPE_PHOTO.equals(fileType) ? "temp/photos" : "files";
         return prefix + "/" + LocalDate.now().format(DATE_FORMATTER)
                 + "/" + userId
                 + "/" + UUID.randomUUID()
