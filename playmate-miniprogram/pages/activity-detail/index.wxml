@@ -141,6 +141,16 @@
       </view>
       <view wx:if="{{expenseSummary&&expenseSummary.expenseCount&&!activity.isReadonly}}" class="cost-actions cost-actions-fixed"><view class="pm-button-like secondary cost-action" bindtap="newExpense">记一笔</view><view class="pm-button-like primary cost-action" bindtap="goExpenses">进入费用详情</view></view>
     </view>
-    <view wx:if="{{activeTab==='PHOTOS'}}" class="section card empty-card"><view class="section-title">照片墙将在后续阶段开放</view></view>
+    <view wx:if="{{activeTab==='PHOTOS'}}" class="section photo-module">
+      <view wx:if="{{photoLoading}}" class="card empty-card">正在加载活动照片…</view>
+      <view wx:elif="{{photoError}}" class="card empty-card"><view>{{photoError}}</view><view class="pm-button-like secondary photo-retry" bindtap="loadPhotoModule">重新加载</view></view>
+      <block wx:else>
+        <view class="section-head"><view class="section-title">最近照片</view><view class="link-text" bindtap="goPhotoWall">查看全部</view></view>
+        <view wx:if="{{recentPhotos.length}}" class="recent-collage recent-count-{{recentPhotos.length}}"><view wx:for="{{recentPhotos}}" wx:key="photoId" class="recent-photo recent-index-{{index}}" data-id="{{item.photoId}}" bindtap="openPhoto"><image src="{{item.thumbnailUrl}}" mode="aspectFill"/><view class="recent-like">♥ {{item.likeCount||0}}</view></view></view>
+        <view wx:else class="card photo-tab-empty"><view class="photo-empty-glyph">▧</view><view class="section-title">还没有照片</view><view class="section-desc">上传活动中的照片，审核通过后大家就能在这里看到。</view><view wx:if="{{activity.status!=='CANCELED'}}" class="pm-button-like primary photo-empty-upload" bindtap="uploadPhotos">上传照片</view><view wx:else class="section-desc">该活动已取消，照片墙仅供查看。</view></view>
+        <view wx:if="{{photoSummary}}" class="card photo-status-card"><view class="photo-status-heading">照片状态</view><view class="photo-status-metrics"><view><text>{{photoSummary.photoCount||0}}</text><view class="photo-metric-label">全部照片</view></view><view class="pending-metric"><text>{{photoSummary.pendingAuditCount||0}}</text><view class="photo-metric-label">审核中</view></view><view><text>{{photoSummary.myUploadCount||0}}</text><view class="photo-metric-label">我上传</view></view><view><text>♥ {{photoSummary.receivedLikeCount||0}}</text><view class="photo-metric-label">收到点赞</view></view></view></view>
+        <view class="photo-tab-actions"><view wx:if="{{activity.status!=='CANCELED'}}" class="pm-button-like secondary" bindtap="uploadPhotos">上传照片</view><view class="pm-button-like primary" bindtap="goPhotoWall">进入照片墙</view></view>
+      </block>
+    </view>
   </view>
 </view>

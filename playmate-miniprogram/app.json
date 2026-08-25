@@ -24,6 +24,8 @@
     "pages/expense-detail/index",
     "pages/expense-edit/index",
     "pages/expense-item-detail/index",
+    "pages/photo-wall/index",
+    "pages/photo-detail/index",
     "pages/mine/index",
     "pages/login/index"
   ],

@@ -1,0 +1,21 @@
+const assert = require('node:assert/strict');
+const ui = require('../utils/photo-ui');
+
+const storage = { value: null, getStorageSync() { return this.value; }, setStorageSync(key, value) { this.value = value; } };
+assert.deepEqual(ui.normalizeOptions({ scope: 'MINE', sort: 'MOST_LIKED', layout: 2 }), { scope: 'MINE', sort: 'MOST_LIKED', layout: 2 });
+assert.deepEqual(ui.normalizeOptions({ scope: 'BAD', sort: 'BAD', layout: 9 }), { scope: 'ALL', sort: 'LATEST', layout: 3 });
+assert.deepEqual(ui.savePreferences({ scope: 'LIKED', sort: 'EARLIEST', layout: 2 }, storage), { scope: 'LIKED', sort: 'EARLIEST', layout: 2 });
+assert.deepEqual(ui.loadPreferences(storage), { scope: 'LIKED', sort: 'EARLIEST', layout: 2 });
+assert.deepEqual(ui.appendPage([{ photoId: 1 }], { items: [{ photoId: 1 }, { photoId: 2 }] }).map(item => item.photoId), [1, 2]);
+assert.equal(ui.photoStatus('PENDING', 'HIDDEN').text, '审核中');
+assert.equal(ui.photoStatus('APPROVED', 'NORMAL').text, '已通过');
+assert.equal(ui.photoStatus('REJECTED', 'HIDDEN').text, '未通过审核');
+assert.equal(ui.photoStatus('APPROVED', 'REVIEWING').text, '复核中');
+const before = { photoId: 1, likedByMe: false, likeCount: 12 };
+assert.deepEqual(ui.optimisticLike(before, true), { photoId: 1, likedByMe: true, likeCount: 13 });
+assert.deepEqual(ui.optimisticLike({ ...before, likedByMe: true, likeCount: 0 }, false), { photoId: 1, likedByMe: false, likeCount: 0 });
+assert.equal(ui.formatFileSize(5 * 1024 * 1024), '5.0 MB');
+assert.equal(ui.formatDimensions(4032, 3024), '4032 × 3024');
+assert.match(ui.formatPhotoTime('2026-08-20T09:52:00'), /8月20日 09:52/);
+assert.deepEqual(ui.batchSummary([{ status: 'WAITING' }, { status: 'UPLOADING' }, { status: 'FAILED' }, { status: 'PENDING' }]), { total: 4, waiting: 1, uploading: 1, failed: 1, pending: 1, done: 0 });
+console.log('photo-ui.test.js passed');

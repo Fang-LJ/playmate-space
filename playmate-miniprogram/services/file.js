@@ -91,10 +91,22 @@ function uploadUserAvatar(filePath) {
 function uploadExpenseReceipt(filePath) {
   return uploadImage(filePath, 'EXPENSE_RECEIPT');
 }
+function choosePhotos() {
+  return new Promise((resolve, reject) => {
+    wx.chooseMedia({ count: 9, mediaType: ['image'], sourceType: ['album', 'camera'], success(res) {
+      const paths = (res.tempFiles || []).map(item => item.tempFilePath).filter(Boolean);
+      if (!paths.length) { reject(createUploadError('未选择图片', 'PARAM_ERROR')); return; }
+      resolve(paths);
+    }, fail(error) { reject(createUploadError(error.errMsg || '选择图片失败', 'CHOOSE_IMAGE_ERROR', undefined, error)); } });
+  });
+}
+function uploadPhoto(filePath) { return uploadImage(filePath, 'PHOTO'); }
 
 module.exports = {
   chooseImage,
   uploadActivityCover,
   uploadUserAvatar,
-  uploadExpenseReceipt
+  uploadExpenseReceipt,
+  choosePhotos,
+  uploadPhoto
 };
