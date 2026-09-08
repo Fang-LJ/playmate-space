@@ -116,7 +116,7 @@
   color: #866700;
 }
 
-.itinerary-card.canceled {
+.itinerary-card.canceled .card-grid {
   opacity: 0.72;
 }
 
