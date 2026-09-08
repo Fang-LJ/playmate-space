@@ -1,4 +1,5 @@
 <view class="page form-page">
+  <view wx:if="{{loadError}}" class="card">{{loadError}}</view>
   <view class="hero">
     <view class="title">{{expenseId ? '编辑账单' : '记一笔费用'}}</view>
     <view class="desc">记录共同消费，系统会根据分摊结果实时计算 AA。</view>
@@ -72,6 +73,6 @@
 
   <view class="bottom">
     <button class="cancel" bindtap="back">取消</button>
-    <button class="save" loading="{{saving}}" bindtap="submit">保存账单</button>
+    <button class="save" disabled="{{!ready || saving || uploading}}" loading="{{saving}}" bindtap="submit">保存账单</button>
   </view>
 </view>

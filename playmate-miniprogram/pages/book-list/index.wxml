@@ -1,0 +1,15 @@
+<view class="page book-page">
+  <view class="page-title">一起算账</view>
+  <view class="page-subtitle">饭钱、奶茶、打车，几笔就算清。</view>
+  <button class="pm-native-button primary create-button" bindtap="create">＋ 发起算账</button>
+  <view class="book-tabs"><view class="{{status==='OPEN'?'selected':''}}" data-status="OPEN" bindtap="filter">进行中</view><view class="{{status==='ARCHIVED'?'selected':''}}" data-status="ARCHIVED" bindtap="filter">已归档</view></view>
+  <view wx:if="{{!loggedIn}}" class="card empty"><view class="book-title">一个人记账，也能一起分摊</view><view class="muted">登录后创建账本，手动添加朋友，随时邀请加入。</view><button class="pm-native-button secondary" bindtap="login">登录开始</button></view>
+  <view wx:elif="{{error}}" class="card empty"><view>{{error}}</view><button class="pm-native-button secondary" bindtap="retry">重新加载</button></view>
+  <view wx:elif="{{!loading && !items.length}}" class="card empty"><view class="book-title">{{status==='OPEN'?'还没有账本':'还没有归档账本'}}</view><view class="muted">{{status==='OPEN'?'创建一个小账本，不用先创建活动。':'结束记账后，可以归档保存。'}}</view></view>
+  <view wx:for="{{items}}" wx:key="bookId" class="card book-card" data-id="{{item.bookId}}" bindtap="open">
+    <view class="row"><view class="book-title">{{item.name}}</view><view class="badge">{{item.isOwner?'我创建的':'我加入的'}}</view></view>
+    <view class="muted">{{item.memberCount}} 位成员 · 总支出 ¥{{item.totalText}}</view>
+    <view class="book-net">{{item.netText}} <text class="arrow">›</text></view>
+  </view>
+  <view wx:if="{{loading}}" class="empty muted">正在加载账本…</view>
+</view>

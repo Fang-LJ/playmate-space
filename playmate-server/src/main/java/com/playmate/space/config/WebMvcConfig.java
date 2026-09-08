@@ -26,7 +26,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/wx-login",
                         "/api/auth/account-register",
                         "/api/auth/account-login",
-                        "/api/activity-invites/**"
+                        "/api/activity-invites/**",
+                        "/api/book-invites/**"
                 );
     }
 }

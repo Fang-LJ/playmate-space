@@ -1,0 +1,29 @@
+<view class="page book-page detail-page">
+  <view wx:if="{{loading}}" class="card empty">正在加载账本…</view>
+  <view wx:elif="{{error}}" class="card empty"><view>{{error}}</view><button class="pm-native-button secondary" bindtap="load">重新加载</button><view class="link" bindtap="home">返回算账首页</view></view>
+  <block wx:elif="{{dashboard}}">
+    <view class="card book-overview"><view class="row"><view class="muted">{{dashboard.book.name}}</view><view wx:if="{{dashboard.isOwner && dashboard.book.status==='OPEN'}}" class="link" bindtap="rename">改名</view></view><view class="total">¥{{dashboard.totalText}}</view><view class="muted">{{dashboard.expenseCount}} 笔消费 · {{dashboard.memberCount}} 位成员</view><view class="my-net">{{dashboard.myNetText}}</view></view>
+    <view wx:if="{{dashboard.book.status==='ARCHIVED'}}" class="archive-note">已归档 · 仅可查看，未记录实际转账状态</view>
+    <view class="book-tabs"><view class="{{tab==='BILLS'?'selected':''}}" data-tab="BILLS" bindtap="tab">明细</view><view class="{{tab==='MEMBERS'?'selected':''}}" data-tab="MEMBERS" bindtap="tab">成员{{dashboard.claims.length ? ' · 待确认' : ''}}</view><view class="{{tab==='SETTLEMENTS'?'selected':''}}" data-tab="SETTLEMENTS" bindtap="tab">怎么算</view></view>
+    <block wx:if="{{tab==='BILLS'}}">
+      <scroll-view class="category-scroll" scroll-x="true"><view wx:for="{{categories}}" wx:key="value" class="category-chip {{category===item.value?'chosen':''}}" data-category="{{item.value}}" bindtap="filter">{{item.label}}</view></scroll-view>
+      <view wx:if="{{!bills.length}}" class="card empty"><view class="book-title">{{category?'暂无这类消费':'还没有消费记录'}}</view><view class="muted">记下饭钱、奶茶钱，选好每笔参与的人。</view></view>
+      <view wx:for="{{bills}}" wx:key="expenseId" class="card book-card" data-id="{{item.expenseId}}" bindtap="expense"><view class="row"><view class="book-title">{{item.title}}</view><view class="book-title">¥{{item.amountText}}</view></view><view class="muted">{{item.payerNickname}} 付款 · {{item.categoryText}}</view><view class="muted small">{{item.dateText}}</view></view>
+      <view wx:if="{{loadingMore}}" class="muted empty">正在加载更多…</view>
+    </block>
+    <block wx:if="{{tab==='MEMBERS'}}">
+      <view wx:if="{{dashboard.isOwner && dashboard.book.status==='OPEN'}}" class="member-actions"><button class="pm-native-button secondary" bindtap="addMember">＋ 手动添加</button><button class="pm-native-button primary" open-type="share">邀请微信好友</button></view>
+      <view wx:for="{{dashboard.claims}}" wx:key="claimId" class="card claim-card"><view class="book-title">{{item.applicantNickname}} 申请关联 {{item.memberNickname}}</view><view class="muted">确认是本人后，原有账目会归到该账号。</view><view wx:if="{{dashboard.book.status==='OPEN'}}" class="member-actions"><button class="pm-native-button secondary" disabled="{{busy}}" data-id="{{item.claimId}}" data-approve="false" bindtap="decide">拒绝</button><button class="pm-native-button primary" disabled="{{busy}}" data-id="{{item.claimId}}" data-approve="true" bindtap="decide">确认是本人</button></view></view>
+      <view wx:for="{{dashboard.members}}" wx:key="memberId" class="card book-card"><view class="row"><view class="book-title">{{item.nickname}}{{item.memberId===dashboard.myMemberId?'（我）':''}}</view><view class="badge">{{item.status==='INACTIVE'?'已停用':item.userId?'已加入':'手动成员'}}</view></view><view class="muted">已付 ¥{{item.paidText}} · 承担 ¥{{item.shareText}}</view><view class="book-net">{{item.netText}}</view><view wx:if="{{dashboard.isOwner && dashboard.book.status==='OPEN'}}" class="row spaced"><button wx:if="{{!item.userId && item.status==='ACTIVE'}}" class="share-link" open-type="share" data-member-id="{{item.memberId}}">邀请本人关联</button><view class="link" data-id="{{item.memberId}}" bindtap="memberMenu">管理</view></view></view>
+      <view class="muted small">新增成员不会改变历史消费的分摊。停用成员后仍保留其账目。</view>
+    </block>
+    <block wx:if="{{tab==='SETTLEMENTS'}}">
+      <view class="muted settlement-note">合并所有消费后，按下面的金额转账即可。</view>
+      <view wx:if="{{!dashboard.suggestions.length}}" class="card empty">{{dashboard.expenseCount?'当前无需结算':'记下第一笔消费后，这里会显示分账建议。'}}</view>
+      <view wx:for="{{dashboard.suggestions}}" wx:key="suggestionKey" class="card book-card"><view class="row"><view class="book-title">{{item.fromNickname}} → {{item.toNickname}}</view><view class="book-title">¥{{item.amountText}}</view></view></view>
+      <button class="pm-native-button secondary" bindtap="copy">复制分账结果</button><view class="muted small spaced">净额 = 实际付款 − 应承担。此处为分账建议，未记录实际转账。</view>
+    </block>
+    <view class="footer-links"><view class="link" bindtap="home">我的账本</view><view wx:if="{{dashboard.isOwner}}" class="link" bindtap="archive">{{dashboard.book.status==='OPEN'?'归档账本':'重新打开'}}</view></view>
+    <view wx:if="{{dashboard.book.status==='OPEN'}}" class="fixed-action"><button class="pm-native-button primary" bindtap="createExpense">＋ 记一笔</button></view>
+  </block>
+</view>

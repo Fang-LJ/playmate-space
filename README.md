@@ -396,3 +396,7 @@ P0 规则：
 - 真机预览时，`playmate-miniprogram/utils/config.js` 中的 `apiBaseUrl` 需要改成 Mac 的局域网 IP，例如 `http://192.168.x.x:8080`。
 - 微信开发者工具本地调试 HTTP 接口时，需要关闭合法域名校验。
 - 使用 TDesign MiniProgram 后，需要在微信开发者工具里执行「工具 -> 构建 npm」。
+
+## 独立算账
+
+小程序新增「算账」底部入口，支持独立账本、手动成员、微信邀请和本人关联审批、多种分摊、消费凭证、结算建议、归档与恢复。复用活动费用表单及公共分摊算法，账本数据独立存储。已有数据库需执行 `docs/sql/p4_001_standalone_books.sql`，然后重启后端并重新编译小程序。完整接口、规则及测试命令见 [独立算账说明](docs/standalone-books.md)。

@@ -31,3 +31,7 @@
 
 .mine-head { position: absolute; top: 3rpx; left: 12rpx; width: 18rpx; height: 18rpx; border: 3rpx solid currentColor; border-radius: 50%; }
 .mine-body { position: absolute; right: 5rpx; bottom: 3rpx; left: 5rpx; height: 16rpx; border: 3rpx solid currentColor; border-bottom: 0; border-top-left-radius: 18rpx; border-top-right-radius: 18rpx; }
+
+.book-icon { border: 3rpx solid currentColor; border-radius: 7rpx; padding: 8rpx 6rpx; }
+.book-icon-line { height: 3rpx; background: currentColor; margin: 4rpx 0 7rpx; }
+.book-icon-line.short { width: 65%; }

@@ -82,7 +82,7 @@ Page({
   },
 
   goRedirectTarget(target) {
-    if (target === '/pages/activity-list/index' || target === '/pages/mine/index') {
+    if (target === '/pages/activity-list/index' || target === '/pages/mine/index' || target === '/pages/book-list/index') {
       wx.switchTab({ url: target });
       return;
     }

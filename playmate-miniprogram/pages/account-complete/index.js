@@ -123,7 +123,7 @@ Page({
       wx.switchTab({ url: '/pages/mine/index' });
       return;
     }
-    if (redirect === '/pages/activity-list/index' || redirect === '/pages/mine/index') {
+    if (redirect === '/pages/activity-list/index' || redirect === '/pages/mine/index' || redirect === '/pages/book-list/index') {
       wx.switchTab({ url: redirect });
       return;
     }

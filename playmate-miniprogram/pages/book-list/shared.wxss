@@ -1,0 +1,38 @@
+.book-page { padding-bottom: calc(140rpx + env(safe-area-inset-bottom)); }
+.book-title { font-size: 31rpx; font-weight: 700; overflow-wrap: anywhere; }
+.muted { color: var(--pm-text-muted); font-size: 26rpx; line-height: 1.65; }
+.small { font-size: 23rpx; }
+.spaced { margin-top: 22rpx; }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 20rpx; }
+.row > .book-title:first-child { flex: 1; min-width: 0; }
+.row > .book-title:last-child { flex-shrink: 0; }
+.badge { display: inline-block; color: var(--pm-primary-dark); background: var(--pm-bg-soft); padding: 7rpx 15rpx; border-radius: 12rpx; font-size: 22rpx; flex-shrink: 0; }
+.create-button { margin-top: 30rpx; }
+.book-tabs { display: flex; gap: 16rpx; margin: 32rpx 0 24rpx; padding: 8rpx; background: #eaf0ec; border-radius: 22rpx; }
+.book-tabs > view { flex: 1; padding: 16rpx 4rpx; text-align: center; color: var(--pm-text-muted); font-size: 28rpx; border-radius: 16rpx; }
+.book-tabs .selected { background: white; color: var(--pm-primary-dark); font-weight: 700; box-shadow: var(--pm-shadow-soft); }
+.book-card { margin-bottom: 20rpx; }
+.book-card .muted { margin-top: 14rpx; }
+.book-net { margin-top: 22rpx; color: var(--pm-primary-dark); font-size: 29rpx; font-weight: 700; }
+.arrow { float: right; }
+.empty { padding: 40rpx 24rpx; text-align: center; }
+.empty .muted { margin: 20rpx 0; }
+.empty button { margin-top: 24rpx; }
+.names-input { width: 100%; height: 200rpx; box-sizing: border-box; padding: 22rpx; background: var(--pm-bg); border-radius: 20rpx; font-size: 29rpx; }
+.book-overview { background: linear-gradient(135deg,#fff,#e9f5ef); }
+.total { margin: 18rpx 0 10rpx; font-size: 66rpx; font-weight: 800; }
+.my-net { border-top: 1rpx solid var(--pm-border); margin-top: 26rpx; padding-top: 22rpx; font-size: 32rpx; color: var(--pm-primary-dark); font-weight: 700; }
+.link { color: var(--pm-primary-dark); font-size: 26rpx; padding: 10rpx 0; }
+.member-actions { display: flex; gap: 18rpx; margin: 22rpx 0; }
+.member-actions button { flex: 1; min-width: 0; font-size: 26rpx; }
+.claim-card { margin-bottom: 20rpx; border-color: #e5c276; background: #fffaf0; }
+.archive-note { margin: 22rpx 0; padding: 22rpx; background: #fff6dc; border-radius: 18rpx; color: #8a6824; font-size: 25rpx; line-height: 1.6; }
+.fixed-action { position: fixed; bottom: 0; left: 0; right: 0; padding: 20rpx 32rpx calc(24rpx + env(safe-area-inset-bottom)); background: rgba(246,248,245,.97); border-top: 1rpx solid var(--pm-border); }
+.footer-links { display: flex; justify-content: space-between; margin: 32rpx 0; }
+.share-link { background: transparent; padding: 0; margin: 0; color: var(--pm-primary-dark); font-size: 25rpx; line-height: 1.6; }
+.share-link::after { border: none; }
+.category-scroll { white-space: nowrap; margin-bottom: 24rpx; }
+.category-chip { display: inline-block; padding: 12rpx 24rpx; margin-right: 12rpx; border-radius: 30rpx; font-size: 25rpx; color: var(--pm-text-muted); background: white; }
+.category-chip.chosen { background: var(--pm-primary-dark); color: white; }
+.settlement-note { margin-bottom: 22rpx; }
+.invite-card { margin-top: 30rpx; }

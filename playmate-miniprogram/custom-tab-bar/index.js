@@ -3,6 +3,7 @@ Component({
     selected: 0,
     list: [
       { pagePath: '/pages/activity-list/index', text: '活动', key: 'activity' },
+      { pagePath: '/pages/book-list/index', text: '算账', key: 'book' },
       { pagePath: '/pages/mine/index', text: '我的', key: 'mine' }
     ]
   },

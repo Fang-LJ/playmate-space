@@ -169,7 +169,7 @@ Page({
   goAfterDone() {
     const redirect = this.data.redirect;
     if (redirect) {
-      if (redirect === '/pages/activity-list/index' || redirect === '/pages/mine/index') {
+      if (redirect === '/pages/activity-list/index' || redirect === '/pages/mine/index' || redirect === '/pages/book-list/index') {
         wx.switchTab({ url: redirect });
         return;
       }

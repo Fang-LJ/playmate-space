@@ -77,24 +77,10 @@ public class FinanceSnapshotLoader {
     }
 
     private static List<SettlementSnapshot.Suggestion> suggestions(Map<Long, MutableAccount> accounts) {
-        List<MutableAccount> debtors = accounts.values().stream().filter(item -> item.net.signum() < 0)
-                .map(MutableAccount::copy).toList();
-        List<MutableAccount> creditors = accounts.values().stream().filter(item -> item.net.signum() > 0)
-                .map(MutableAccount::copy).toList();
-        List<SettlementSnapshot.Suggestion> result = new ArrayList<>();
-        int debtorIndex = 0;
-        int creditorIndex = 0;
-        while (debtorIndex < debtors.size() && creditorIndex < creditors.size()) {
-            MutableAccount debtor = debtors.get(debtorIndex);
-            MutableAccount creditor = creditors.get(creditorIndex);
-            BigDecimal amount = debtor.net.abs().min(creditor.net);
-            if (amount.signum() > 0) result.add(new SettlementSnapshot.Suggestion(debtor.userId, creditor.userId, money(amount)));
-            debtor.net = plus(debtor.net, amount);
-            creditor.net = plus(creditor.net, amount.negate());
-            if (debtor.net.signum() == 0) debtorIndex++;
-            if (creditor.net.signum() == 0) creditorIndex++;
-        }
-        return result;
+        Map<Long, BigDecimal> balances = new TreeMap<>();
+        accounts.forEach((id, account) -> balances.put(id, account.net));
+        return ExpenseCalculator.settle(balances).stream()
+                .map(t -> new SettlementSnapshot.Suggestion(t.fromId(), t.toId(), t.amount())).toList();
     }
 
     private static BigDecimal plus(BigDecimal first, BigDecimal second) { return normalize(first.add(second)); }

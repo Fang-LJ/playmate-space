@@ -1,6 +1,4 @@
-const expense = require('../../services/expense');
-const { getActivityDetail } = require('../../services/activity');
-const { getCurrentUser } = require('../../services/user');
+const { createExpenseContext } = require('../../utils/expense-context');
 const { chooseImage, uploadExpenseReceipt } = require('../../services/file');
 
 const CATEGORIES = [
@@ -16,6 +14,9 @@ const CATEGORIES = [
 Page({
   data: {
     activityId: '',
+    bookId: '',
+    ready: false,
+    loadError: '',
     expenseId: '',
     members: [],
     currentUserId: '',
@@ -40,17 +41,15 @@ Page({
   },
 
   async onLoad(options) {
+    this.expenseContext = createExpenseContext(options);
     this.setData({
+      bookId: options.bookId || '',
       activityId: options.activityId || '',
       expenseId: options.expenseId || '',
       clientRequestId: options.expenseId ? '' : `expense-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     });
     try {
-      const [members, activity, currentUser] = await Promise.all([
-        expense.getExpenseMembers(this.data.activityId),
-        getActivityDetail(this.data.activityId),
-        getCurrentUser()
-      ]);
+      const { members, activity, currentUser } = await this.expenseContext.loadEditor();
       const now = this.datetimeParts(new Date());
       let form = {
         ...this.data.form,
@@ -62,7 +61,8 @@ Page({
       let expenseClock = now.time;
       let optionalExpanded = false;
       if (this.data.expenseId) {
-        const detail = await expense.getExpense(this.data.activityId, this.data.expenseId);
+        const detail = await this.expenseContext.getExpense(this.data.expenseId);
+        if (detail.canEdit === false) throw new Error('当前消费不可编辑，请返回账本查看');
         const parts = this.parseDatetime(detail.expenseTime);
         expenseDate = parts.date;
         expenseClock = parts.time;
@@ -85,6 +85,7 @@ Page({
       const payerIndex = Math.max(0, members.findIndex(item => item.userId === form.payerUserId));
       const categoryIndex = Math.max(0, CATEGORIES.findIndex(item => item.value === form.category));
       this.setData({
+        ready: true,
         members,
         currentUserId: currentUser.userId,
         isCreator: activity.currentUserRole === 'CREATOR',
@@ -96,6 +97,7 @@ Page({
         optionalExpanded
       }, () => this.updateAllocation());
     } catch (error) {
+      this.setData({ loadError: error.message || '数据加载失败', ready: false });
       wx.showToast({ title: error.message || '数据加载失败', icon: 'none' });
     }
   },
@@ -207,6 +209,7 @@ Page({
   },
 
   async receipt() {
+    if (this.data.uploading || this.data.saving) return;
     try {
       this.setData({ uploading: true });
       const path = await chooseImage();
@@ -220,6 +223,7 @@ Page({
   },
 
   async submit() {
+    if (!this.data.ready || this.data.saving || this.data.uploading) return;
     const form = this.data.form;
     const amount = String(form.amount || '').trim();
     const shares = form.shares.filter(item => item.checked).map(item => ({
@@ -255,7 +259,7 @@ Page({
     delete payload.receiptUrl;
     try {
       this.setData({ saving: true });
-      await expense.saveExpense(this.data.activityId, payload, this.data.expenseId);
+      await this.expenseContext.saveExpense(payload, this.data.expenseId);
       wx.showToast({ title: '已保存', icon: 'success' });
       setTimeout(() => wx.navigateBack(), 500);
     } catch (error) {

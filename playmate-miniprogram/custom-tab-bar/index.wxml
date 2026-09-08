@@ -5,6 +5,7 @@
       <view class="calendar-line calendar-line-one"></view>
       <view class="calendar-line calendar-line-two"></view>
     </view>
+    <view wx:elif="{{item.key === 'book'}}" class="tab-icon book-icon"><view class="book-icon-line"></view><view class="book-icon-line short"></view></view>
     <view wx:else class="tab-icon mine-icon">
       <view class="mine-head"></view>
       <view class="mine-body"></view>

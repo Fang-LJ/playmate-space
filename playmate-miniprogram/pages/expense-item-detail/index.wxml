@@ -30,6 +30,6 @@
 
     <view wx:if="{{detail.receiptUrl}}" class="card attachment-card"><view class="heading">付款凭证</view><image src="{{detail.receiptUrl}}" class="receipt" mode="widthFix"/></view>
     <view wx:if="{{detail.description}}" class="card note-card"><view class="heading">备注</view><view class="note-content">{{detail.description}}</view></view>
-    <view wx:if="{{detail.status==='ACTIVE'}}" class="actions"><button class="void-button" bindtap="voidExpense">作废账单</button><button class="edit" bindtap="edit">编辑账单</button></view>
+    <view wx:if="{{detail.status==='ACTIVE' && detail.canEdit !== false}}" class="actions"><button class="void-button" bindtap="voidExpense">作废账单</button><button class="edit" bindtap="edit">编辑账单</button></view>
   </view>
 </view>

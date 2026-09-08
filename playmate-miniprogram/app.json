@@ -27,7 +27,11 @@
     "pages/photo-wall/index",
     "pages/photo-detail/index",
     "pages/mine/index",
-    "pages/login/index"
+    "pages/login/index",
+    "pages/book-list/index",
+    "pages/book-create/index",
+    "pages/book-detail/index",
+    "pages/book-invite/index"
   ],
   "window": {
     "navigationBarTitleText": "玩伴空间",
@@ -45,6 +49,10 @@
       {
         "pagePath": "pages/activity-list/index",
         "text": "活动"
+      },
+      {
+        "pagePath": "pages/book-list/index",
+        "text": "算账"
       },
       {
         "pagePath": "pages/mine/index",

@@ -1,0 +1,6 @@
+<view class="page book-page">
+  <view class="page-title">发起算账</view><view class="page-subtitle">先记起来，朋友可以之后再加入。</view>
+  <view class="card section"><view class="book-title">给这次消费起个名字</view><input class="pm-input spaced" maxlength="80" value="{{name}}" placeholder="例如：周五火锅局" data-key="name" bindinput="input"/></view>
+  <view class="card section"><view class="book-title">和谁一起？</view><view class="badge spaced">我 · 已自动加入</view><textarea class="names-input spaced" maxlength="2000" value="{{namesText}}" placeholder="输入朋友昵称，用换行或逗号分隔\n例如：小明、小红" data-key="namesText" bindinput="input"/><view class="muted">手动成员无需登录，也能付款、参与分摊。之后可以邀请本人关联。</view></view>
+  <button class="pm-native-button primary create-button" loading="{{saving}}" disabled="{{saving}}" bindtap="create">创建账本</button>
+</view>

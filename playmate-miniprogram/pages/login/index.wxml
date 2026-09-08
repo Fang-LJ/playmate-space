@@ -17,7 +17,7 @@
       </view>
     </view>
 
-    <view class="login-redirect-note">通过好友分享进入时，登录后会继续返回对应活动。</view>
+    <view class="login-redirect-note">通过好友分享进入时，登录后会继续返回邀请页面。</view>
     <view wx:if="{{showDevNote}}" class="dev-note" bindtap="chooseMockUser">开发环境 · 当前使用模拟微信身份（{{mockUserLabel}}）</view>
   </view>
 </view>

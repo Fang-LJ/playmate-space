@@ -9,6 +9,7 @@ import com.playmate.space.common.exception.NotFoundException;
 import com.playmate.space.dto.expense.*;
 import com.playmate.space.entity.*;
 import com.playmate.space.mapper.*;
+import com.playmate.space.service.finance.ExpenseCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
@@ -211,12 +212,8 @@ public class ExpenseService {
         List<ExpenseShareRequest> requests = request.shares().stream().sorted(Comparator.comparing(ExpenseShareRequest::userId)).toList();
         BigDecimal amount = SettlementService.money(request.amount());
         String splitMode = request.splitMode().trim().toUpperCase();
-        Map<Long, BigDecimal> shares = switch (splitMode) {
-            case "EQUAL" -> equalShares(amount, requests);
-            case "PROPORTIONAL" -> proportionalShares(amount, requests);
-            default -> requests.stream().collect(Collectors.toMap(ExpenseShareRequest::userId,
-                    item -> SettlementService.money(item.shareAmount()), (first, second) -> first, LinkedHashMap::new));
-        };
+        Map<Long, BigDecimal> shares = ExpenseCalculator.split(amount, splitMode, requests.stream()
+                .map(item -> new ExpenseCalculator.Share(item.userId(), item.shareAmount(), item.splitRatio())).toList());
         List<ActivityExpenseShareEntity> result = new ArrayList<>();
         for (ExpenseShareRequest item : requests) {
             BigDecimal share = shares.get(item.userId());
@@ -228,34 +225,8 @@ public class ExpenseService {
         }
         return result;
     }
-    private Map<Long, BigDecimal> equalShares(BigDecimal amount, List<ExpenseShareRequest> requests) {
-        long cents = amount.movePointRight(2).longValueExact(); long base = cents / requests.size(), remainder = cents % requests.size();
-        Map<Long, BigDecimal> result = new LinkedHashMap<>();
-        for (int index = 0; index < requests.size(); index++) result.put(requests.get(index).userId(), BigDecimal.valueOf(base + (index < remainder ? 1 : 0), 2));
-        return result;
-    }
-    private Map<Long, BigDecimal> proportionalShares(BigDecimal amount, List<ExpenseShareRequest> requests) {
-        BigDecimal totalRatio = requests.stream().map(ExpenseShareRequest::splitRatio).reduce(BigDecimal.ZERO, BigDecimal::add);
-        long totalCents = amount.movePointRight(2).longValueExact();
-        List<RatioAllocation> allocations = new ArrayList<>(); long allocatedCents = 0;
-        for (ExpenseShareRequest item : requests) {
-            BigDecimal rawCents = BigDecimal.valueOf(totalCents).multiply(item.splitRatio()).divide(totalRatio, 12, RoundingMode.DOWN);
-            long cents = rawCents.setScale(0, RoundingMode.DOWN).longValueExact();
-            allocatedCents += cents;
-            allocations.add(new RatioAllocation(item.userId(), cents, rawCents.subtract(BigDecimal.valueOf(cents))));
-        }
-        allocations.sort(Comparator.comparing(RatioAllocation::fraction).reversed().thenComparing(RatioAllocation::userId));
-        long remainder = totalCents - allocatedCents;
-        for (int index = 0; index < remainder; index++) allocations.set(index, allocations.get(index).withCents(allocations.get(index).cents() + 1));
-        Map<Long, BigDecimal> result = new LinkedHashMap<>();
-        allocations.stream().sorted(Comparator.comparing(RatioAllocation::userId)).forEach(item -> result.put(item.userId(), BigDecimal.valueOf(item.cents(), 2)));
-        return result;
-    }
     private BigDecimal storedRatio(ActivityExpenseShareEntity share) { return share.getSplitRatio() == null ? DEFAULT_SPLIT_RATIO : share.getSplitRatio(); }
     private record ShareValue(BigDecimal amount, BigDecimal ratio) {}
-    private record RatioAllocation(Long userId, long cents, BigDecimal fraction) {
-        RatioAllocation withCents(long value) { return new RatioAllocation(userId, value, fraction); }
-    }
     private ActivityExpenseEntity find(Long activityId, Long expenseId) { ActivityExpenseEntity expense = expenseMapper.selectById(expenseId); if (expense == null || !activityId.equals(expense.getActivityId())) throw new NotFoundException("账单不存在"); return expense; }
     private ActivityExpenseEntity findForUpdate(Long activityId, Long expenseId) { ActivityExpenseEntity expense = expenseMapper.selectByIdForUpdate(activityId, expenseId); if (expense == null) throw new NotFoundException("账单不存在"); return expense; }
     private void requireEditable(ActivityExpenseEntity expense, ActivityEntity activity, ActivityMemberEntity operator, Long userId) { if (!"ACTIVE".equals(expense.getStatus())) throw param("已作废账单不能编辑"); if (!userId.equals(expense.getCreatedBy()) && !access.isActivityCreator(activity, operator, userId)) throw new ForbiddenException("仅记录人或活动创建者可以操作账单"); }

@@ -1,0 +1,16 @@
+<view class="page book-page">
+  <view wx:if="{{loading}}" class="card empty">正在打开邀请…</view>
+  <view wx:elif="{{error}}" class="card empty"><view>{{error}}</view><button class="pm-native-button secondary" bindtap="load">重试</button></view>
+  <view wx:elif="{{invite}}" class="card invite-card"><view class="badge">邀请你一起算账</view><view class="page-title spaced">{{invite.name}}</view><view class="muted spaced">{{invite.creatorNickname}} 发起</view>
+    <block wx:if="{{invite.status==='OPEN'}}">
+      <view class="book-title spaced">你是账本里的哪一位？</view><picker disabled="{{pending}}" range="{{options}}" range-key="nickname" value="{{selectedIndex}}" bindchange="select"><view class="pm-input spaced">{{options[selectedIndex].nickname}} ▾</view></picker>
+      <view class="muted spaced">如果朋友已经替你记过账，请选择已有成员，创建者确认后即可关联，原来的账目会保留。</view>
+      <view wx:if="{{rejected}}" class="archive-note">申请未通过或该成员已关联，请重新选择身份，也可以联系创建者。</view>
+      <view wx:if="{{unavailable && !joinedBookId && !pending}}" class="archive-note">邀请中的成员已关联或停用，请确认身份后重新选择。</view>
+      <view wx:if="{{pending}}" class="archive-note">关联申请已发送，请创建者在账本「成员」中确认。</view>
+      <button class="pm-native-button primary create-button" loading="{{busy}}" disabled="{{busy}}" bindtap="join">{{joinedBookId?'进入账本':pending?'查看申请结果':selectedIndex?'申请关联本人':'加入账本'}}</button>
+    </block>
+    <block wx:else><view class="archive-note">账本已归档，暂不接受新成员。</view><button class="pm-native-button secondary" loading="{{busy}}" bindtap="join">我是已有成员，查看账本</button></block>
+  </view>
+  <view class="footer-links"><view class="link" bindtap="home">返回算账首页</view></view>
+</view>
