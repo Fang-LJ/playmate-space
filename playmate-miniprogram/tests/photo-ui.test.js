@@ -17,5 +17,14 @@ assert.deepEqual(ui.optimisticLike({ ...before, likedByMe: true, likeCount: 0 },
 assert.equal(ui.formatFileSize(5 * 1024 * 1024), '5.0 MB');
 assert.equal(ui.formatDimensions(4032, 3024), '4032 × 3024');
 assert.match(ui.formatPhotoTime('2026-08-20T09:52:00'), /8月20日 09:52/);
-assert.deepEqual(ui.batchSummary([{ status: 'WAITING' }, { status: 'UPLOADING' }, { status: 'FAILED' }, { status: 'PENDING' }]), { total: 4, waiting: 1, uploading: 1, failed: 1, pending: 1, done: 0 });
+assert.deepEqual(ui.uploadTaskState({ auditStatus: 'PENDING', visibilityStatus: 'HIDDEN' }), { status: 'PENDING', statusText: '审核中', statusTone: 'pending', statusDescription: '审核通过后将自动展示' });
+assert.deepEqual(ui.uploadTaskState({ auditStatus: 'APPROVED', visibilityStatus: 'NORMAL' }), { status: 'DONE', statusText: '已通过', statusTone: 'approved', statusDescription: '已通过审核' });
+assert.deepEqual(ui.uploadTaskState({ auditStatus: 'REJECTED', visibilityStatus: 'HIDDEN' }), { status: 'REJECTED', statusText: '未通过审核', statusTone: 'rejected', statusDescription: '未通过内容安全审核' });
+assert.deepEqual(ui.uploadTaskState({ auditStatus: 'APPROVED', visibilityStatus: 'REVIEWING' }), { status: 'REVIEWING', statusText: '复核中', statusTone: 'reviewing', statusDescription: '正在重新审核，暂不展示' });
+assert.equal(ui.isLikable({ auditStatus: 'APPROVED', visibilityStatus: 'NORMAL' }), true);
+assert.equal(ui.isLikable({ auditStatus: 'PENDING', visibilityStatus: 'HIDDEN' }), false);
+assert.equal(ui.nextSwiperIndex(0, 4, -1), 3);
+assert.equal(ui.nextSwiperIndex(3, 4, 1), 0);
+assert.equal(ui.nextSwiperIndex(0, 0, 1), 0);
+assert.deepEqual(ui.batchSummary([{ status: 'WAITING' }, { status: 'UPLOADING' }, { status: 'FAILED' }, { status: 'PENDING' }]), { total: 4, waiting: 1, uploading: 1, failed: 1, pending: 1, reviewing: 0, rejected: 0, done: 0 });
 console.log('photo-ui.test.js passed');
