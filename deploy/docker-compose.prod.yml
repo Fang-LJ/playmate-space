@@ -1,0 +1,176 @@
+services:
+  playmate-mysql:
+    image: mysql:8.0
+    container_name: playmate-mysql
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      TZ: ${TZ}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+08:00
+      - --innodb-buffer-pool-size=384M
+      - --tmp-table-size=32M
+      - --max-heap-table-size=32M
+      - --max-connections=100
+      - --table-open-cache=256
+      - --performance-schema=OFF
+      - --skip-name-resolve
+    volumes:
+      - playmate_prod_mysql_data:/var/lib/mysql
+      - ../docs/sql/p0_init.sql:/docker-entrypoint-initdb.d/001-p0_init.sql:ro
+      - ../docs/sql/p1_001_activity_collaboration.sql:/docker-entrypoint-initdb.d/002-p1_activity_collaboration.sql:ro
+      - ../docs/sql/p1_002_activity_todo.sql:/docker-entrypoint-initdb.d/003-p1_activity_todo.sql:ro
+      - ../docs/sql/p1_003_itinerary_poll_field_linkage.sql:/docker-entrypoint-initdb.d/004-p1_itinerary_poll_field_linkage.sql:ro
+      - ../docs/sql/p1_004_expense_settlement.sql:/docker-entrypoint-initdb.d/005-p2_expense_settlement.sql:ro
+      - ../docs/sql/p1_005_activity_finance_state.sql:/docker-entrypoint-initdb.d/006-p2_activity_finance_state.sql:ro
+      - ../docs/sql/p1_006_expense_proportional_split.sql:/docker-entrypoint-initdb.d/007-p2_expense_proportional_split.sql:ro
+      - ../docs/sql/p3_001_photo_wall.sql:/docker-entrypoint-initdb.d/008-p3_photo_wall.sql:ro
+      - ../docs/sql/p3_002_photo_wall_hardening.sql:/docker-entrypoint-initdb.d/009-p3_photo_wall_hardening.sql:ro
+      - ../docs/sql/p4_001_standalone_books.sql:/docker-entrypoint-initdb.d/010-p4_standalone_books.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    mem_limit: 700m
+    pids_limit: 150
+    networks:
+      - playmate-prod
+
+  playmate-redis:
+    image: redis:7.2-alpine
+    container_name: playmate-redis
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    command: ["sh", "-c", "exec redis-server --appendonly yes --appendfsync everysec --requirepass \"$$REDIS_PASSWORD\" --maxmemory 128mb --maxmemory-policy noeviction"]
+    volumes:
+      - playmate_prod_redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
+    mem_limit: 180m
+    pids_limit: 80
+    networks:
+      - playmate-prod
+
+  playmate-minio:
+    image: minio/minio:latest
+    container_name: playmate-minio
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      TZ: ${TZ}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    volumes:
+      - playmate_prod_minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    mem_limit: 300m
+    pids_limit: 120
+    networks:
+      - playmate-prod
+
+  playmate-minio-init:
+    image: minio/minio:latest
+    container_name: playmate-minio-init
+    restart: "no"
+    env_file:
+      - .env.prod
+    depends_on:
+      playmate-minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -ec "
+      mc alias set local http://playmate-minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+      mc mb --ignore-existing local/$${MINIO_BUCKET};
+      mc anonymous set download local/$${MINIO_BUCKET};
+      mc mb --ignore-existing local/$${MINIO_PRIVATE_BUCKET};
+      "
+    networks:
+      - playmate-prod
+
+  playmate-server:
+    build:
+      context: ../playmate-server
+      dockerfile: Dockerfile
+    image: playmate-server:prod
+    container_name: playmate-server
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      TZ: ${TZ}
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 8080
+      PLAYMATE_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      PLAYMATE_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+    depends_on:
+      playmate-mysql:
+        condition: service_healthy
+      playmate-redis:
+        condition: service_healthy
+      playmate-minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/api/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 45s
+    mem_limit: 700m
+    pids_limit: 180
+    networks:
+      - playmate-prod
+
+  playmate-nginx:
+    image: nginx:1.27-alpine
+    container_name: playmate-nginx
+    restart: unless-stopped
+    depends_on:
+      playmate-server:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    mem_limit: 64m
+    pids_limit: 50
+    networks:
+      - playmate-prod
+
+volumes:
+  playmate_prod_mysql_data:
+    name: playmate_prod_mysql_data
+  playmate_prod_redis_data:
+    name: playmate_prod_redis_data
+  playmate_prod_minio_data:
+    name: playmate_prod_minio_data
+
+networks:
+  playmate-prod:
+    name: playmate-prod

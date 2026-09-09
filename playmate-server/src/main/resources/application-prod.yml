@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${PLAYMATE_DB_HOST}:${PLAYMATE_DB_PORT}/${PLAYMATE_DB_NAME}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${PLAYMATE_DB_USERNAME}
+    password: ${PLAYMATE_DB_PASSWORD}
+  data:
+    redis:
+      host: ${PLAYMATE_REDIS_HOST}
+      port: ${PLAYMATE_REDIS_PORT}
+      password: ${PLAYMATE_REDIS_PASSWORD}
+
+logging:
+  level:
+    root: INFO
+    com.playmate.space.mapper: WARN
+
+playmate:
+  minio:
+    endpoint: ${PLAYMATE_MINIO_ENDPOINT}
+    access-key: ${PLAYMATE_MINIO_ACCESS_KEY}
+    secret-key: ${PLAYMATE_MINIO_SECRET_KEY}
+    bucket: ${PLAYMATE_MINIO_BUCKET}
+    private-bucket: ${PLAYMATE_MINIO_PRIVATE_BUCKET}
+    public-base-url: ${PLAYMATE_MINIO_PUBLIC_BASE_URL}

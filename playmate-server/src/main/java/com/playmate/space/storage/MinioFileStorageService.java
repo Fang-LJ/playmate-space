@@ -10,6 +10,7 @@ import io.minio.RemoveObjectArgs;
 import io.minio.http.Method;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
 import java.time.Duration;
 
 @Service
@@ -56,8 +57,9 @@ public class MinioFileStorageService implements FileStorageService {
     public String generatePresignedGetUrl(String bucketName, String objectKey, Duration expiry) {
         try {
             long seconds = Math.min(7L * 24 * 60 * 60, Math.max(1, expiry.toSeconds()));
-            return minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+            String internalUrl = minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
                     .method(Method.GET).bucket(bucketName).object(objectKey).expiry((int) Math.min(seconds, Integer.MAX_VALUE)).build());
+            return rewriteForPublicAccess(internalUrl);
         } catch (Exception exception) {
             throw new BusinessException("生成文件访问链接失败");
         }
@@ -80,5 +82,28 @@ public class MinioFileStorageService implements FileStorageService {
             baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
         }
         return baseUrl + "/" + properties.getBucket() + "/" + objectKey;
+    }
+
+    /**
+     * MinIO signs private URLs against the Docker-only endpoint. The external
+     * reverse proxy serves that endpoint under publicBaseUrl and forwards the
+     * original internal Host header, so the signature remains valid. Public
+     * object URLs already use publicBaseUrl in buildPublicUrl.
+     */
+    private String rewriteForPublicAccess(String internalUrl) {
+        try {
+            URI internal = URI.create(internalUrl);
+            String base = properties.getPublicBaseUrl();
+            if (base == null || base.isBlank()) return internalUrl;
+            URI publicBase = URI.create(base.endsWith("/") ? base.substring(0, base.length() - 1) : base);
+            String publicPath = (publicBase.getRawPath() == null ? "" : publicBase.getRawPath()) + internal.getRawPath();
+            String query = internal.getRawQuery();
+            // Build from raw URI parts. The multi-argument URI constructor
+            // escapes '%' again, which would invalidate an S3 signature.
+            return publicBase.getScheme() + "://" + publicBase.getRawAuthority() + publicPath
+                    + (query == null ? "" : "?" + query);
+        } catch (RuntimeException exception) {
+            throw new BusinessException("生成文件访问链接失败");
+        }
     }
 }
