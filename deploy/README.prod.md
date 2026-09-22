@@ -1,6 +1,6 @@
 # Playmate Space production deployment
 
-Run production Compose from `/opt/playmate-space/deploy`. It publishes only Nginx port 80; MySQL, Redis, Spring Boot, MinIO API and MinIO Console are private Docker-network services.
+Run production Compose from `/opt/playmate-space/deploy`. It publishes only Nginx ports 80 and 443; MySQL, Redis, Spring Boot, MinIO API and MinIO Console are private Docker-network services.
 
 ## First deployment
 
@@ -40,3 +40,26 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml exec -T playmate-
 ```
 
 MinIO data is held in `playmate_prod_minio_data`. To move it, use `mc mirror` while both endpoints are running, then verify object counts before switching traffic. MinIO metadata is kept inside that volume; do not copy individual filesystem files into a running MinIO container.
+
+## HTTPS
+
+After the A record for `api.playmatespace.cloud` resolves to this server, issue the first certificate with Certbot standalone mode while Nginx is stopped briefly:
+
+```bash
+cd /opt/playmate-space/deploy
+mkdir -p certbot/conf certbot/www
+docker compose --env-file .env.prod -f docker-compose.prod.yml stop playmate-nginx
+docker run --rm -p 80:80 \
+  -v "$(pwd)/certbot/conf:/etc/letsencrypt" \
+  certbot/certbot:latest certonly --standalone \
+  --email "YOUR_EMAIL" --agree-tos --no-eff-email \
+  -d api.playmatespace.cloud
+```
+
+Then set `PLAYMATE_MINIO_PUBLIC_BASE_URL=https://api.playmatespace.cloud/minio` in `.env.prod` and recreate Nginx with the updated Compose configuration:
+
+```bash
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d playmate-nginx
+```
+
+The HTTP server redirects to HTTPS except for the ACME challenge path. Renew manually with `./renew-cert.sh`; it uses the webroot path and reloads Nginx only after Certbot completes.

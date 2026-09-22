@@ -21,6 +21,8 @@ logs/
 .env
 deploy/.env
 deploy/.env.prod
+deploy/certbot/conf/
+deploy/certbot/www/
 
 # Runtime data
 data/
