@@ -135,10 +135,10 @@ P0.5 账号体系已调整为：
 - 活动列表支持输入分享码进入现有邀请预览和加入链路。
 - 微信资料补充为可选流程：头像使用 `chooseAvatar`，昵称使用 `input type="nickname"`，手机号使用 `getPhoneNumber`。
 - local profile 仅接受 `mock_phone_a`、`mock_phone_b`、`mock_phone_c` 并由后端映射固定手机号；不会调用真实微信手机号服务。
-- 真实上线前需要后端接入 code2Session、手机号 code 换手机号，以及安全配置 AppID/AppSecret；AppSecret 不得出现在小程序代码中。
+- `prod` 环境的小程序使用 `wx.login` 获取临时 code，由后端通过 code2Session 换取 openid 并签发 JWT；AppID/AppSecret 通过服务器环境变量配置，AppSecret 不得出现在小程序代码中。真实微信手机号 code 换手机号仍待接入。
 - 文件上传 `POST /api/files/upload` 支持 `fileType=USER_AVATAR`。
 - 小程序支持账号登录、注册、完善账号、编辑个人资料。
-- P0.5 不做短信验证码、邮箱验证码、找回密码和真实微信 code2Session。
+- P0.5 不做短信验证码、邮箱验证码和找回密码。
 
 ## 当前已完成
 

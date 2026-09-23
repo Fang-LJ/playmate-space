@@ -1,5 +1,5 @@
 // 发布小程序前切换为 'prod'；本地开发保持 'local'。
-const ENV = 'local';
+const ENV = 'prod';
 
 const ENV_CONFIG = {
   local: {

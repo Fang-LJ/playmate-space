@@ -16,6 +16,8 @@ The MySQL Docker entrypoint executes `docker-entrypoint-initdb.d` only when `pla
 
 `create-prod-env.sh` generates new MySQL root/application, Redis, MinIO and JWT secrets with `openssl`, writes `.env.prod` using mode 600, and refuses to overwrite an existing file. Keep an encrypted backup of that file outside the repository.
 
+For real WeChat Mini Program login, add `PLAYMATE_WECHAT_APP_ID` and `PLAYMATE_WECHAT_APP_SECRET` to the server's `deploy/.env.prod`. The AppID must match the Mini Program project configuration. Keep the AppSecret only in the server environment file; `playmate-server` already loads this file through Compose `env_file`. Existing installations must add these variables manually before recreating the server container.
+
 ## Updating code
 
 ```bash

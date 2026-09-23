@@ -26,6 +26,9 @@ mybatis-plus:
     banner: false
 
 playmate:
+  wechat:
+    app-id: ${PLAYMATE_WECHAT_APP_ID:}
+    app-secret: ${PLAYMATE_WECHAT_APP_SECRET:}
   features:
     settlement-transfer-enabled: ${PLAYMATE_SETTLEMENT_TRANSFER_ENABLED:false}
   jwt:

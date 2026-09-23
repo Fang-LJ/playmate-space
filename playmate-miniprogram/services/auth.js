@@ -1,4 +1,5 @@
 const { request } = require('../utils/request');
+const { getActiveEnv } = require('../utils/config');
 const { getToken, setToken, clearToken } = require('../utils/token');
 
 const MOCK_USER_KEY = 'PLAYMATE_SPACE_MOCK_USER';
@@ -9,11 +10,17 @@ const MOCK_USERS = [
 ];
 
 function getCurrentMockUser() {
+  if (getActiveEnv() !== 'local') {
+    return null;
+  }
   const selectedKey = wx.getStorageSync(MOCK_USER_KEY) || 'A';
   return MOCK_USERS.find((user) => user.key === selectedKey) || MOCK_USERS[0];
 }
 
 function selectMockUser(key) {
+  if (getActiveEnv() !== 'local') {
+    return null;
+  }
   const mockUser = MOCK_USERS.find((user) => user.key === key);
   if (!mockUser) {
     return getCurrentMockUser();
@@ -23,15 +30,43 @@ function selectMockUser(key) {
 }
 
 function getMockPhoneCodeByKey(key) {
+  if (getActiveEnv() !== 'local') {
+    return '';
+  }
   const mockUser = MOCK_USERS.find((user) => user.key === key);
   return mockUser ? mockUser.phoneCode : '';
 }
 
 function getCurrentMockPhoneCode() {
-  return getCurrentMockUser().phoneCode;
+  return getActiveEnv() === 'local' ? getCurrentMockUser().phoneCode : '';
 }
 
 function wxLogin() {
+  if (getActiveEnv() !== 'local') {
+    return new Promise((resolve, reject) => {
+      wx.login({
+        success(loginResult) {
+          if (loginResult && loginResult.code) {
+            resolve(loginResult.code);
+          } else {
+            reject(new Error('未获取到微信登录凭证，请重试'));
+          }
+        },
+        fail() {
+          reject(new Error('微信登录失败，请重试'));
+        }
+      });
+    }).then((code) => request({
+      url: '/api/auth/wx-login',
+      method: 'POST',
+      requireAuth: false,
+      data: { code }
+    })).then((loginResult) => {
+      setToken(loginResult.token);
+      return loginResult;
+    });
+  }
+
   const mockUser = getCurrentMockUser();
   return request({
     url: '/api/auth/wx-login',

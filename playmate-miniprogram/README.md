@@ -53,8 +53,8 @@ node --check pages/login/index.js
 API 地址统一在 `utils/config.js` 中维护。请求封装 `wx.request` 与图片上传 `wx.uploadFile` 都会读取这里的 `apiBaseUrl`。
 
 ```js
-const ENV = 'local'; // 本地开发
-// const ENV = 'prod'; // 上传或发布前切换为生产环境
+const ENV = 'prod'; // 当前正式环境
+// 本地开发时将上一行改为 const ENV = 'local';
 ```
 
 | 环境 | API 地址 | 使用场景 |
@@ -141,9 +141,9 @@ const ENV = 'local'; // 本地开发
 - 昵称：使用 `input type="nickname"`，也可手工填写。
 - 手机号：使用原生 `getPhoneNumber`，由后端处理授权 code。
 
-local 开发环境不会调用微信服务端。模拟用户 A/B/C 会分别传 `mock_phone_a/b/c`，后端映射为固定测试手机号。真实上线前仍需要由后端接入微信手机号 code 换手机号、`wx.login` code2Session 以及安全的 AppID/AppSecret 配置；AppSecret 不得放入小程序代码。
+`local` 环境不会调用微信服务端：模拟用户 A/B/C 分别使用 `mock_user_a/b/c`，手机号授权使用 `mock_phone_a/b/c`。`prod` 环境会调用 `wx.login`，将临时 code 发给后端换取登录态，模拟身份入口不会显示。后端需通过 `PLAYMATE_WECHAT_APP_ID` 和 `PLAYMATE_WECHAT_APP_SECRET` 配置微信小程序凭据；AppSecret 不得放入小程序代码。真实微信手机号 code 换手机号仍待接入。
 
-账号登录 / 注册页支持手机号或邮箱 + 密码。P0.5 不做短信验证码、邮箱验证码、找回密码和真实微信 code2Session。
+账号登录 / 注册页支持手机号或邮箱 + 密码。P0.5 不做短信验证码、邮箱验证码和找回密码。
 
 ## 个人资料编辑验证
 

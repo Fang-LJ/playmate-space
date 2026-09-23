@@ -1,7 +1,7 @@
 {
   "compileType": "miniprogram",
   "libVersion": "3.6.6",
-  "appid": "wxfa76dd19c01086c5",
+  "appid": "wx9b286017377db676",
   "projectname": "playmate-miniprogram",
   "miniprogramRoot": "./",
   "setting": {
@@ -35,5 +35,6 @@
     "ignore": [],
     "include": []
   },
-  "editorSetting": {}
+  "editorSetting": {},
+  "isGameTourist": false
 }

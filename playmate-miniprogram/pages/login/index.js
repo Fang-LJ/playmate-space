@@ -1,4 +1,5 @@
 const { wxLogin, getCurrentMockUser, selectMockUser, MOCK_USERS } = require('../../services/auth');
+const { getActiveEnv } = require('../../utils/config');
 const { handleLoginSuccess, shouldPromptWechatProfile, markWechatProfilePrompted } = require('../../utils/login-flow');
 
 Page({
@@ -13,7 +14,7 @@ Page({
   onLoad(options) {
     this.setData({
       redirect: options.redirect ? decodeURIComponent(options.redirect) : '',
-      mockUserLabel: getCurrentMockUser().nickname,
+      mockUserLabel: getActiveEnv() === 'local' ? getCurrentMockUser().nickname : '',
       showDevNote: this.isDevelopmentEnvironment(),
       safeTop: this.getSafeTop()
     });
@@ -33,11 +34,7 @@ Page({
   },
 
   isDevelopmentEnvironment() {
-    try {
-      return wx.getAccountInfoSync().miniProgram.envVersion === 'develop';
-    } catch (error) {
-      return false;
-    }
+    return getActiveEnv() === 'local';
   },
 
   async handleWxLogin() {
@@ -121,6 +118,9 @@ Page({
   },
 
   chooseMockUser() {
+    if (getActiveEnv() !== 'local') {
+      return;
+    }
     wx.showActionSheet({
       itemList: MOCK_USERS.map((user) => `模拟用户 ${user.key} · ${user.nickname}`),
       success: ({ tapIndex }) => {

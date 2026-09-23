@@ -1,4 +1,7 @@
 const assert = require('node:assert/strict');
+const config = require('../utils/config');
+const originalEnvironment = config.getActiveEnv;
+config.getActiveEnv = () => 'local';
 const { MOCK_USERS, getMockPhoneCodeByKey } = require('../services/auth');
 const { handleLoginSuccess, shouldPromptWechatProfile, markWechatProfilePrompted } = require('../utils/login-flow');
 const { maskPhone, resolvePhoneAuthorizationCode } = require('../utils/wechat-profile-flow');
@@ -67,3 +70,4 @@ assert.deepEqual(resolvePhoneAuthorizationCode({ errMsg: 'getPhoneNumber:fail us
 });
 
 console.log('wechat-profile-flow.test.js passed');
+config.getActiveEnv = originalEnvironment;
