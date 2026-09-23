@@ -43,7 +43,7 @@
 
 .todo-card { padding: 26rpx; border: 1rpx solid #f3e19a; border-radius: 28rpx; background: #fff9e6; box-shadow: var(--pm-shadow-soft); }
 .todo-line { margin-top: 12rpx; font-size: 25rpx; color: var(--pm-text); }
-.tab-bar { display: grid; grid-template-columns: repeat(4, 1fr); padding: 8rpx; border: 1rpx solid var(--pm-border); border-radius: 24rpx; background: #fff; }
+.tab-bar { display: grid; grid-template-columns: repeat(3, 1fr); padding: 8rpx; border: 1rpx solid var(--pm-border); border-radius: 24rpx; background: #fff; }
 .tab { padding: 16rpx 4rpx; border-radius: 18rpx; text-align: center; color: var(--pm-primary-dark); font-size: 23rpx; font-weight: 700; }
 .tab.active { background: var(--pm-primary); color: #fff; }
 .section-head { display: flex; align-items: center; justify-content: space-between; }
