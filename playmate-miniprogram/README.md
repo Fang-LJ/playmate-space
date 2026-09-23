@@ -48,17 +48,24 @@ node --check pages/login/index.js
 
 命令行检查只能发现基础 JS / JSON 语法问题，不能完全替代微信开发者工具。涉及 `wx.uploadFile`、页面跳转、分享路径、TDesign 组件渲染和真机网络环境时，仍需要在微信开发者工具里构建 npm 后验证。
 
-## 本地接口配置
+## API 环境配置
 
-本地 API 地址配置在 `utils/config.js`：
+API 地址统一在 `utils/config.js` 中维护。请求封装 `wx.request` 与图片上传 `wx.uploadFile` 都会读取这里的 `apiBaseUrl`。
 
 ```js
-apiBaseUrl: 'http://127.0.0.1:8080'
+const ENV = 'local'; // 本地开发
+// const ENV = 'prod'; // 上传或发布前切换为生产环境
 ```
 
-- `http://127.0.0.1:8080` 只适合微信开发者工具模拟器在本机调试。
-- 真机预览时需要把 `apiBaseUrl` 改成 Mac 的局域网 IP，例如 `http://192.168.x.x:8080`。
+| 环境 | API 地址 | 使用场景 |
+| --- | --- | --- |
+| `local` | `http://127.0.0.1:8080` | 微信开发者工具模拟器的本机调试 |
+| `prod` | `https://api.playmatespace.cloud` | 真机预览、体验版和正式发布 |
+
+- 本地真机联调时，可临时将 `local.apiBaseUrl` 改为 Mac 的局域网 IP；完成后恢复为 `127.0.0.1`，不要写入生产配置。
 - 开发者工具访问本地 HTTP 接口时，需要在本地调试环境关闭合法域名校验。
+- 生产环境需在微信公众平台的小程序后台，将 `https://api.playmatespace.cloud` 配置为合法 request、uploadFile 和 downloadFile 域名。
+- 图片和文件地址由后端统一生成，生产地址为 `https://api.playmatespace.cloud/minio`，小程序不单独拼接 MinIO 服务地址。
 - 使用 TDesign MiniProgram 后，需要在微信开发者工具里执行「工具 -> 构建 npm」。
 
 ## 当前范围

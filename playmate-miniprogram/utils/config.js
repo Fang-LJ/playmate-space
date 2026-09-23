@@ -1,3 +1,4 @@
+// 发布小程序前切换为 'prod'；本地开发保持 'local'。
 const ENV = 'local';
 
 const ENV_CONFIG = {
@@ -8,7 +9,7 @@ const ENV_CONFIG = {
     apiBaseUrl: ''
   },
   prod: {
-    apiBaseUrl: ''
+    apiBaseUrl: 'https://api.playmatespace.cloud'
   }
 };
 

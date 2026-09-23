@@ -16,7 +16,7 @@ class MinioFileStorageServiceTest {
         properties.setSecretKey("secret");
         properties.setBucket("playmate-files");
         properties.setPrivateBucket("playmate-private-files");
-        properties.setPublicBaseUrl("http://115.159.47.212/minio");
+        properties.setPublicBaseUrl("https://api.playmatespace.cloud/minio");
         MinioFileStorageService service = new MinioFileStorageService(properties);
 
         Method method = MinioFileStorageService.class.getDeclaredMethod("rewriteForPublicAccess", String.class);
@@ -24,6 +24,6 @@ class MinioFileStorageServiceTest {
         String result = (String) method.invoke(service,
                 "http://playmate-minio:9000/playmate-private-files/a%20b.jpg?X-Amz-Signature=abc%2Fdef&X-Amz-SignedHeaders=host");
 
-        assertEquals("http://115.159.47.212/minio/playmate-private-files/a%20b.jpg?X-Amz-Signature=abc%2Fdef&X-Amz-SignedHeaders=host", result);
+        assertEquals("https://api.playmatespace.cloud/minio/playmate-private-files/a%20b.jpg?X-Amz-Signature=abc%2Fdef&X-Amz-SignedHeaders=host", result);
     }
 }
