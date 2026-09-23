@@ -15,7 +15,7 @@
     "packNpmManually": false,
     "compileWorklet": false,
     "uglifyFileName": false,
-    "uploadWithSourceMap": true,
+    "uploadWithSourceMap": false,
     "packNpmRelationList": [],
     "minifyWXSS": true,
     "minifyWXML": true,
@@ -32,7 +32,19 @@
   "condition": {},
   "simulatorPluginLibVersion": {},
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      { "type": "folder", "value": "node_modules" },
+      { "type": "folder", "value": "miniprogram_npm" },
+      { "type": "folder", "value": "tests" },
+      { "type": "folder", "value": "pages/photo-wall" },
+      { "type": "folder", "value": "pages/photo-detail" },
+      { "type": "file", "value": "services/photo.js" },
+      { "type": "file", "value": "utils/photo-ui.js" },
+      { "type": "file", "value": "README.md" },
+      { "type": "file", "value": "package.json" },
+      { "type": "file", "value": "pnpm-lock.yaml" },
+      { "type": "file", "value": "project.private.config.json" }
+    ],
     "include": []
   },
   "editorSetting": {},

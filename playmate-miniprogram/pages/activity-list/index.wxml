@@ -11,7 +11,7 @@
         <view class="home-action create-action" bindtap="goCreate">创建</view>
       </view>
     </view>
-    <view class="page-subtitle">把行程、成员和照片放进同一个活动空间。</view>
+    <view class="page-subtitle">把行程、成员和账单放进同一个活动空间。</view>
   </view>
 
   <view wx:if="{{loading}}" class="section card stack">
@@ -33,7 +33,7 @@
 
   <view wx:elif="{{loaded && activities.length === 0}}" class="section card stack">
     <view class="empty-title">还没有活动</view>
-    <view class="empty-desc">创建一个活动空间，和朋友一起规划行程、账本和照片。</view>
+    <view class="empty-desc">创建一个活动空间，和朋友一起规划行程、投票和账本。</view>
     <button class="pm-native-button primary" bindtap="goCreate">创建活动</button>
   </view>
 

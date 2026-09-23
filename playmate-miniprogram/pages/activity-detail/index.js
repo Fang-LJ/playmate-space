@@ -4,8 +4,6 @@ const { getPolls, getSummary } = require('../../services/poll');
 const { getActivityMembers } = require('../../services/member');
 const { getCurrentUser } = require('../../services/user');
 const { getExpenseSummary } = require('../../services/expense');
-const { getPhotoSummary, getPhotos } = require('../../services/photo');
-const { nextSwiperIndex } = require('../../utils/photo-ui');
 const { POLL_RESULT_STATUS, POLL_STATUS, label } = require('../../utils/p1-display');
 const { buildCardViewModel } = require('../../utils/itinerary-ui');
 
@@ -14,7 +12,7 @@ const TYPE = { TRAVEL: '旅行', MEAL: '聚餐', TEAM_BUILDING: '团建', BIRTHD
 const EXPENSE_CATEGORY = { TRANSPORT: '交通', LODGING: '住宿', TICKET: '门票', FOOD: '餐饮', ENTERTAINMENT: '娱乐', SHOPPING: '购物', OTHER: '其他' };
 
 Page({
-  data: { loading: true, activityId: '', activity: null, summary: null, itineraries: [], polls: [], members: [], currentUserId: '', activeTab: 'ITINERARIES', expenseSummary: null, expenseLoading: false, photoSummary: null, recentPhotos: [], recentPhotoIndex: 0, photoLoading: false, photoError: '', errorMessage: '', actionMenuVisible: false, openItineraryId: null },
+  data: { loading: true, activityId: '', activity: null, summary: null, itineraries: [], polls: [], members: [], currentUserId: '', activeTab: 'ITINERARIES', expenseSummary: null, expenseLoading: false, errorMessage: '', actionMenuVisible: false, openItineraryId: null },
 
   onLoad(options) {
     this.setData({ activityId: options.activityId || '' });
@@ -24,7 +22,6 @@ Page({
     if (!this.data.activityId) return;
     await this.load();
     if (this.data.activeTab === 'COSTS') await this.loadExpenseSummary();
-    if (this.data.activeTab === 'PHOTOS') await this.loadPhotoModule();
   },
 
   async load() {
@@ -86,16 +83,7 @@ Page({
     };
   },
 
-  tab(event) { const activeTab = event.currentTarget.dataset.tab; this.setData({ activeTab }); if (activeTab === 'COSTS') this.loadExpenseSummary(); if (activeTab === 'PHOTOS') this.loadPhotoModule(); },
-  async loadPhotoModule() {
-    this.setData({ photoLoading: true, photoError: '' });
-    try {
-      const [photoSummary, page] = await Promise.all([getPhotoSummary(this.data.activityId), getPhotos(this.data.activityId, { scope: 'ALL', sort: 'LATEST', page: 1, pageSize: 4 })]);
-      const recentPhotos = page.items || [];
-      this.setData({ photoSummary, recentPhotos, recentPhotoIndex: Math.min(this.data.recentPhotoIndex, Math.max(0, recentPhotos.length - 1)) });
-    } catch (error) { this.setData({ photoError: error.message || '照片加载失败' }); }
-    finally { this.setData({ photoLoading: false }); }
-  },
+  tab(event) { const activeTab = event.currentTarget.dataset.tab; this.setData({ activeTab }); if (activeTab === 'COSTS') this.loadExpenseSummary(); },
   async loadExpenseSummary() {
     this.setData({ expenseLoading: true });
     try {
@@ -162,12 +150,6 @@ Page({
   newItinerary() { wx.navigateTo({ url: `/pages/itinerary-edit/index?activityId=${this.data.activityId}` }); },
   newPoll() { wx.navigateTo({ url: `/pages/poll-create/index?activityId=${this.data.activityId}` }); },
   goExpenses() { wx.navigateTo({ url: `/pages/expense-detail/index?activityId=${this.data.activityId}` }); },
-  goPhotoWall() { wx.navigateTo({ url: `/pages/photo-wall/index?activityId=${this.data.activityId}` }); },
-  openPhoto(event) { wx.navigateTo({ url: `/pages/photo-wall/index?activityId=${this.data.activityId}&photoId=${event.currentTarget.dataset.id}` }); },
-  recentPhotoChange(event) { this.setData({ recentPhotoIndex: event.detail.current }); },
-  previousRecentPhoto() { this.setData({ recentPhotoIndex: nextSwiperIndex(this.data.recentPhotoIndex, this.data.recentPhotos.length, -1) }); },
-  nextRecentPhoto() { this.setData({ recentPhotoIndex: nextSwiperIndex(this.data.recentPhotoIndex, this.data.recentPhotos.length, 1) }); },
-  uploadPhotos() { wx.navigateTo({ url: `/pages/photo-wall/index?activityId=${this.data.activityId}&action=upload` }); },
   newExpense() { wx.navigateTo({ url: `/pages/expense-edit/index?activityId=${this.data.activityId}` }); },
   goExpenseItem(event) { wx.navigateTo({ url: `/pages/expense-item-detail/index?activityId=${this.data.activityId}&expenseId=${event.currentTarget.dataset.id}` }); },
   todo(event) {

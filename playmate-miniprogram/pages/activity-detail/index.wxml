@@ -56,7 +56,6 @@
       <view class="tab {{activeTab==='ITINERARIES'?'active':''}}" data-tab="ITINERARIES" bindtap="tab">行程</view>
       <view class="tab {{activeTab==='POLLS'?'active':''}}" data-tab="POLLS" bindtap="tab">投票 {{summary.activePollCount||''}}</view>
       <view class="tab {{activeTab==='COSTS'?'active':''}}" data-tab="COSTS" bindtap="tab">费用</view>
-      <view class="tab {{activeTab==='PHOTOS'?'active':''}}" data-tab="PHOTOS" bindtap="tab">照片</view>
     </view>
 
     <view wx:if="{{activeTab==='ITINERARIES'}}" class="section">
@@ -140,17 +139,6 @@
         <view wx:else class="card expense-empty"><view class="row-title">还没有费用记录</view><view class="muted">记下第一笔共同消费吧</view><view wx:if="{{!activity.isReadonly}}" class="pm-button-like primary empty-expense-button" bindtap="newExpense">记一笔</view></view>
       </view>
       <view wx:if="{{expenseSummary&&expenseSummary.expenseCount&&!activity.isReadonly}}" class="cost-actions cost-actions-fixed"><view class="pm-button-like secondary cost-action" bindtap="newExpense">记一笔</view><view class="pm-button-like primary cost-action" bindtap="goExpenses">进入费用详情</view></view>
-    </view>
-    <view wx:if="{{activeTab==='PHOTOS'}}" class="section photo-module">
-      <view wx:if="{{photoLoading}}" class="card empty-card">正在加载活动照片…</view>
-      <view wx:elif="{{photoError}}" class="card empty-card"><view>{{photoError}}</view><view class="pm-button-like secondary photo-retry" bindtap="loadPhotoModule">重新加载</view></view>
-      <block wx:else>
-        <view class="section-head"><view class="section-title">最近照片</view><view class="link-text" bindtap="goPhotoWall">查看全部</view></view>
-        <view wx:if="{{recentPhotos.length}}" class="recent-photo-swiper-wrap"><swiper class="recent-photo-swiper" current="{{recentPhotoIndex}}" bindchange="recentPhotoChange"><swiper-item wx:for="{{recentPhotos}}" wx:key="photoId"><view class="recent-photo-stage" data-id="{{item.photoId}}" bindtap="openPhoto"><image src="{{item.previewUrl||item.thumbnailUrl}}" mode="aspectFit"/></view></swiper-item></swiper><view wx:if="{{recentPhotos.length>1}}" class="recent-photo-arrow previous" catchtap="previousRecentPhoto">‹</view><view wx:if="{{recentPhotos.length>1}}" class="recent-photo-arrow next" catchtap="nextRecentPhoto">›</view><view wx:if="{{recentPhotos.length>1}}" class="recent-photo-page">{{recentPhotoIndex+1}} / {{recentPhotos.length}}</view></view>
-        <view wx:else class="card photo-tab-empty"><view class="photo-empty-glyph">▧</view><view class="section-title">还没有照片</view><view class="section-desc">上传活动中的照片，审核通过后大家就能在这里看到。</view><view wx:if="{{activity.status!=='CANCELED'}}" class="pm-button-like primary photo-empty-upload" bindtap="uploadPhotos">上传照片</view><view wx:else class="section-desc">该活动已取消，照片墙仅供查看。</view></view>
-        <view wx:if="{{photoSummary}}" class="card photo-status-card"><view class="photo-status-heading">照片状态</view><view class="photo-status-primary">{{photoSummary.photoCount||0}} <text>张已展示</text></view><view class="photo-status-subrow"><view>我上传 <text>{{photoSummary.myUploadCount||0}}</text></view><view>♥ 收到 <text>{{photoSummary.receivedLikeCount||0}}</text></view></view><view wx:if="{{photoSummary.pendingAuditCount>0}}" class="photo-audit-notice"><view>●</view><text>{{photoSummary.pendingAuditCount}} 张照片正在审核</text><view class="photo-audit-link" bindtap="goPhotoWall">查看 ›</view></view><view wx:else class="section-desc">我的照片都已完成审核</view></view>
-        <view class="photo-tab-actions"><view wx:if="{{activity.status!=='CANCELED'}}" class="pm-button-like secondary" bindtap="uploadPhotos">上传照片</view><view class="pm-button-like primary" bindtap="goPhotoWall">进入照片墙</view></view>
-      </block>
     </view>
   </view>
 </view>

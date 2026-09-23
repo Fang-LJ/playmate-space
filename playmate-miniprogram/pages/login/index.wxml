@@ -4,7 +4,7 @@
 
     <view class="login-card">
       <view class="card-title">玩伴空间</view>
-      <view class="card-desc">创建活动、邀请好友、一起规划、记录 AA、上传照片</view>
+      <view class="card-desc">创建活动、邀请好友、一起规划、记录 AA</view>
     </view>
 
     <view class="login-actions">

@@ -1,20 +1,14 @@
 # 玩伴空间小程序
 
-当前目录是「玩伴空间」微信小程序原生工程，使用 WXML / WXSS / JS 开发，并通过 TDesign MiniProgram 提供基础组件。
+当前目录是「玩伴空间」微信小程序原生工程，使用 WXML / WXSS / JS 开发。V1.0 暂不提供照片墙，恢复说明见 [V1.0 照片墙下线记录](../docs/v1.0-photo-wall-disabled.md)。
 
 ## 本地运行
 
 1. 使用微信开发者工具打开 `playmate-miniprogram` 目录。
-2. 如果提示 AppID，可先使用测试号或保留 `touristappid` 进行本地预览。
-3. 安装依赖：
-
-```bash
-pnpm install
-```
-
-4. 在微信开发者工具中执行「工具」->「构建 npm」。
-5. 编译运行后，应能看到底部 TabBar：
+2. 使用项目配置中的小程序 AppID 打开并编译；当前 V1.0 不依赖第三方 npm 组件，无需「构建 npm」。
+3. 编译运行后，应能看到底部 TabBar：
    - 活动
+   - 算账
    - 我的
 
 ## 命令行基础检查
@@ -22,7 +16,6 @@ pnpm install
 可以用 Node 对小程序 JS 做基础语法检查：
 
 ```bash
-pnpm install --frozen-lockfile
 node --check app.js
 node --check utils/request.js
 node --check utils/token.js
@@ -46,7 +39,7 @@ node --check pages/profile-edit/index.js
 node --check pages/login/index.js
 ```
 
-命令行检查只能发现基础 JS / JSON 语法问题，不能完全替代微信开发者工具。涉及 `wx.uploadFile`、页面跳转、分享路径、TDesign 组件渲染和真机网络环境时，仍需要在微信开发者工具里构建 npm 后验证。
+命令行检查只能发现基础 JS / JSON 语法问题，不能完全替代微信开发者工具。涉及 `wx.uploadFile`、页面跳转、分享路径和真机网络环境时，仍需在微信开发者工具中验证。
 
 ## API 环境配置
 
@@ -66,19 +59,17 @@ const ENV = 'prod'; // 当前正式环境
 - 开发者工具访问本地 HTTP 接口时，需要在本地调试环境关闭合法域名校验。
 - 生产环境需在微信公众平台的小程序后台，将 `https://api.playmatespace.cloud` 配置为合法 request、uploadFile 和 downloadFile 域名。
 - 图片和文件地址由后端统一生成，生产地址为 `https://api.playmatespace.cloud/minio`，小程序不单独拼接 MinIO 服务地址。
-- 使用 TDesign MiniProgram 后，需要在微信开发者工具里执行「工具 -> 构建 npm」。
 
 ## 当前范围
 
 已完成：
 
 - 原生小程序基础结构
-- TDesign MiniProgram 依赖接入
-- 活动 / 我的 TabBar
+- 活动 / 算账 / 我的 TabBar
 - 活动、我的、登录基础页面骨架
 - `utils/request.js` 统一请求工具
 - `utils/token.js` token 存取工具
-- 本地 mockOpenid 登录
+- 生产微信登录与本地模拟用户登录
 - 我的页当前用户信息展示
 - 活动列表
 - 创建活动
@@ -100,9 +91,7 @@ const ENV = 'prod'; // 当前正式环境
 - 可选账号保护与微信头像昵称补充
 - P0 页面 UI 对齐第一轮：活动列表、创建/编辑活动、活动详情、活动邀请、登录、我的、成员和链接失效页
 
-未实现：
-
-- 行程、投票、账本、AA、照片墙
+V1.0 暂不提供照片墙；行程、投票、账本与 AA 功能已提供。
 
 ## P0 页面预览重点
 
