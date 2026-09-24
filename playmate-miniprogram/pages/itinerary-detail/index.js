@@ -5,7 +5,6 @@ const {
   deleteItinerary,
   restoreItinerary
 } = require('../../services/itinerary');
-const { POLL_RESULT_STATUS, POLL_STATUS, label } = require('../../utils/p1-display');
 const { buildDetailViewModel, normalizeMetadata } = require('../../utils/itinerary-ui');
 
 Page({
@@ -21,15 +20,7 @@ Page({
       ]);
       const itinerary = buildDetailViewModel(detail.itinerary, normalizeMetadata(metadata));
       if (!itinerary) throw new Error('行程类型信息加载失败，请重试');
-      this.setData({
-        detail: {
-          ...detail,
-          itinerary,
-          relatedPolls: (detail.relatedPolls || []).map((item) => ({
-            ...item, statusText: label(POLL_STATUS, item.status), resultText: label(POLL_RESULT_STATUS, item.resultApplyStatus)
-          }))
-        }
-      });
+      this.setData({ detail: { itinerary } });
     } catch (error) { this.setData({ errorMessage: error.message || '加载失败' }); }
     finally { this.setData({ loading: false }); }
   },
@@ -38,11 +29,6 @@ Page({
     this.closeActionMenu();
     wx.navigateTo({ url: `/pages/itinerary-edit/index?activityId=${this.data.activityId}&itineraryId=${this.data.itineraryId}` });
   },
-  newPoll() {
-    this.closeActionMenu();
-    wx.navigateTo({ url: `/pages/poll-create/index?activityId=${this.data.activityId}&purpose=UPDATE_ITINERARY&targetItineraryId=${this.data.itineraryId}` });
-  },
-  goPoll(event) { wx.navigateTo({ url: `/pages/poll-detail/index?activityId=${this.data.activityId}&pollId=${event.currentTarget.dataset.id}` }); },
   toggleActionMenu() { this.setData({ actionMenuVisible: !this.data.actionMenuVisible }); },
   closeActionMenu() { this.setData({ actionMenuVisible: false }); },
   stopActionMenu() {},
@@ -64,13 +50,13 @@ Page({
   },
   remove() {
     this.closeActionMenu();
-    wx.showModal({ title: '删除行程', content: '删除后无法恢复。存在未完成关联投票时不能删除。', confirmText: '删除', confirmColor: '#D94C4C', success: async (result) => {
+    wx.showModal({ title: '删除行程', content: '删除后无法恢复，是否继续？', confirmText: '删除', confirmColor: '#D94C4C', success: async (result) => {
       if (!result.confirm) return;
       try {
         await deleteItinerary(this.data.activityId, this.data.itineraryId);
         wx.showToast({ title: '已删除', icon: 'success' });
         setTimeout(() => wx.navigateBack(), 350);
-      } catch (error) { wx.showToast({ title: error.message || '删除失败', icon: 'none' }); }
+      } catch (error) { wx.showToast({ title: '当前行程暂无法删除', icon: 'none' }); }
     }});
   }
 });

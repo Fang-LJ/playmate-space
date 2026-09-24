@@ -45,10 +45,6 @@
 .detail-emphasis { color: var(--type-text); font-weight: 700; }
 .note-card { display: flex; flex-direction: column; gap: 16rpx; padding: 32rpx; border-color: #d6e4db; border-radius: 36rpx; box-shadow: 0 14rpx 18rpx rgba(22, 53, 38, 0.1); }
 .note-copy { color: #66756c; font-size: 28rpx; line-height: 40rpx; white-space: pre-wrap; }
-.poll-row { margin-top: 14rpx; display: flex; align-items: center; justify-content: space-between; gap: 16rpx; font-size: 27rpx; }
-.poll-main { flex: 1; min-width: 0; }
-.poll-arrow { color: var(--pm-text-muted); font-size: 36rpx; }
-.applied-summary { margin-top: 10rpx; color: var(--pm-primary-dark); font-size: 22rpx; line-height: 1.45; }
 .itinerary-action-anchor { position: absolute; top: 20rpx; right: 20rpx; z-index: 12; }
 .itinerary-action-trigger { display: flex; align-items: center; justify-content: center; width: 58rpx; height: 58rpx; color: var(--pm-primary-dark); font-size: 29rpx; font-weight: 900; letter-spacing: 2rpx; }
 .itinerary-action-menu { position: absolute; top: 70rpx; right: 0; width: 190rpx; padding: 8rpx; border: 1rpx solid var(--pm-border); border-radius: 18rpx; background: #fff; box-shadow: 0 18rpx 36rpx rgba(47, 111, 94, 0.16); }

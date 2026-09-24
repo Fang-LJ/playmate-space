@@ -17,7 +17,6 @@
       <view class="itinerary-action-anchor">
         <view class="itinerary-action-trigger" bindtap="toggleActionMenu" aria-label="行程操作">•••</view>
         <view wx:if="{{actionMenuVisible}}" class="itinerary-action-menu" catchtap="stopActionMenu">
-          <view wx:if="{{detail.itinerary.planningStatus !== 'CANCELED'}}" class="itinerary-action-item" bindtap="newPoll"><text class="itinerary-action-icon">◌</text><text>发起投票</text></view>
           <view wx:if="{{detail.itinerary.planningStatus !== 'CANCELED'}}" class="itinerary-action-item" bindtap="edit"><text class="itinerary-action-icon">✎</text><text>编辑行程</text></view>
           <view wx:if="{{detail.itinerary.planningStatus !== 'CANCELED'}}" class="itinerary-action-item warning" bindtap="cancel"><text class="itinerary-action-icon">⊘</text><text>取消行程</text></view>
           <view wx:if="{{detail.itinerary.planningStatus === 'CANCELED'}}" class="itinerary-action-item" bindtap="restore"><text class="itinerary-action-icon">↻</text><text>恢复行程</text></view>
@@ -38,14 +37,6 @@
     <view wx:if="{{detail.itinerary.descriptionText}}" class="section card note-card">
       <view class="detail-heading">备注说明</view>
       <view class="note-copy">{{detail.itinerary.descriptionText}}</view>
-    </view>
-    <view class="section">
-      <view class="section-title">关联投票与应用结果</view>
-      <view wx:if="{{!detail.relatedPolls.length}}" class="card section-desc">还没有关联投票</view>
-      <view wx:for="{{detail.relatedPolls}}" wx:key="pollId" class="card poll-row" data-id="{{item.pollId}}" bindtap="goPoll">
-        <view class="poll-main"><view>{{item.title}}</view><view class="muted">{{item.statusText}} · {{item.resultText}}</view><view wx:if="{{item.appliedChangeSummary}}" class="applied-summary">{{item.appliedChangeSummary}}</view></view>
-        <view class="poll-arrow">›</view>
-      </view>
     </view>
   </view>
 </view>

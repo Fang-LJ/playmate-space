@@ -64,33 +64,9 @@
       />
     </view>
 
-    <view wx:if="{{!itineraryId}}" class="section poll-hint-card">
-      <view class="poll-hint-copy">
-        <view class="poll-hint-title">还没决定？</view>
-        <view class="poll-hint-desc">发起投票，让大家一起确定这项安排。</view>
-      </view>
-      <view class="poll-hint-action" bindtap="togglePoll">{{withPoll ? '直接填写' : '发起投票'}}</view>
-    </view>
-
-    <view wx:if="{{withPoll}}" class="section card pm-form-card">
-      <view class="section-title">投票内容</view>
-      <view class="pm-field">
-        <view class="pm-label">投票问题</view>
-        <input class="pm-input" value="{{poll.title}}" data-key="title" bindinput="pollInput" placeholder="例如：晚餐吃什么？" />
-      </view>
-      <view wx:for="{{poll.options}}" wx:key="index" class="poll-option-edit">
-        <view class="pm-label">选项 {{index + 1}}</view>
-        <view class="option-edit-row">
-          <input class="pm-input" value="{{item.optionText}}" data-index="{{index}}" bindinput="optionInput" placeholder="填写候选方案" />
-          <view wx:if="{{index >= 2}}" class="option-remove" data-index="{{index}}" bindtap="removeOption">删除</view>
-        </view>
-      </view>
-      <view class="pm-link" bindtap="addOption">+ 添加选项</view>
-    </view>
-
     <view class="p1-fixed-footer">
       <button class="footer-action secondary" bindtap="cancel">取消</button>
-      <button class="footer-action primary" loading="{{saving}}" disabled="{{saving}}" bindtap="save">{{withPoll ? '保存并发起投票' : '保存行程'}}</button>
+      <button class="footer-action primary" loading="{{saving}}" disabled="{{saving}}" bindtap="save">保存行程</button>
     </view>
   </block>
 </view>

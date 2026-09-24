@@ -1,7 +1,7 @@
 const { getItineraries, getItineraryTypeMetadata, deleteItinerary: removeItinerary } = require('../../services/itinerary');
 const { getActivityDetail } = require('../../services/activity');
 const { getCurrentUser } = require('../../services/user');
-const { dateGroupMeta } = require('../../utils/p1-display');
+const { dateGroupMeta } = require('../../utils/itinerary-display');
 const { buildCardViewModel, normalizeMetadata } = require('../../utils/itinerary-ui');
 
 Page({
@@ -75,7 +75,7 @@ Page({
         await removeItinerary(this.data.activityId, itineraryId);
         wx.showToast({ title: '已删除', icon: 'success' });
         this.load();
-      } catch (error) { wx.showToast({ title: error.message || '删除失败', icon: 'none' }); }
+      } catch (error) { wx.showToast({ title: '当前行程暂无法删除', icon: 'none' }); }
     }});
   },
   retry() { this.load(true); }

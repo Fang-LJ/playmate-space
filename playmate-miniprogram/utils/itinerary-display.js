@@ -1,0 +1,77 @@
+const ITINERARY_TYPE = {
+  TRANSPORT: '交通',
+  MEAL: '用餐',
+  LODGING: '住宿',
+  SIGHTSEEING: '景点',
+  ACTIVITY: '活动',
+  OTHER: '其他'
+};
+
+const ITINERARY_STATUS = {
+  DRAFT: '草稿',
+  PENDING_DECISION: '待决定',
+  CONFIRMED: '已确认',
+  CANCELED: '已取消'
+};
+
+function label(map, value, fallback = '未设置') {
+  return map[value] || fallback;
+}
+
+function formatDateTime(value) {
+  if (!value || value === 'null' || value === 'undefined') return '';
+  return String(value).replace('T', ' ').replace(/:00$/, '');
+}
+
+function formatTimeRange(itinerary) {
+  if (!itinerary) return '时间待定';
+  if (itinerary.allDay) return '请补充时间';
+  const formatTime = (value) => String(value || '').replace(/^(\d{2}:\d{2})(?::\d{2})?$/, '$1');
+  const start = formatTime(itinerary.startTime);
+  const end = formatTime(itinerary.endTime);
+  if (start && end) return `${start}-${end}`;
+  return start || end || '时间待定';
+}
+
+function hasVisibleText(value) {
+  const text = String(value == null ? '' : value).trim();
+  return Boolean(text && text !== 'null' && text !== 'undefined');
+}
+
+function itinerarySummary(itinerary) {
+  if (!itinerary) return '具体方案待补充';
+  if (itinerary.displaySummary) return itinerary.displaySummary;
+  if (itinerary.planningStatus === 'PENDING_DECISION') return '具体方案待决定';
+  const join = (...values) => values.filter(hasVisibleText).slice(0, 2).join(' · ');
+  if (itinerary.itineraryType === 'TRANSPORT') {
+    const route = itinerary.departureName && itinerary.destinationName
+      ? `${itinerary.departureName} → ${itinerary.destinationName}`
+      : itinerary.departureName || itinerary.destinationName;
+    return join(itinerary.transportMode, route, itinerary.locationName) || '交通方案待补充';
+  }
+  if (itinerary.itineraryType === 'MEAL') {
+    return join(itinerary.mealType, itinerary.restaurantName, itinerary.locationName) || '用餐方案待补充';
+  }
+  return join(itinerary.activityContent, itinerary.locationName) || '具体方案待补充';
+}
+
+function dateGroupMeta(date, count) {
+  const parsed = new Date(`${date}T00:00:00`);
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  return {
+    date,
+    weekday: Number.isNaN(parsed.getTime()) ? '' : weekdays[parsed.getDay()],
+    countText: `${count} 项`
+  };
+}
+
+module.exports = {
+  ITINERARY_TYPE,
+  ITINERARY_STATUS,
+  label,
+  formatDateTime,
+  formatTimeRange,
+  hasVisibleText,
+  itinerarySummary,
+  dateGroupMeta
+};

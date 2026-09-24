@@ -33,7 +33,7 @@
 
   <view wx:elif="{{loaded && activities.length === 0}}" class="section card stack">
     <view class="empty-title">还没有活动</view>
-    <view class="empty-desc">创建一个活动空间，和朋友一起规划行程、投票和账本。</view>
+    <view class="empty-desc">创建一个活动空间，和朋友一起规划行程和账本。</view>
     <button class="pm-native-button primary" bindtap="goCreate">创建活动</button>
   </view>
 

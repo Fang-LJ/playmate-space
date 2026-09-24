@@ -5,7 +5,7 @@ const {
   hasVisibleText,
   itinerarySummary,
   label
-} = require('./p1-display');
+} = require('./itinerary-display');
 
 const TYPE_ORDER = ['TRANSPORT', 'MEAL', 'LODGING', 'SIGHTSEEING', 'ACTIVITY', 'OTHER'];
 

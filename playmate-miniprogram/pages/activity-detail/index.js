@@ -1,10 +1,10 @@
 const { cancelActivity, endActivity, getActivityDetail } = require('../../services/activity');
 const { getItineraries, deleteItinerary: removeItinerary } = require('../../services/itinerary');
-const { getPolls, getSummary } = require('../../services/poll');
+const { getSummary, getMyActivityTodos } = require('../../services/collaboration');
 const { getActivityMembers } = require('../../services/member');
 const { getCurrentUser } = require('../../services/user');
 const { getExpenseSummary } = require('../../services/expense');
-const { POLL_RESULT_STATUS, POLL_STATUS, label } = require('../../utils/p1-display');
+const { visibleTodos } = require('../../utils/todo-display');
 const { buildCardViewModel } = require('../../utils/itinerary-ui');
 
 const STATUS = { PLANNING: '规划中', ONGOING: '进行中', ENDED: '已结束', CANCELED: '已取消' };
@@ -12,7 +12,7 @@ const TYPE = { TRAVEL: '旅行', MEAL: '聚餐', TEAM_BUILDING: '团建', BIRTHD
 const EXPENSE_CATEGORY = { TRANSPORT: '交通', LODGING: '住宿', TICKET: '门票', FOOD: '餐饮', ENTERTAINMENT: '娱乐', SHOPPING: '购物', OTHER: '其他' };
 
 Page({
-  data: { loading: true, activityId: '', activity: null, summary: null, itineraries: [], polls: [], members: [], currentUserId: '', activeTab: 'ITINERARIES', expenseSummary: null, expenseLoading: false, errorMessage: '', actionMenuVisible: false, openItineraryId: null },
+  data: { loading: true, activityId: '', activity: null, summary: null, itineraries: [], members: [], currentUserId: '', activeTab: 'ITINERARIES', expenseSummary: null, expenseLoading: false, errorMessage: '', actionMenuVisible: false, openItineraryId: null },
 
   onLoad(options) {
     this.setData({ activityId: options.activityId || '' });
@@ -27,19 +27,24 @@ Page({
   async load() {
     this.setData({ loading: true, errorMessage: '' });
     try {
-      const [activity, summary, itineraries, polls, members, currentUser] = await Promise.all([
+      const [activity, summary, allTodos, itineraries, members, currentUser] = await Promise.all([
         getActivityDetail(this.data.activityId),
         getSummary(this.data.activityId),
+        getMyActivityTodos().catch(() => null),
         getItineraries(this.data.activityId),
-        getPolls(this.data.activityId),
         getActivityMembers(this.data.activityId).catch(() => []),
         getCurrentUser()
       ]);
       const normalizedActivity = this.normalizeActivity(activity);
       const currentUserId = String(currentUser.userId);
+      const sourceTodos = allTodos && Array.isArray(allTodos.todos)
+        ? allTodos.todos.filter(item => String(item.activityId) === String(this.data.activityId))
+        : summary && summary.todos;
+      const todos = visibleTodos(sourceTodos);
+      const requestedTab = this.data.activeTab || (summary && summary.defaultTab);
       this.setData({
         activity: normalizedActivity,
-        summary,
+        summary: { todos: todos.slice(0, 3), todoCount: todos.length },
         itineraries: (itineraries || []).map((item) => ({
           ...buildCardViewModel(item),
           canEdit: !normalizedActivity.isReadonly && item.planningStatus !== 'CANCELED'
@@ -47,17 +52,12 @@ Page({
           canDelete: !normalizedActivity.isReadonly
             && (normalizedActivity.isCreator || String(item.createdBy) === currentUserId)
         })),
-        polls: (polls || []).map((item) => ({
-          ...item,
-          statusText: label(POLL_STATUS, item.status),
-          resultApplyText: label(POLL_RESULT_STATUS, item.resultApplyStatus)
-        })),
         members: (members || []).slice(0, 4).map((member) => ({
           ...member,
           avatarText: (member.nickname || '玩').slice(0, 1)
         })),
         currentUserId,
-        activeTab: this.data.activeTab || summary.defaultTab,
+        activeTab: requestedTab === 'COSTS' ? 'COSTS' : 'ITINERARIES',
         openItineraryId: null
       });
     } catch (error) {
@@ -83,7 +83,7 @@ Page({
     };
   },
 
-  tab(event) { const activeTab = event.currentTarget.dataset.tab; this.setData({ activeTab }); if (activeTab === 'COSTS') this.loadExpenseSummary(); },
+  tab(event) { const activeTab = event.currentTarget.dataset.tab; if (!['ITINERARIES', 'COSTS'].includes(activeTab)) return; this.setData({ activeTab }); if (activeTab === 'COSTS') this.loadExpenseSummary(); },
   async loadExpenseSummary() {
     this.setData({ expenseLoading: true });
     try {
@@ -123,7 +123,6 @@ Page({
   },
   goMembers() { wx.navigateTo({ url: `/pages/member-list/index?activityId=${this.data.activityId}` }); },
   goItineraries() { wx.navigateTo({ url: `/pages/itinerary-list/index?activityId=${this.data.activityId}` }); },
-  goPolls() { wx.navigateTo({ url: `/pages/poll-list/index?activityId=${this.data.activityId}` }); },
   goItinerary(event) {
     const itineraryId = event.detail ? event.detail.itineraryId : event.currentTarget.dataset.id;
     wx.navigateTo({ url: `/pages/itinerary-detail/index?activityId=${this.data.activityId}&itineraryId=${itineraryId}` });
@@ -143,19 +142,17 @@ Page({
         await removeItinerary(this.data.activityId, itineraryId);
         wx.showToast({ title: '已删除', icon: 'success' });
         this.load();
-      } catch (error) { wx.showToast({ title: error.message || '删除失败', icon: 'none' }); }
+      } catch (error) { wx.showToast({ title: '当前行程暂无法删除', icon: 'none' }); }
     }});
   },
-  goPoll(event) { wx.navigateTo({ url: `/pages/poll-detail/index?activityId=${this.data.activityId}&pollId=${event.currentTarget.dataset.id}` }); },
   newItinerary() { wx.navigateTo({ url: `/pages/itinerary-edit/index?activityId=${this.data.activityId}` }); },
-  newPoll() { wx.navigateTo({ url: `/pages/poll-create/index?activityId=${this.data.activityId}` }); },
   goExpenses() { wx.navigateTo({ url: `/pages/expense-detail/index?activityId=${this.data.activityId}` }); },
   newExpense() { wx.navigateTo({ url: `/pages/expense-edit/index?activityId=${this.data.activityId}` }); },
   goExpenseItem(event) { wx.navigateTo({ url: `/pages/expense-item-detail/index?activityId=${this.data.activityId}&expenseId=${event.currentTarget.dataset.id}` }); },
   todo(event) {
     const target = event.currentTarget.dataset;
-    if (target.targetType === 'POLL') this.goPoll({ currentTarget: { dataset: { id: target.targetId } } });
-    else this.goItinerary({ currentTarget: { dataset: { id: target.targetId } } });
+    if (target.targetType === 'ITINERARY') this.goItinerary({ currentTarget: { dataset: { id: target.targetId } } });
+    else if (target.targetType === 'MANUAL') wx.navigateTo({ url: '/pages/activity-todos/index' });
   },
   copyShareCode() {
     const shareCode = this.data.activity && this.data.activity.shareCode;
@@ -170,7 +167,7 @@ Page({
   stopActionMenu() {},
   confirmEnd() {
     this.closeActionMenu();
-    wx.showModal({ title: '结束活动', content: '结束后行程和投票将变为只读。', success: async (result) => {
+    wx.showModal({ title: '结束活动', content: '结束后活动内容将变为只读，是否继续？', success: async (result) => {
       if (!result.confirm) return;
       try { await endActivity(this.data.activityId); this.load(); }
       catch (error) { wx.showToast({ title: error.message || '操作失败', icon: 'none' }); }

@@ -1,6 +1,7 @@
 const { isLoggedIn } = require('../../services/auth');
 const { getMyActivities } = require('../../services/activity');
-const { getMyActivityTodos } = require('../../services/poll');
+const { getMyActivityTodos } = require('../../services/collaboration');
+const { visibleTodos } = require('../../utils/todo-display');
 const { normalizeShareCode, buildInvitePath } = require('../../utils/share-code');
 
 const ACTIVITY_TYPE_LABELS = {
@@ -104,7 +105,7 @@ Page({
   async getTodoCount() {
     try {
       const summary = await getMyActivityTodos();
-      return Number(summary.todoCount || 0);
+      return visibleTodos(summary && summary.todos).length;
     } catch (error) {
       return 0;
     }

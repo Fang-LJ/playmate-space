@@ -1,5 +1,6 @@
-const { getMyActivityTodos } = require('../../services/poll');
-const { TODO_TYPE, formatDateTime, label } = require('../../utils/p1-display');
+const { getMyActivityTodos } = require('../../services/collaboration');
+const { TODO_TYPE, formatDateTime, isVisibleTodo, visibleTodos } = require('../../utils/todo-display');
+const { label } = require('../../utils/itinerary-display');
 
 Page({
   data: { loading: true, errorMessage: '', groups: [] },
@@ -13,7 +14,7 @@ Page({
     try {
       const response = await getMyActivityTodos();
       const grouped = {};
-      (response.todos || []).forEach((item) => {
+      visibleTodos(response && response.todos).forEach((item) => {
         const key = String(item.activityId);
         if (!grouped[key]) grouped[key] = { activityId: item.activityId, activityName: item.activityName, todos: [] };
         grouped[key].todos.push({
@@ -33,11 +34,9 @@ Page({
 
   openTodo(event) {
     const { activityId, targetId, targetType } = event.currentTarget.dataset;
-    if (targetType === 'POLL') {
-      wx.navigateTo({ url: `/pages/poll-detail/index?activityId=${activityId}&pollId=${targetId}` });
-      return;
-    }
-    wx.navigateTo({ url: `/pages/itinerary-detail/index?activityId=${activityId}&itineraryId=${targetId}` });
+    if (!isVisibleTodo(event.currentTarget.dataset)) return;
+    if (targetType === 'ITINERARY') wx.navigateTo({ url: `/pages/itinerary-detail/index?activityId=${activityId}&itineraryId=${targetId}` });
+    else if (targetType === 'MANUAL') wx.navigateTo({ url: `/pages/activity-detail/index?activityId=${activityId}` });
   },
 
   retry() { this.load(); }

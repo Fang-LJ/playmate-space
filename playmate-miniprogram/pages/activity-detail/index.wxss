@@ -43,7 +43,7 @@
 
 .todo-card { padding: 26rpx; border: 1rpx solid #f3e19a; border-radius: 28rpx; background: #fff9e6; box-shadow: var(--pm-shadow-soft); }
 .todo-line { margin-top: 12rpx; font-size: 25rpx; color: var(--pm-text); }
-.tab-bar { display: grid; grid-template-columns: repeat(3, 1fr); padding: 8rpx; border: 1rpx solid var(--pm-border); border-radius: 24rpx; background: #fff; }
+.tab-bar { display: grid; grid-template-columns: repeat(2, 1fr); padding: 8rpx; border: 1rpx solid var(--pm-border); border-radius: 24rpx; background: #fff; }
 .tab { padding: 16rpx 4rpx; border-radius: 18rpx; text-align: center; color: var(--pm-primary-dark); font-size: 23rpx; font-weight: 700; }
 .tab.active { background: var(--pm-primary); color: #fff; }
 .section-head { display: flex; align-items: center; justify-content: space-between; }
@@ -53,10 +53,7 @@
 .section-add-icon { font-size: 39rpx; font-weight: 500; line-height: 1; }
 .section-list-icon { font-size: 32rpx; font-weight: 700; line-height: 1; }
 .itinerary-card-list { display: flex; flex-direction: column; gap: 20rpx; margin-top: 20rpx; }
-.compact-row { display: flex; gap: 18rpx; align-items: flex-start; margin-top: 14rpx; padding: 22rpx; font-size: 25rpx; }
-.row-main { flex: 1; }
 .row-title { font-weight: 800; }
-.review { color: #8a6500; font-size: 23rpx; }
 .empty-card { margin-top: 16rpx; }
 .cost-summary-card { position: relative; padding: 38rpx 28rpx 42rpx; background: #fff; }
 .cost-summary-title { color: #2f6f5e; font-size: 23rpx; font-weight: 700; line-height: 1.35; }

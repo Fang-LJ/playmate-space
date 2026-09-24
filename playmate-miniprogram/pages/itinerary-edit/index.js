@@ -4,7 +4,7 @@ const {
   getItineraryTypeMetadata,
   updateItinerary
 } = require('../../services/itinerary');
-const { ITINERARY_STATUS, label } = require('../../utils/p1-display');
+const { ITINERARY_STATUS, label } = require('../../utils/itinerary-display');
 const {
   buildFormViewModel,
   normalizeMetadata,
@@ -67,20 +67,13 @@ Page({
     loading: true,
     metadataError: '',
     saving: false,
-    withPoll: false,
     metadata: [],
     types: [],
     form: null,
     formView: null,
     typeCopy: '',
     statusText: '保存后已确认',
-    needsTimeCompletion: false,
-    poll: {
-      title: '',
-      description: '',
-      deadline: '',
-      options: [{ optionText: '' }, { optionText: '' }]
-    }
+    needsTimeCompletion: false
   },
 
   onLoad(options) {
@@ -158,28 +151,6 @@ Page({
     });
   },
 
-  togglePoll() {
-    this.setData({ withPoll: !this.data.withPoll });
-  },
-
-  pollInput(event) {
-    this.setData({ [`poll.${event.currentTarget.dataset.key}`]: event.detail.value });
-  },
-
-  optionInput(event) {
-    this.setData({ [`poll.options[${event.currentTarget.dataset.index}].optionText`]: event.detail.value });
-  },
-
-  addOption() {
-    this.setData({ 'poll.options': this.data.poll.options.concat({ optionText: '' }) });
-  },
-
-  removeOption(event) {
-    const index = Number(event.currentTarget.dataset.index);
-    if (this.data.poll.options.length <= 2) return;
-    this.setData({ 'poll.options': this.data.poll.options.filter((_, itemIndex) => itemIndex !== index) });
-  },
-
   cancel() {
     wx.navigateBack();
   },
@@ -192,10 +163,6 @@ Page({
     }
     if (form.itineraryType !== 'LODGING' && form.endTime <= form.startTime) {
       return '结束时间必须晚于开始时间';
-    }
-    if (this.data.withPoll) {
-      if (!this.data.poll.title.trim()) return '请填写投票问题';
-      if (this.data.poll.options.filter((item) => item.optionText.trim()).length < 2) return '请至少填写两个投票选项';
     }
     return '';
   },
@@ -213,27 +180,7 @@ Page({
       if (this.data.itineraryId) {
         await updateItinerary(this.data.activityId, this.data.itineraryId, form);
       } else {
-        const data = { ...form, creationMode: this.data.withPoll ? 'WITH_POLL' : 'DIRECT' };
-        if (this.data.withPoll) {
-          const pollConfig = this.linkedPollConfig(form.itineraryType);
-          data.poll = {
-            title: this.data.poll.title.trim(),
-            description: this.data.poll.description,
-            deadline: this.data.poll.deadline || null,
-            purpose: 'UPDATE_ITINERARY',
-            decisionType: pollConfig.decisionType,
-            decisionScope: pollConfig.decisionScope,
-            voteType: 'SINGLE',
-            allowModify: true,
-            options: this.data.poll.options
-              .filter((item) => item.optionText.trim())
-              .map((item) => ({
-                optionText: item.optionText.trim(),
-                resultPayload: { [pollConfig.payloadField]: item.optionText.trim() }
-              }))
-          };
-        }
-        await createItinerary(this.data.activityId, data);
+        await createItinerary(this.data.activityId, { ...form, creationMode: 'DIRECT' });
       }
       wx.showToast({ title: '已保存', icon: 'success' });
       setTimeout(() => wx.navigateBack(), 400);
@@ -242,18 +189,5 @@ Page({
     } finally {
       this.setData({ saving: false });
     }
-  },
-
-  linkedPollConfig(itineraryType) {
-    if (itineraryType === 'TRANSPORT') {
-      return { decisionType: 'TRANSPORT', decisionScope: ['transportMode'], payloadField: 'transportMode' };
-    }
-    if (itineraryType === 'MEAL') {
-      return { decisionType: 'RESTAURANT', decisionScope: ['restaurantName'], payloadField: 'restaurantName' };
-    }
-    if (['ACTIVITY', 'SIGHTSEEING'].includes(itineraryType)) {
-      return { decisionType: 'CONTENT', decisionScope: ['activityContent'], payloadField: 'activityContent' };
-    }
-    return { decisionType: 'PLACE', decisionScope: ['locationName'], payloadField: 'locationName' };
   }
 });
