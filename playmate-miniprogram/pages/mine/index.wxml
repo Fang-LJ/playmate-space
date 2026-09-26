@@ -28,8 +28,8 @@
 
       <view wx:if="{{showWechatProfileSuggestion}}" class="function-card reminder-card" bindtap="goWechatProfile">
         <view>
-          <view class="action-title">完善微信资料</view>
-          <view class="action-desc">设置头像、昵称或微信手机号</view>
+          <view class="action-title">完善头像和昵称</view>
+          <view class="action-desc">设置头像和昵称，让朋友更容易认出你</view>
         </view>
         <view class="action-arrow">›</view>
       </view>

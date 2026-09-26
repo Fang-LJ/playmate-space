@@ -33,7 +33,6 @@ async function run() {
   assert.equal(sentRequest.url, '/api/auth/wx-login');
   assert.deepEqual(sentRequest.data, { code: 'temporary-code' });
   assert.equal(savedToken, 'test-jwt');
-  assert.equal(auth.getCurrentMockPhoneCode(), '');
   assert.equal(auth.getCurrentMockUser(), null);
   assert.equal(auth.selectMockUser('A'), null);
 
@@ -41,7 +40,7 @@ async function run() {
   await auth.wxLogin();
   assert.equal(wxLoginCalls, 1);
   assert.equal(sentRequest.data.mockOpenid, 'mock_user_b');
-  assert.equal(auth.getCurrentMockPhoneCode(), 'mock_phone_b');
+  assert.equal(auth.getCurrentMockUser().mockOpenid, 'mock_user_b');
 
   config.getActiveEnv = originalEnvironment;
   requestModule.request = originalRequest;

@@ -1,5 +1,5 @@
 const { accountLogin, wxLogin } = require('../../services/auth');
-const { handleLoginSuccess } = require('../../utils/login-flow');
+const { handleLoginSuccess, shouldCompleteWechatProfile } = require('../../utils/login-flow');
 
 Page({
   data: {
@@ -89,7 +89,14 @@ Page({
   },
 
   goAfterLogin(loginResult) {
-    this.goRedirectTarget(handleLoginSuccess(loginResult, { redirect: this.data.redirect }));
+    const target = handleLoginSuccess(loginResult, { redirect: this.data.redirect });
+    if (shouldCompleteWechatProfile(loginResult)) {
+      wx.redirectTo({
+        url: `/pages/wechat-profile/index?redirect=${encodeURIComponent(target)}`
+      });
+      return;
+    }
+    this.goRedirectTarget(target);
   },
 
   goRedirectTarget(target) {

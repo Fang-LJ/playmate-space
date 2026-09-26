@@ -128,9 +128,8 @@ V1.0.2 提供行程、待办、账本与 AA；照片墙和投票暂不开放。
 
 - 头像：优先使用原生 `chooseAvatar`，再上传为 `USER_AVATAR`；相册选择是开发者工具的备用入口。
 - 昵称：使用 `input type="nickname"`，也可手工填写。
-- 手机号：使用原生 `getPhoneNumber`，由后端处理授权 code。
 
-`local` 环境不会调用微信服务端：模拟用户 A/B/C 分别使用 `mock_user_a/b/c`，手机号授权使用 `mock_phone_a/b/c`。`prod` 环境会调用 `wx.login`，将临时 code 发给后端换取登录态，模拟身份入口不会显示。后端需通过 `PLAYMATE_WECHAT_APP_ID` 和 `PLAYMATE_WECHAT_APP_SECRET` 配置微信小程序凭据；AppSecret 不得放入小程序代码。真实微信手机号 code 换手机号仍待接入。
+`local` 环境不会调用微信服务端：模拟用户 A/B/C 分别使用 `mock_user_a/b/c`。`prod` 环境会调用 `wx.login`，将临时 code 发给后端换取登录态，模拟身份入口不会显示。首次创建的微信用户会直接进入头像昵称完善页，可以保存资料或跳过，并继续进入登录前的目标页面。后端需通过 `PLAYMATE_WECHAT_APP_ID` 和 `PLAYMATE_WECHAT_APP_SECRET` 配置微信小程序凭据；AppSecret 不得放入小程序代码。
 
 账号登录 / 注册页支持手机号或邮箱 + 密码。P0.5 不做短信验证码、邮箱验证码和找回密码。
 

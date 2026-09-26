@@ -1,13 +1,6 @@
 const { logout, isLoggedIn } = require('../../services/auth');
 const { getCurrentUser } = require('../../services/user');
 
-const WECHAT_PROFILE_SUGGESTION_KEY = 'PLAYMATE_WECHAT_PROFILE_SUGGESTION';
-
-function hasWechatProfileSuggestion(userId) {
-  const suggestion = wx.getStorageSync(WECHAT_PROFILE_SUGGESTION_KEY);
-  return Boolean(suggestion && suggestion.show && String(suggestion.userId) === String(userId));
-}
-
 Page({
   data: {
     loading: false,
@@ -60,8 +53,6 @@ Page({
         user: normalizedUser,
         isLoggedIn: true,
         showWechatProfileSuggestion: !normalizedUser.profileComplete
-          || !normalizedUser.phone
-          || hasWechatProfileSuggestion(normalizedUser.userId)
       });
     } catch (error) {
       this.setLoggedOut();

@@ -1,6 +1,6 @@
 const { wxLogin, getCurrentMockUser, selectMockUser, MOCK_USERS } = require('../../services/auth');
 const { getActiveEnv } = require('../../utils/config');
-const { handleLoginSuccess, shouldPromptWechatProfile, markWechatProfilePrompted } = require('../../utils/login-flow');
+const { handleLoginSuccess, shouldCompleteWechatProfile } = require('../../utils/login-flow');
 
 Page({
   data: {
@@ -82,29 +82,14 @@ Page({
   },
 
   goAfterLogin(loginResult) {
-    const shouldPrompt = shouldPromptWechatProfile(loginResult);
     const target = handleLoginSuccess(loginResult, { redirect: this.data.redirect });
-    if (!shouldPrompt) {
-      this.goRedirectTarget(target);
+    if (shouldCompleteWechatProfile(loginResult)) {
+      wx.redirectTo({
+        url: `/pages/wechat-profile/index?redirect=${encodeURIComponent(target)}`
+      });
       return;
     }
-    wx.showModal({
-      title: '完善微信资料',
-      content: '可以使用微信头像、昵称和手机号，方便朋友在活动中识别你。也可以稍后设置。',
-      confirmText: '现在设置',
-      cancelText: '以后再说',
-      success: (result) => {
-        markWechatProfilePrompted(loginResult.userId);
-        if (result.confirm) {
-          wx.redirectTo({
-            url: `/pages/wechat-profile/index?redirect=${encodeURIComponent(target)}`
-          });
-          return;
-        }
-        this.goRedirectTarget(target);
-      },
-      fail: () => this.goRedirectTarget(target)
-    });
+    this.goRedirectTarget(target);
   },
 
   goRedirectTarget(target) {

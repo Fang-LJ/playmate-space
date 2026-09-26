@@ -1,17 +1,13 @@
-const { isLoggedIn, getCurrentMockPhoneCode } = require('../../services/auth');
+const { isLoggedIn } = require('../../services/auth');
 const { chooseImage, uploadUserAvatar } = require('../../services/file');
-const { getCurrentUser, updateCurrentUserProfile, bindWechatPhone } = require('../../services/user');
-const { clearWechatProfileSuggestion } = require('../../utils/login-flow');
-const { maskPhone, resolvePhoneAuthorizationCode } = require('../../utils/wechat-profile-flow');
+const { getCurrentUser, updateCurrentUserProfile } = require('../../services/user');
 
 Page({
   data: {
     loading: true,
     saving: false,
     uploading: false,
-    phoneLoading: false,
     redirect: '',
-    user: null,
     form: {
       nickname: '',
       avatarUrl: ''
@@ -33,10 +29,6 @@ Page({
     try {
       const user = await getCurrentUser();
       this.setData({
-        user: {
-          ...user,
-          maskedPhone: maskPhone(user.phone)
-        },
         'form.nickname': user.nickname || '',
         'form.avatarUrl': user.avatarUrl || ''
       });
@@ -99,7 +91,6 @@ Page({
     this.setData({ saving: true });
     try {
       await updateCurrentUserProfile({ nickname, avatarUrl: this.data.form.avatarUrl });
-      clearWechatProfileSuggestion();
       wx.showToast({ title: '保存成功', icon: 'success' });
       setTimeout(() => this.goAfterDone(), 450);
     } catch (error) {
@@ -110,60 +101,7 @@ Page({
   },
 
   skip() {
-    clearWechatProfileSuggestion();
     this.goAfterDone();
-  },
-
-  handleGetPhoneNumber(event) {
-    if (this.data.phoneLoading) {
-      return;
-    }
-    const authorization = resolvePhoneAuthorizationCode(
-      event && event.detail,
-      getCurrentMockPhoneCode(),
-      { preferMock: true }
-    );
-    if (authorization.cancelled) {
-      wx.showToast({ title: '已取消手机号授权', icon: 'none' });
-      return;
-    }
-    if (!authorization.code) {
-      wx.showToast({ title: '未获取到手机号授权凭证', icon: 'none' });
-      return;
-    }
-    if (authorization.isMock) {
-      wx.showModal({
-        title: '模拟微信手机号授权',
-        content: '将当前模拟微信用户的手机号保存到玩伴账号中。',
-        confirmText: '允许',
-        cancelText: '取消',
-        success: (result) => {
-          if (result.confirm) {
-            this.bindWechatPhoneCode(authorization.code);
-          }
-        }
-      });
-      return;
-    }
-    this.bindWechatPhoneCode(authorization.code);
-  },
-
-  async bindWechatPhoneCode(code) {
-    this.setData({ phoneLoading: true });
-    try {
-      const user = await bindWechatPhone(code);
-      this.setData({
-        user: {
-          ...user,
-          maskedPhone: maskPhone(user.phone)
-        }
-      });
-      wx.showToast({ title: '手机号已保存', icon: 'success' });
-    } catch (error) {
-      wx.showToast({ title: error.message || '手机号授权失败', icon: 'none' });
-    } finally {
-      this.setData({ phoneLoading: false });
-    }
   },
 
   goAfterDone() {
@@ -174,11 +112,6 @@ Page({
         return;
       }
       wx.redirectTo({ url: redirect });
-      return;
-    }
-    const pages = getCurrentPages();
-    if (pages.length > 1) {
-      wx.navigateBack();
       return;
     }
     wx.switchTab({ url: '/pages/activity-list/index' });
